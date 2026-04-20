@@ -28,7 +28,7 @@ interface AppState {
 
   _seed: () => void;
 
-  addStudent: (data: CreateStudentInput) => void;
+  addStudent: (data: CreateStudentInput) => string;
   updateStudent: (id: string, data: UpdateStudentInput) => void;
   removeStudent: (id: string) => void;
 
@@ -63,13 +63,15 @@ export const useAppStore = create<AppState>()(
       },
 
       addStudent: (data) => {
+        const id = generateId();
         const student: Student = {
           ...data,
-          id: generateId(),
+          id,
           totalPoints: 0,
           createdAt: new Date().toISOString(),
         };
         set((state) => ({ students: [...state.students, student] }));
+        return id;
       },
 
       updateStudent: (id, data) => {
@@ -232,7 +234,7 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: 'quranlearn-v1',
+      name: 'quranlearn-v2',
       storage: createJSONStorage(() => {
         if (typeof window !== 'undefined') return localStorage;
         return {

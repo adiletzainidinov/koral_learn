@@ -9,7 +9,6 @@ import { Badge, LevelBadge } from '@/shared/ui/badge';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Card } from '@/shared/ui/card';
 import { PageHeader } from '@/shared/ui/page-header';
-import { AddStudentModal } from '@/features/students/add-student-modal';
 import { useAppStore, useStudents } from '@/store/app-store';
 import { formatDate } from '@/shared/lib/dates';
 
@@ -17,7 +16,6 @@ export function StudentsTable() {
   const students = useStudents();
   const removeStudent = useAppStore((s) => s.removeStudent);
   const [search, setSearch] = useState('');
-  const [addOpen, setAddOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const filtered = students.filter((s) =>
@@ -30,10 +28,12 @@ export function StudentsTable() {
         title="Ученики"
         description={`${students.length} учеников`}
         action={
-          <Button onClick={() => setAddOpen(true)}>
-            <UserPlus className="size-4" />
-            Добавить ученика
-          </Button>
+          <Link href="/students/new">
+            <Button>
+              <UserPlus className="size-4" />
+              Добавить ученика
+            </Button>
+          </Link>
         }
       />
 
@@ -56,7 +56,13 @@ export function StudentsTable() {
             icon={<Users className="size-5" />}
             title={search ? 'Ученики не найдены' : 'Учеников пока нет'}
             description={search ? 'Попробуйте другой запрос' : 'Добавьте первого ученика'}
-            action={!search ? <Button onClick={() => setAddOpen(true)}><UserPlus className="size-4" />Добавить ученика</Button> : undefined}
+            action={
+              !search ? (
+                <Link href="/students/new">
+                  <Button><UserPlus className="size-4" />Добавить ученика</Button>
+                </Link>
+              ) : undefined
+            }
             className="py-20"
           />
         ) : (
@@ -135,11 +141,7 @@ export function StudentsTable() {
                           >
                             Удалить
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setConfirmDelete(null)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(null)}>
                             Отмена
                           </Button>
                         </div>
@@ -168,8 +170,6 @@ export function StudentsTable() {
           </table>
         )}
       </Card>
-
-      <AddStudentModal isOpen={addOpen} onClose={() => setAddOpen(false)} />
     </div>
   );
 }
