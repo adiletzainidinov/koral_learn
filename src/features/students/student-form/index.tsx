@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -8,19 +8,15 @@ import {
   Plus,
   Trash2,
   Phone,
-  MessageCircle,
-  Send,
   User,
   Users,
   MapPin,
   FileText,
   Paperclip,
-  Image as ImageIcon,
-  File,
+  File as FileIcon,
   X,
   AlertTriangle,
 } from 'lucide-react';
-import Link from 'next/link';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Textarea } from '@/shared/ui/textarea';
@@ -28,7 +24,6 @@ import { Select } from '@/shared/ui/select';
 import { Card } from '@/shared/ui/card';
 import { useAppStore } from '@/store/app-store';
 import { generateId } from '@/shared/lib/ids';
-import { cn } from '@/shared/lib/cn';
 import type { StudentLevel, StudentContact, FriendContact, StudentAttachment } from '@/entities/student/model/types';
 import { CONTACT_RELATION_OPTIONS } from '@/entities/student/model/types';
 
@@ -50,7 +45,6 @@ interface FormState {
   group: string;
   level: StudentLevel;
   startedAt: string;
-  isActive: boolean;
   address: string;
   contacts: (StudentContact & { _key: string })[];
   friendContacts: (FriendContact & { _key: string })[];
@@ -72,14 +66,30 @@ const GROUP_OPTIONS = [
   { value: 'C', label: 'Группа C' },
 ];
 
-const RELATION_OPTIONS = CONTACT_RELATION_OPTIONS.map((r) => ({ value: r, label: r }));
-
 function emptyContact(): StudentContact & { _key: string } {
-  return { _key: generateId(), id: generateId(), relation: 'Мама', phone: '', whatsapp: '', telegram: '', notes: '' };
+  return {
+    _key: generateId(),
+    id: generateId(),
+    relation: 'Мама',
+    phone: '',
+    whatsapp: '',
+    telegram: '',
+    instagram: '',
+    notes: '',
+  };
 }
 
 function emptyFriend(): FriendContact & { _key: string } {
-  return { _key: generateId(), id: generateId(), fullName: '', phone: '', whatsapp: '', telegram: '', relationNote: '' };
+  return {
+    _key: generateId(),
+    id: generateId(),
+    fullName: '',
+    phone: '',
+    whatsapp: '',
+    telegram: '',
+    instagram: '',
+    relationNote: '',
+  };
 }
 
 function formatFileSize(bytes: number): string {
@@ -103,7 +113,6 @@ const INITIAL_STATE: FormState = {
   group: 'A',
   level: 'beginner',
   startedAt: new Date().toISOString().slice(0, 10),
-  isActive: true,
   address: '',
   contacts: [emptyContact()],
   friendContacts: [],
@@ -140,6 +149,41 @@ function Section({
   );
 }
 
+// ─── relation combobox ────────────────────────────────────────────────────────
+// Native datalist: user can pick from suggestions OR type anything custom
+
+function RelationCombobox({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  // useId() produces a stable id that matches between SSR and hydration
+  const uid = useId();
+  const inputId = `rel${uid}`;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={inputId} className="text-sm font-medium text-slate-700">
+        Кем приходится
+      </label>
+      <input
+        id={inputId}
+        list={`${inputId}-list`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Мама, Папа, Сам ученик..."
+        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+      />
+      <datalist id={`${inputId}-list`}>
+        {CONTACT_RELATION_OPTIONS.map((r) => (
+          <option key={r} value={r} />
+        ))}
+      </datalist>
+    </div>
+  );
+}
+
 // ─── contact block ────────────────────────────────────────────────────────────
 
 function ContactBlock({
@@ -168,11 +212,9 @@ function ContactBlock({
         </button>
       )}
       <div className="grid grid-cols-3 gap-3 mb-3">
-        <Select
-          label="Кем приходится"
-          options={RELATION_OPTIONS}
+        <RelationCombobox
           value={contact.relation}
-          onChange={(e) => upd('relation', e.target.value)}
+          onChange={(v) => upd('relation', v)}
         />
         <Input
           label="Телефон"
@@ -187,7 +229,7 @@ function ContactBlock({
           onChange={(e) => upd('whatsapp', e.target.value)}
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <Input
           label="Telegram"
           placeholder="@username"
@@ -195,8 +237,14 @@ function ContactBlock({
           onChange={(e) => upd('telegram', e.target.value)}
         />
         <Input
-          label="Заметка (необязательно)"
-          placeholder="Рабочий телефон, звонить после 18:00..."
+          label="Instagram"
+          placeholder="@username"
+          value={contact.instagram ?? ''}
+          onChange={(e) => upd('instagram', e.target.value)}
+        />
+        <Input
+          label="Заметка"
+          placeholder="Рабочий, звонить после 18:00..."
           value={contact.notes ?? ''}
           onChange={(e) => upd('notes', e.target.value)}
         />
@@ -248,7 +296,7 @@ function FriendBlock({
           onChange={(e) => upd('relationNote', e.target.value)}
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <Input
           label="WhatsApp"
           placeholder="+996700000000"
@@ -260,6 +308,12 @@ function FriendBlock({
           placeholder="@username"
           value={friend.telegram ?? ''}
           onChange={(e) => upd('telegram', e.target.value)}
+        />
+        <Input
+          label="Instagram"
+          placeholder="@username"
+          value={friend.instagram ?? ''}
+          onChange={(e) => upd('instagram', e.target.value)}
         />
       </div>
     </div>
@@ -285,14 +339,14 @@ function AttachmentItem({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={preview} alt={attachment.name} className="size-full object-cover" />
         ) : (
-          <File className="size-4 text-slate-400" />
+          <FileIcon className="size-4 text-slate-400" />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-slate-800 truncate">{attachment.name}</p>
         <p className="text-xs text-slate-400">
           {formatFileSize(attachment.size)}
-          {!isImage && ' · файл не будет сохранён в браузере'}
+          {!isImage && ' · только метаданные'}
           {isImage && !attachment.base64 && ' · превью временное'}
         </p>
       </div>
@@ -323,8 +377,8 @@ export function StudentForm() {
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentZoneRef = useRef<HTMLDivElement>(null);
 
-  // Warn before leaving with unsaved changes
   useEffect(() => {
     if (!isDirty) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -357,11 +411,9 @@ export function StudentForm() {
   function updateContact(key: string, updated: StudentContact & { _key: string }) {
     upd('contacts', form.contacts.map((c) => (c._key === key ? updated : c)));
   }
-
   function removeContact(key: string) {
     upd('contacts', form.contacts.filter((c) => c._key !== key));
   }
-
   function addContact() {
     upd('contacts', [...form.contacts, emptyContact()]);
   }
@@ -371,42 +423,64 @@ export function StudentForm() {
   function updateFriend(key: string, updated: FriendContact & { _key: string }) {
     upd('friendContacts', form.friendContacts.map((f) => (f._key === key ? updated : f)));
   }
-
   function removeFriend(key: string) {
     upd('friendContacts', form.friendContacts.filter((f) => f._key !== key));
   }
-
   function addFriend() {
     upd('friendContacts', [...form.friendContacts, emptyFriend()]);
   }
 
   // ── attachments ───────────────────────────────────────────────────────────
 
-  async function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
-
+  async function processFiles(files: File[]) {
+    if (files.length === 0) return;
     const newEntries: AttachmentEntry[] = [];
-    for (const file of Array.from(files)) {
+    for (const file of files) {
       const entry: AttachmentEntry = {
         id: generateId(),
         name: file.name,
-        type: file.type,
+        type: file.type || 'application/octet-stream',
         size: file.size,
         previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
         createdAt: new Date().toISOString(),
       };
-      // Store base64 for images < 800KB so they persist in localStorage
       if (file.type.startsWith('image/') && file.size < 800 * 1024) {
-        try {
-          entry.base64 = await fileToBase64(file);
-        } catch {
-          // fallback: use objectURL preview only
-        }
+        try { entry.base64 = await fileToBase64(file); } catch { /* objectURL fallback */ }
       }
       newEntries.push(entry);
     }
+    setForm((prev) => {
+      setIsDirty(true);
+      return { ...prev, attachments: [...prev.attachments, ...newEntries] };
+    });
+  }
 
-    upd('attachments', [...form.attachments, ...newEntries]);
+  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    processFiles(Array.from(e.target.files ?? []));
+    // Reset input so same file can be re-selected
+    e.target.value = '';
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    processFiles(Array.from(e.dataTransfer.files));
+  }
+
+  // Ctrl+V paste handler — picks image items from clipboard
+  function handlePaste(e: React.ClipboardEvent) {
+    const imageFiles = Array.from(e.clipboardData.items)
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter((f): f is File => f !== null)
+      .map((f) => {
+        // Give pasted screenshots a meaningful name with timestamp
+        const ext = f.type.split('/')[1] ?? 'png';
+        return new File([f], `screenshot-${Date.now()}.${ext}`, { type: f.type });
+      });
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      processFiles(imageFiles);
+    }
   }
 
   function removeAttachment(id: string) {
@@ -436,7 +510,7 @@ export function StudentForm() {
       group: form.group,
       level: form.level,
       startedAt: form.startedAt,
-      isActive: form.isActive,
+      isActive: true,
       address: form.address.trim(),
       contacts: form.contacts.map(({ _key, ...c }) => c),
       friendContacts: form.friendContacts.map(({ _key, ...f }) => f),
@@ -453,17 +527,20 @@ export function StudentForm() {
     router.push('/students');
   }
 
+  const hasNonPersistedFiles = form.attachments.some((a) => !a.base64 && !a.type.startsWith('image/'));
+
   // ── render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col gap-6">
-      {/* page header */}
-      <div className="flex items-center justify-between gap-4">
+
+      {/* ── sticky page header (no action buttons) ─────────────────────── */}
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 -mt-6 py-4 mb-0">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={handleCancel}
-            className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors"
+            className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors shrink-0"
           >
             <ArrowLeft className="size-4" />
           </button>
@@ -471,13 +548,6 @@ export function StudentForm() {
             <h1 className="text-xl font-bold text-slate-900">Новый ученик</h1>
             <p className="text-sm text-slate-500">Заполните информацию об ученике</p>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={handleCancel}>Отмена</Button>
-          <Button onClick={handleSubmit} loading={saving}>
-            <Save className="size-4" />
-            Сохранить ученика
-          </Button>
         </div>
       </div>
 
@@ -527,30 +597,6 @@ export function StudentForm() {
               onChange={(e) => upd('startedAt', e.target.value)}
               error={errors.startedAt}
             />
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-slate-700">Статус</label>
-              <div className="flex items-center gap-3 h-9">
-                <button
-                  type="button"
-                  onClick={() => upd('isActive', !form.isActive)}
-                  className={cn(
-                    'relative w-10 h-5.5 rounded-full transition-colors shrink-0',
-                    form.isActive ? 'bg-emerald-500' : 'bg-slate-300'
-                  )}
-                  style={{ height: '22px' }}
-                >
-                  <span
-                    className={cn(
-                      'absolute top-0.5 size-4 rounded-full bg-white shadow-sm transition-transform',
-                      form.isActive ? 'left-5' : 'left-0.5'
-                    )}
-                  />
-                </button>
-                <span className="text-sm text-slate-600">
-                  {form.isActive ? 'Активный ученик' : 'Неактивный'}
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       </Section>
@@ -585,13 +631,7 @@ export function StudentForm() {
               canRemove={form.contacts.length > 1}
             />
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addContact}
-            className="self-start"
-          >
+          <Button type="button" variant="outline" size="sm" onClick={addContact} className="self-start">
             <Plus className="size-3.5" />
             Добавить контакт
           </Button>
@@ -607,7 +647,7 @@ export function StudentForm() {
         <div className="flex flex-col gap-3">
           {form.friendContacts.length === 0 ? (
             <p className="text-sm text-slate-400 py-2">
-              Пока нет контактов друзей. Добавьте, чтобы иметь возможность связаться через них.
+              Пока нет контактов друзей.
             </p>
           ) : (
             form.friendContacts.map((f) => (
@@ -619,86 +659,71 @@ export function StudentForm() {
               />
             ))
           )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addFriend}
-            className="self-start"
-          >
+          <Button type="button" variant="outline" size="sm" onClick={addFriend} className="self-start">
             <Plus className="size-3.5" />
             Добавить друга
           </Button>
         </div>
       </Section>
 
-      {/* ── section 5: notes ─────────────────────────────────────────────── */}
+      {/* ── section 5: notes + attachments ──────────────────────────────── */}
       <Section
         icon={<FileText className="size-4" />}
-        title="Заметки"
-        description="Особенности, пожелания, важная информация об ученике"
+        title="Заметки и вложения"
+        description="Пишите важную информацию, прикладывайте скриншоты, фото и документы"
       >
-        <Textarea
-          placeholder="Прилежный ученик, хорошо запоминает. Нужна помощь с произношением. Занятия предпочитает по вторникам..."
-          value={form.notes}
-          onChange={(e) => upd('notes', e.target.value)}
-          className="min-h-[120px]"
-        />
-      </Section>
+        <div
+          ref={attachmentZoneRef}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDrop}
+          className="flex flex-col gap-4"
+        >
+          {/* textarea — onPaste intercepts images, lets normal text paste through */}
+          <Textarea
+            placeholder="Прилежный ученик, хорошо запоминает. Нужна помощь с произношением..."
+            value={form.notes}
+            onChange={(e) => upd('notes', e.target.value)}
+            onPaste={handlePaste}
+            className="min-h-[120px]"
+          />
 
-      {/* ── section 6: attachments ───────────────────────────────────────── */}
-      <Section
-        icon={<Paperclip className="size-4" />}
-        title="Вложения"
-        description="Документы, фото, скриншоты. Изображения до 800 KB сохраняются в браузере."
-      >
-        <div className="flex flex-col gap-4">
-          {/* upload zone */}
-          <div
-            className="relative border-2 border-dashed border-slate-200 rounded-xl p-8 flex flex-col items-center gap-3 hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              handleFiles(e.dataTransfer.files);
-            }}
-          >
-            <div className="size-10 rounded-xl bg-slate-100 flex items-center justify-center">
-              <Paperclip className="size-5 text-slate-400" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-slate-700">
-                Нажмите для выбора или перетащите файлы
-              </p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                PNG, JPG, PDF, DOCX и другие · несколько файлов одновременно
-              </p>
-            </div>
-            <Button type="button" variant="secondary" size="sm">
+          {/* action bar */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+            >
               <Paperclip className="size-3.5" />
               Выбрать файлы
             </Button>
+            <span className="text-xs text-slate-400">
+              или вставьте скриншот через{' '}
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-600">
+                Ctrl+V
+              </kbd>{' '}
+              прямо в текстовую область
+            </span>
             <input
               ref={fileInputRef}
               type="file"
               multiple
               className="sr-only"
-              onChange={(e) => handleFiles(e.target.files)}
+              onChange={handleFileInput}
             />
           </div>
 
-          {/* localStorage notice */}
-          {form.attachments.some((a) => !a.base64) && (
-            <div className="flex items-start gap-2.5 p-3 bg-amber-50 rounded-xl border border-amber-200">
+          {hasNonPersistedFiles && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200">
               <AlertTriangle className="size-4 text-amber-500 mt-0.5 shrink-0" />
               <p className="text-xs text-amber-700">
-                Некоторые файлы (не изображения или крупные фото) не сохраняются в браузере — только метаданные.
+                Файлы (не изображения) не сохраняются в браузере — только метаданные.
                 Для полноценного хранения потребуется backend.
               </p>
             </div>
           )}
 
-          {/* attachment list */}
           {form.attachments.length > 0 && (
             <div className="flex flex-col gap-2">
               {form.attachments.map((att) => (

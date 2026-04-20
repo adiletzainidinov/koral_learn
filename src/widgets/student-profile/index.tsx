@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Phone, Calendar, BookOpen, CalendarDays, Star, Trash2,
-  Gift, MapPin, MessageCircle, Send, Users, Paperclip, File, User,
+  Gift, MapPin, MessageCircle, Send, Users, Paperclip, File, User, AtSign,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/shared/ui/button';
@@ -194,6 +194,12 @@ export function StudentProfile({ studentId }: Props) {
                             <Send className="size-3" />{c.telegram}
                           </a>
                         )}
+                        {c.instagram && (
+                          <a href={`https://instagram.com/${c.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-pink-500 hover:underline">
+                            <AtSign className="size-3" />{c.instagram}
+                          </a>
+                        )}
                       </div>
                       {c.notes && <p className="text-xs text-slate-400 mt-1 italic">{c.notes}</p>}
                     </div>
@@ -241,6 +247,12 @@ export function StudentProfile({ studentId }: Props) {
                             <a href={`https://t.me/${f.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
                               className="flex items-center gap-1 text-xs text-blue-500 hover:underline">
                               <Send className="size-3" />{f.telegram}
+                            </a>
+                          )}
+                          {f.instagram && (
+                            <a href={`https://instagram.com/${f.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-xs text-pink-500 hover:underline">
+                              <AtSign className="size-3" />{f.instagram}
                             </a>
                           )}
                         </div>

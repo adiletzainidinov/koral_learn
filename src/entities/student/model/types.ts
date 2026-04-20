@@ -4,6 +4,7 @@ export interface StudentContact {
   phone: string;
   whatsapp?: string;
   telegram?: string;
+  instagram?: string;
   notes?: string;
 }
 
@@ -13,6 +14,7 @@ export interface FriendContact {
   phone: string;
   whatsapp?: string;
   telegram?: string;
+  instagram?: string;
   relationNote?: string;
 }
 
