@@ -5,12 +5,12 @@ import { Container } from '@/shared/ui/container';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full">
+    <div className="flex min-h-screen">
       <StoreInitializer />
       <AppSidebar />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0">
         <AppHeader />
-        <main className="flex-1 overflow-y-auto">
+        <main>
           <Container className="py-6">{children}</Container>
         </main>
       </div>

@@ -16,10 +16,10 @@ import {
   File as FileIcon,
   X,
   AlertTriangle,
+  Camera,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
-import { Textarea } from '@/shared/ui/textarea';
 import { Select } from '@/shared/ui/select';
 import { Card } from '@/shared/ui/card';
 import { useAppStore } from '@/store/app-store';
@@ -50,6 +50,7 @@ interface FormState {
   friendContacts: (FriendContact & { _key: string })[];
   notes: string;
   attachments: AttachmentEntry[];
+  avatar?: string;
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -107,6 +108,29 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+// Resize to max 256×256 and encode as JPEG/0.82 — keeps avatar ~15–30 KB
+function compressAvatar(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const MAX = 256;
+      let { naturalWidth: w, naturalHeight: h } = img;
+      if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+      else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('canvas ctx unavailable')); return; }
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('image load failed')); };
+    img.src = objectUrl;
+  });
+}
+
 const INITIAL_STATE: FormState = {
   fullName: '',
   age: '',
@@ -118,6 +142,7 @@ const INITIAL_STATE: FormState = {
   friendContacts: [],
   notes: '',
   attachments: [],
+  avatar: undefined,
 };
 
 // ─── section wrapper ─────────────────────────────────────────────────────────
@@ -146,6 +171,89 @@ function Section({
       </div>
       <div className="p-6">{children}</div>
     </Card>
+  );
+}
+
+// ─── avatar uploader ─────────────────────────────────────────────────────────
+
+function AvatarUploader({
+  avatar,
+  initials,
+  onFile,
+  onRemove,
+}: {
+  avatar?: string;
+  initials: string;
+  onFile: (file: File) => void;
+  onRemove: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) onFile(file);
+    e.target.value = '';
+  }
+
+  return (
+    <div className="flex items-center gap-5 pb-5 mb-1 border-b border-slate-100">
+      {/* Circle preview */}
+      <div className="relative group/av shrink-0">
+        <div className="size-20 rounded-full overflow-hidden bg-emerald-100 flex items-center justify-center text-emerald-700 text-xl font-bold select-none">
+          {avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatar} alt="avatar" className="size-full object-cover" />
+          ) : (
+            initials || <User className="size-7 text-emerald-400" />
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover/av:opacity-100 transition-opacity flex items-center justify-center"
+          title="Выбрать фото"
+        >
+          <Camera className="size-5 text-white" />
+        </button>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-slate-700">Фото ученика</p>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => inputRef.current?.click()}
+          >
+            <Camera className="size-3.5" />
+            {avatar ? 'Изменить фото' : 'Загрузить фото'}
+          </Button>
+          {avatar && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onRemove}
+              className="text-red-500 hover:text-red-600 hover:bg-red-50"
+            >
+              <X className="size-3.5" />
+              Удалить
+            </Button>
+          )}
+        </div>
+        <p className="text-xs text-slate-400">JPG, PNG, WEBP · до 5 МБ</p>
+      </div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={handleChange}
+      />
+    </div>
   );
 }
 
@@ -366,7 +474,6 @@ function AttachmentItem({
 interface Errors {
   fullName?: string;
   age?: string;
-  startedAt?: string;
 }
 
 export function StudentForm() {
@@ -374,10 +481,33 @@ export function StudentForm() {
   const addStudent = useAppStore((s) => s.addStudent);
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
   const [errors, setErrors] = useState<Errors>({});
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentZoneRef = useRef<HTMLDivElement>(null);
+  const fullNameRef = useRef<HTMLInputElement>(null);
+  const ageRef = useRef<HTMLInputElement>(null);
+
+  // ── avatar ─────────────────────────────────────────────────────────────────
+
+  async function handleAvatarFile(file: File) {
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Файл слишком большой. Максимальный размер — 5 МБ.');
+      return;
+    }
+    try {
+      const compressed = await compressAvatar(file);
+      upd('avatar', compressed);
+    } catch {
+      // fallback: store as-is (still try base64)
+      try { upd('avatar', await fileToBase64(file)); } catch { /* ignore */ }
+    }
+  }
+
+  function handleAvatarRemove() {
+    upd('avatar', undefined);
+  }
 
   useEffect(() => {
     if (!isDirty) return;
@@ -398,12 +528,24 @@ export function StudentForm() {
 
   function validate(): boolean {
     const errs: Errors = {};
-    if (!form.fullName.trim()) errs.fullName = 'Введите полное имя';
-    if (!form.age || isNaN(Number(form.age)) || Number(form.age) < 1 || Number(form.age) > 100)
-      errs.age = 'Укажите корректный возраст (1–100)';
-    if (!form.startedAt) errs.startedAt = 'Укажите дату начала обучения';
+    if (!form.fullName.trim()) errs.fullName = 'Введите имя ученика';
+    if (!form.age.trim()) {
+      errs.age = 'Введите возраст ученика';
+    } else if (isNaN(Number(form.age)) || Number(form.age) <= 0) {
+      errs.age = 'Введите корректный возраст';
+    }
     setErrors(errs);
+    // Focus first errored field
+    if (errs.fullName) {
+      fullNameRef.current?.focus();
+    } else if (errs.age) {
+      ageRef.current?.focus();
+    }
     return Object.keys(errs).length === 0;
+  }
+
+  function clearError(field: keyof Errors) {
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   }
 
   // ── contacts ──────────────────────────────────────────────────────────────
@@ -492,6 +634,7 @@ export function StudentForm() {
   // ── submit ────────────────────────────────────────────────────────────────
 
   function handleSubmit() {
+    setHasAttemptedSubmit(true);
     if (!validate()) return;
     setSaving(true);
 
@@ -516,6 +659,7 @@ export function StudentForm() {
       friendContacts: form.friendContacts.map(({ _key, ...f }) => f),
       notes: form.notes.trim(),
       attachments: persistedAttachments,
+      avatar: form.avatar,
     });
 
     setIsDirty(false);
@@ -535,7 +679,7 @@ export function StudentForm() {
     <div className="flex flex-col gap-6">
 
       {/* ── sticky page header (no action buttons) ─────────────────────── */}
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 -mt-6 py-4 mb-0">
+      <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -551,6 +695,21 @@ export function StudentForm() {
         </div>
       </div>
 
+      {/* ── validation banner ────────────────────────────────────────────── */}
+      {hasAttemptedSubmit && Object.keys(errors).length > 0 && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+          <AlertTriangle className="size-4 text-red-500 shrink-0" />
+          <p className="text-sm text-red-700">
+            Заполните обязательные поля:{' '}
+            <span className="font-medium">
+              {[errors.fullName && 'Полное имя', errors.age && 'Возраст']
+                .filter(Boolean)
+                .join(', ')}
+            </span>
+          </p>
+        </div>
+      )}
+
       {/* ── section 1: basic info ─────────────────────────────────────────── */}
       <Section
         icon={<User className="size-4" />}
@@ -558,22 +717,30 @@ export function StudentForm() {
         description="Имя, возраст, группа и уровень обучения"
       >
         <div className="flex flex-col gap-4">
+          <AvatarUploader
+            avatar={form.avatar}
+            initials={form.fullName.trim().slice(0, 2).toUpperCase()}
+            onFile={handleAvatarFile}
+            onRemove={handleAvatarRemove}
+          />
           <Input
+            ref={fullNameRef}
             label="Полное имя *"
             placeholder="Айбек Маматов"
             value={form.fullName}
-            onChange={(e) => upd('fullName', e.target.value)}
+            onChange={(e) => { upd('fullName', e.target.value); clearError('fullName'); }}
             error={errors.fullName}
           />
           <div className="grid grid-cols-3 gap-4">
             <Input
+              ref={ageRef}
               label="Возраст *"
               type="number"
               min={1}
               max={100}
               placeholder="12"
               value={form.age}
-              onChange={(e) => upd('age', e.target.value)}
+              onChange={(e) => { upd('age', e.target.value); clearError('age'); }}
               error={errors.age}
             />
             <Select
@@ -591,11 +758,10 @@ export function StudentForm() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Дата начала обучения *"
+              label="Дата начала обучения"
               type="date"
               value={form.startedAt}
               onChange={(e) => upd('startedAt', e.target.value)}
-              error={errors.startedAt}
             />
           </div>
         </div>
@@ -676,42 +842,42 @@ export function StudentForm() {
           ref={attachmentZoneRef}
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
-          className="flex flex-col gap-4"
+          className="flex flex-col gap-3"
         >
-          {/* textarea — onPaste intercepts images, lets normal text paste through */}
-          <Textarea
-            placeholder="Прилежный ученик, хорошо запоминает. Нужна помощь с произношением..."
-            value={form.notes}
-            onChange={(e) => upd('notes', e.target.value)}
-            onPaste={handlePaste}
-            className="min-h-[120px]"
-          />
-
-          {/* action bar */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Paperclip className="size-3.5" />
-              Выбрать файлы
-            </Button>
-            <span className="text-xs text-slate-400">
-              или вставьте скриншот через{' '}
-              <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-600">
-                Ctrl+V
-              </kbd>{' '}
-              прямо в текстовую область
-            </span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="sr-only"
-              onChange={handleFileInput}
+          {/* Unified editor: textarea + toolbar in one visual block */}
+          <div className="rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-transparent overflow-hidden transition-all">
+            <textarea
+              placeholder="Прилежный ученик, хорошо запоминает. Нужна помощь с произношением..."
+              value={form.notes}
+              onChange={(e) => upd('notes', e.target.value)}
+              onPaste={handlePaste}
+              rows={4}
+              className="w-full px-4 pt-3 pb-2 text-sm text-slate-900 placeholder:text-slate-400 bg-transparent resize-none outline-none block"
             />
+            <div className="flex items-center gap-1 px-3 py-2 border-t border-slate-100 bg-slate-50/60">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              >
+                <Paperclip className="size-3.5" />
+                Прикрепить файл
+              </button>
+              <span className="text-xs text-slate-400 pl-2">
+                или{' '}
+                <kbd className="px-1 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-500">
+                  Ctrl+V
+                </kbd>{' '}
+                для скриншота
+              </span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="sr-only"
+                onChange={handleFileInput}
+              />
+            </div>
           </div>
 
           {hasNonPersistedFiles && (
@@ -719,7 +885,6 @@ export function StudentForm() {
               <AlertTriangle className="size-4 text-amber-500 mt-0.5 shrink-0" />
               <p className="text-xs text-amber-700">
                 Файлы (не изображения) не сохраняются в браузере — только метаданные.
-                Для полноценного хранения потребуется backend.
               </p>
             </div>
           )}

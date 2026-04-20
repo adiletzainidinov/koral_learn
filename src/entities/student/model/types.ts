@@ -42,6 +42,8 @@ export interface Student {
   totalPoints: number;
   createdAt: string;
   isActive: boolean;
+  /** Base64 JPEG, max 256×256px, stored in localStorage with the student record */
+  avatar?: string;
 }
 
 export type StudentLevel = 'beginner' | 'intermediate' | 'advanced';

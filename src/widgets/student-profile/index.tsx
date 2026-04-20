@@ -100,8 +100,13 @@ export function StudentProfile({ studentId }: Props) {
 
       {/* profile header */}
       <Card className="flex items-start gap-6">
-        <div className="size-16 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 text-xl font-bold shrink-0">
-          {student.fullName.slice(0, 2).toUpperCase()}
+        <div className="size-16 rounded-2xl overflow-hidden bg-emerald-100 flex items-center justify-center text-emerald-700 text-xl font-bold shrink-0">
+          {student.avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={student.avatar} alt={student.fullName} className="size-full object-cover" />
+          ) : (
+            student.fullName.slice(0, 2).toUpperCase()
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-4">

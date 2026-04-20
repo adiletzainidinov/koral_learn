@@ -28,7 +28,7 @@ export function AppHeader() {
   const today = formatShortDate(new Date());
 
   return (
-    <header className="h-14 shrink-0 bg-white border-b border-slate-200">
+    <header className="sticky top-0 z-20 h-14 shrink-0 bg-white border-b border-slate-200">
       <Container className="h-full flex items-center justify-between py-0">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-slate-900 truncate">{title}</h2>
