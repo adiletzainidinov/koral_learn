@@ -4,10 +4,10 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useShallow } from 'zustand/shallow';
 import type { Student, CreateStudentInput, UpdateStudentInput } from '@/entities/student/model/types';
-import type { Assignment, AssignmentStatus, CreateAssignmentInput } from '@/entities/assignment/model/types';
+import type { Assignment, AssignmentStatus, CreateAssignmentInput, UpdateAssignmentInput } from '@/entities/assignment/model/types';
 import type { AttendanceRecord, AttendanceStatus } from '@/entities/attendance/model/types';
 import type { PointHistoryItem } from '@/entities/points/model/types';
-import { ASSIGNMENT_STATUS_POINTS } from '@/entities/assignment/model/types';
+import { getAssignmentPoints } from '@/entities/assignment/model/types';
 import { ATTENDANCE_STATUS_POINTS } from '@/entities/attendance/model/types';
 import { generateId } from '@/shared/lib/ids';
 import { todayISO } from '@/shared/lib/dates';
@@ -33,7 +33,9 @@ interface AppState {
   removeStudent: (id: string) => void;
 
   createAssignment: (data: CreateAssignmentInput) => void;
+  updateAssignment: (id: string, data: UpdateAssignmentInput) => void;
   updateAssignmentStatus: (id: string, status: AssignmentStatus) => void;
+  updateAssignmentComment: (id: string, comment: string) => void;
   removeAssignment: (id: string) => void;
 
   markAttendance: (studentId: string, date: string, status: AttendanceStatus) => void;
@@ -105,7 +107,7 @@ export const useAppStore = create<AppState>()(
         const assignment = assignments.find((a) => a.id === id);
         if (!assignment) return;
 
-        const newPoints = ASSIGNMENT_STATUS_POINTS[status];
+        const newPoints = getAssignmentPoints(status, assignment.assignmentType);
         const oldPoints = assignment.pointsAwarded;
         const delta = newPoints - oldPoints;
 
@@ -131,11 +133,28 @@ export const useAppStore = create<AppState>()(
                 reason: `Задание: ${assignment.title} — ${statusLabel(status)}`,
                 points: delta,
                 createdAt: new Date().toISOString(),
+                assignmentId: id,
               },
             ]
           : pointHistory;
 
         set({ assignments: updatedAssignments, students: updatedStudents, pointHistory: newHistory });
+      },
+
+      updateAssignment: (id, data) => {
+        set((state) => ({
+          assignments: state.assignments.map((a) =>
+            a.id === id ? { ...a, ...data } : a
+          ),
+        }));
+      },
+
+      updateAssignmentComment: (id, comment) => {
+        set((state) => ({
+          assignments: state.assignments.map((a) =>
+            a.id === id ? { ...a, teacherComment: comment } : a
+          ),
+        }));
       },
 
       removeAssignment: (id) => {

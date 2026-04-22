@@ -7,6 +7,7 @@ import { Card } from '@/shared/ui/card';
 import { AssignmentStatusBadge, AssignmentTypeBadge } from '@/shared/ui/badge';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { PageHeader } from '@/shared/ui/page-header';
+import { Modal } from '@/shared/ui/modal';
 import { CreateAssignmentModal } from '@/features/assignments/create-assignment-modal';
 import { useAppStore, useAssignments, useStudents } from '@/store/app-store';
 import { formatDate } from '@/shared/lib/dates';
@@ -34,6 +35,7 @@ export function AssignmentsList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<AssignmentStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<AssignmentType | 'all'>('all');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   const studentName = (id: string) =>
     students.find((s) => s.id === id)?.fullName ?? 'Неизвестный';
@@ -162,7 +164,7 @@ export function AssignmentsList() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => removeAssignment(a.id)}
+                        onClick={() => setDeleteTarget({ id: a.id, title: a.title })}
                         className="size-7 p-0 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                       >
                         <Trash2 className="size-3.5" />
@@ -177,6 +179,27 @@ export function AssignmentsList() {
       </Card>
 
       <CreateAssignmentModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
+
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Удалить задание?"
+        description="Это действие нельзя отменить"
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Отмена</Button>
+            <Button variant="danger" onClick={() => { if (deleteTarget) { removeAssignment(deleteTarget.id); setDeleteTarget(null); } }}>
+              Удалить
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          Вы собираетесь удалить задание <strong>«{deleteTarget?.title}»</strong>.
+          Начисленные баллы будут отозваны.
+        </p>
+      </Modal>
     </div>
   );
 }

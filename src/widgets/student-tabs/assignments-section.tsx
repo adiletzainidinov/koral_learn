@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, BookOpen, Trash2, Paperclip } from 'lucide-react';
+import { Plus, BookOpen, Trash2, Paperclip, Pencil } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { AssignmentTypeBadge } from '@/shared/ui/badge';
 import { EmptyState } from '@/shared/ui/empty-state';
+import { Modal } from '@/shared/ui/modal';
 import { CreateAssignmentModal } from '@/features/assignments/create-assignment-modal';
+import { AssignmentDetailsModal } from '@/features/assignments/assignment-details-modal';
 import { useAppStore, useStudentAssignments } from '@/store/app-store';
 import { formatDate } from '@/shared/lib/dates';
 import { ASSIGNMENT_STATUS_LABELS, ASSIGNMENT_TYPE_LABELS } from '@/entities/assignment/model/types';
@@ -46,6 +48,9 @@ export function StudentAssignmentsSection({ studentId }: Props) {
   const [statusFilter, setStatusFilter] = useState<AssignmentStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<AssignmentType | 'all'>('all');
   const [createOpen, setCreateOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   const filtered = assignments
     .filter((a) => statusFilter === 'all' || a.status === statusFilter)
@@ -152,7 +157,11 @@ export function StudentAssignmentsSection({ studentId }: Props) {
               {sorted.map((a) => {
                 const attachCount = a.attachments?.length ?? 0;
                 return (
-                  <tr key={a.id} className="group hover:bg-slate-50/60 transition-colors">
+                  <tr
+                    key={a.id}
+                    onClick={() => setDetailId(a.id)}
+                    className="group hover:bg-slate-50/60 transition-colors cursor-pointer"
+                  >
                     <td className="px-5 py-3">
                       <div className="flex items-start gap-2">
                         <div className="min-w-0">
@@ -171,7 +180,7 @@ export function StudentAssignmentsSection({ studentId }: Props) {
                     <td className="px-4 py-3">
                       {a.assignmentType && <AssignmentTypeBadge type={a.assignmentType} />}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <StatusSelect
                         value={a.status}
                         onChange={(s) => updateAssignmentStatus(a.id, s)}
@@ -190,15 +199,23 @@ export function StudentAssignmentsSection({ studentId }: Props) {
                         <span className="text-xs text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeAssignment(a.id)}
-                        className="size-7 p-0 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost" size="sm"
+                          onClick={() => setEditId(a.id)}
+                          className="size-7 p-0 text-slate-400 hover:text-blue-500 cursor-pointer"
+                        >
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm"
+                          onClick={() => setDeleteTarget({ id: a.id, title: a.title })}
+                          className="size-7 p-0 text-slate-400 hover:text-red-500 cursor-pointer"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -213,6 +230,42 @@ export function StudentAssignmentsSection({ studentId }: Props) {
         onClose={() => setCreateOpen(false)}
         preselectedStudentId={studentId}
       />
+
+      <AssignmentDetailsModal
+        assignmentId={detailId}
+        onClose={() => setDetailId(null)}
+        onEdit={(id) => { setDetailId(null); setEditId(id); }}
+        onDelete={(id, title) => { setDetailId(null); setDeleteTarget({ id, title }); }}
+      />
+
+      <CreateAssignmentModal
+        isOpen={!!editId}
+        onClose={() => setEditId(null)}
+        mode="edit"
+        assignmentId={editId ?? undefined}
+        preselectedStudentId={studentId}
+      />
+
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Удалить задание?"
+        description="Это действие нельзя отменить"
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Отмена</Button>
+            <Button variant="danger" onClick={() => { if (deleteTarget) { removeAssignment(deleteTarget.id); setDeleteTarget(null); } }}>
+              Удалить
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          Вы собираетесь удалить задание <strong>«{deleteTarget?.title}»</strong>.
+          Начисленные баллы будут отозваны.
+        </p>
+      </Modal>
     </div>
   );
 }
@@ -240,5 +293,3 @@ function StatusSelect({
   );
 }
 
-// suppress unused import warning — used via ASSIGNMENT_TYPE_LABELS in future if needed
-void ASSIGNMENT_TYPE_LABELS;

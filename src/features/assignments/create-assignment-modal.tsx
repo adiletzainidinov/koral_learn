@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Paperclip, X, File, GraduationCap, Home } from 'lucide-react';
 import { Modal } from '@/shared/ui/modal';
 import { Input } from '@/shared/ui/input';
@@ -14,6 +14,8 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   preselectedStudentId?: string;
+  mode?: 'create' | 'edit';
+  assignmentId?: string;
 }
 
 const TYPE_OPTIONS: { value: AssignmentType; label: string; desc: string; icon: React.ReactNode }[] = [
@@ -48,13 +50,22 @@ function fileToAttachment(file: File): Promise<AssignmentAttachment> {
   });
 }
 
-export function CreateAssignmentModal({ isOpen, onClose, preselectedStudentId }: Props) {
+export function CreateAssignmentModal({
+  isOpen,
+  onClose,
+  preselectedStudentId,
+  mode = 'create',
+  assignmentId,
+}: Props) {
   const students = useStudents();
-  const createAssignment = useAppStore((s) => s.createAssignment);
+  const { createAssignment, updateAssignment } = useAppStore();
+  const existingAssignment = useAppStore((s) =>
+    assignmentId ? s.assignments.find((a) => a.id === assignmentId) : undefined
+  );
 
   const [studentId, setStudentId] = useState(preselectedStudentId ?? '');
   const [title, setTitle] = useState('');
-  const [assignmentType, setAssignmentType] = useState<AssignmentType>('homework');
+  const [assignmentType, setAssignmentType] = useState<AssignmentType>('intermediate');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [attachments, setAttachments] = useState<AssignmentAttachment[]>([]);
@@ -66,19 +77,31 @@ export function CreateAssignmentModal({ isOpen, onClose, preselectedStudentId }:
     .filter((s) => s.isActive)
     .map((s) => ({ value: s.id, label: `${s.fullName} (Группа ${s.group})` }));
 
-  function reset() {
-    setStudentId(preselectedStudentId ?? '');
-    setTitle('');
-    setAssignmentType('homework');
-    setDescription('');
-    setDueDate('');
-    setAttachments([]);
+  // sync form state when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+    if (mode === 'edit' && existingAssignment) {
+      setStudentId(existingAssignment.studentId);
+      setTitle(existingAssignment.title);
+      setAssignmentType(existingAssignment.assignmentType ?? 'intermediate');
+      setDescription(existingAssignment.description);
+      setDueDate(existingAssignment.dueDate ?? '');
+      setAttachments(existingAssignment.attachments ?? []);
+    } else if (mode === 'create') {
+      setStudentId(preselectedStudentId ?? '');
+      setTitle('');
+      setAssignmentType('intermediate');
+      setDescription('');
+      setDueDate('');
+      setAttachments([]);
+    }
     setErrors({});
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, assignmentId]);
 
   function validate(): boolean {
     const errs: typeof errors = {};
-    if (!preselectedStudentId && !studentId) errs.studentId = 'Выберите ученика';
+    if (!preselectedStudentId && mode === 'create' && !studentId) errs.studentId = 'Выберите ученика';
     if (!title.trim()) errs.title = 'Введите название';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -86,20 +109,24 @@ export function CreateAssignmentModal({ isOpen, onClose, preselectedStudentId }:
 
   function handleSubmit() {
     if (!validate()) return;
-    createAssignment({
-      studentId: preselectedStudentId ?? studentId,
-      title: title.trim(),
-      description: description.trim(),
-      dueDate: dueDate || undefined,
-      assignmentType,
-      attachments,
-    });
-    reset();
-    onClose();
-  }
-
-  function handleClose() {
-    reset();
+    if (mode === 'edit' && assignmentId) {
+      updateAssignment(assignmentId, {
+        title: title.trim(),
+        description: description.trim(),
+        dueDate: dueDate || undefined,
+        assignmentType,
+        attachments,
+      });
+    } else {
+      createAssignment({
+        studentId: preselectedStudentId ?? studentId,
+        title: title.trim(),
+        description: description.trim(),
+        dueDate: dueDate || undefined,
+        assignmentType,
+        attachments,
+      });
+    }
     onClose();
   }
 
@@ -126,22 +153,24 @@ export function CreateAssignmentModal({ isOpen, onClose, preselectedStudentId }:
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
+  const isEdit = mode === 'edit';
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={handleClose}
-      title="Создать задание"
-      description="Выдайте задание ученику"
+      onClose={onClose}
+      title={isEdit ? 'Редактировать задание' : 'Создать задание'}
+      description={isEdit ? 'Измените данные задания' : 'Выдайте задание ученику'}
       footer={
         <>
-          <Button variant="outline" onClick={handleClose}>Отмена</Button>
-          <Button onClick={handleSubmit}>Создать</Button>
+          <Button variant="outline" onClick={onClose}>Отмена</Button>
+          <Button onClick={handleSubmit}>{isEdit ? 'Сохранить' : 'Создать'}</Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
-        {/* student selector — hidden when preselected */}
-        {!preselectedStudentId && (
+        {/* student selector — only in create mode without preselection */}
+        {!preselectedStudentId && !isEdit && (
           <Select
             label="Ученик *"
             options={studentOptions}
@@ -215,7 +244,6 @@ export function CreateAssignmentModal({ isOpen, onClose, preselectedStudentId }:
             </div>
           </div>
 
-          {/* attachment list */}
           {attachments.length > 0 && (
             <div className="grid grid-cols-3 gap-2 mt-1">
               {attachments.map((att) => {

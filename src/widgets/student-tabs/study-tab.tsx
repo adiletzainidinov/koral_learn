@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BookOpen, CalendarDays, Star, Calendar } from 'lucide-react';
+import { BookOpen, CalendarDays, Star, Calendar, ExternalLink } from 'lucide-react';
 import { Card } from '@/shared/ui/card';
 import { Badge, AttendanceStatusBadge, LevelBadge, PointsBadge } from '@/shared/ui/badge';
 import { EmptyState } from '@/shared/ui/empty-state';
@@ -14,6 +14,7 @@ import {
 import { formatDate, formatShortDate, formatRelative } from '@/shared/lib/dates';
 import { POINT_SOURCE_LABELS } from '@/entities/points/model/types';
 import { StudentAssignmentsSection } from './assignments-section';
+import { AssignmentDetailsModal } from '@/features/assignments/assignment-details-modal';
 
 interface Props {
   studentId: string;
@@ -152,30 +153,59 @@ function AttendancePanel({ attendance }: { attendance: ReturnType<typeof useStud
 }
 
 function HistoryPanel({ history }: { history: ReturnType<typeof useStudentPointHistory> }) {
+  const [detailId, setDetailId] = useState<string | null>(null);
+
   if (history.length === 0)
     return <EmptyState icon={<Star className="size-5" />} title="История баллов пуста" />;
+
   return (
-    <Card padding="none">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-slate-100">
-            <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Причина</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Источник</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Баллы</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Дата</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {history.map((item) => (
-            <tr key={item.id} className="hover:bg-slate-50/60">
-              <td className="px-5 py-3"><span className="text-sm text-slate-700">{item.reason}</span></td>
-              <td className="px-4 py-3"><Badge variant="slate">{POINT_SOURCE_LABELS[item.source]}</Badge></td>
-              <td className="px-4 py-3"><PointsBadge points={item.points} /></td>
-              <td className="px-4 py-3"><span className="text-xs text-slate-400">{formatRelative(item.createdAt)}</span></td>
+    <>
+      <Card padding="none">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-slate-100">
+              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Причина</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Источник</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Баллы</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Дата</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </Card>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {history.map((item) => {
+              const isAssignment = item.source === 'assignment' && !!item.assignmentId;
+              return (
+                <tr key={item.id} className="hover:bg-slate-50/60">
+                  <td className="px-5 py-3">
+                    {isAssignment ? (
+                      <button
+                        onClick={() => setDetailId(item.assignmentId!)}
+                        className="flex items-center gap-1.5 text-sm text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer text-left"
+                      >
+                        {item.reason}
+                        <ExternalLink className="size-3 shrink-0 opacity-60" />
+                      </button>
+                    ) : (
+                      <span className="text-sm text-slate-700">{item.reason}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant="slate">{POINT_SOURCE_LABELS[item.source]}</Badge>
+                  </td>
+                  <td className="px-4 py-3"><PointsBadge points={item.points} /></td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs text-slate-400">{formatRelative(item.createdAt)}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Card>
+
+      <AssignmentDetailsModal
+        assignmentId={detailId}
+        onClose={() => setDetailId(null)}
+      />
+    </>
   );
 }
