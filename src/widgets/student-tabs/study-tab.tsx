@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { BookOpen, CalendarDays, Star, Calendar, ExternalLink } from 'lucide-react';
 import { Card } from '@/shared/ui/card';
-import { Badge, AttendanceStatusBadge, LevelBadge, PointsBadge } from '@/shared/ui/badge';
+import { Badge, LevelBadge, PointsBadge } from '@/shared/ui/badge';
 import { EmptyState } from '@/shared/ui/empty-state';
 import {
   useStudentById,
@@ -11,9 +11,10 @@ import {
   useStudentAttendance,
   useStudentPointHistory,
 } from '@/store/app-store';
-import { formatDate, formatShortDate, formatRelative } from '@/shared/lib/dates';
+import { formatDate, formatRelative } from '@/shared/lib/dates';
 import { POINT_SOURCE_LABELS } from '@/entities/points/model/types';
 import { StudentAssignmentsSection } from './assignments-section';
+import { StudentAttendanceSection } from './attendance-section';
 import { AssignmentDetailsModal } from '@/features/assignments/assignment-details-modal';
 
 interface Props {
@@ -117,7 +118,7 @@ export function StudyTab({ studentId }: Props) {
         </div>
 
         {inner === 'assignments' && <StudentAssignmentsSection studentId={studentId} />}
-        {inner === 'attendance' && <AttendancePanel attendance={attendance} />}
+        {inner === 'attendance' && <StudentAttendanceSection studentId={studentId} />}
         {inner === 'history' && <HistoryPanel history={pointHistory} />}
       </div>
     </div>
@@ -125,32 +126,6 @@ export function StudyTab({ studentId }: Props) {
 }
 
 
-function AttendancePanel({ attendance }: { attendance: ReturnType<typeof useStudentAttendance> }) {
-  if (attendance.length === 0)
-    return <EmptyState icon={<CalendarDays className="size-5" />} title="Посещений пока нет" />;
-  return (
-    <Card padding="none">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-slate-100">
-            <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Дата</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Статус</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Баллы</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {attendance.map((r) => (
-            <tr key={r.id} className="hover:bg-slate-50/60">
-              <td className="px-5 py-3"><span className="text-sm text-slate-700">{formatShortDate(r.date)}</span></td>
-              <td className="px-4 py-3"><AttendanceStatusBadge status={r.status} /></td>
-              <td className="px-4 py-3">{r.pointsAwarded > 0 ? <PointsBadge points={r.pointsAwarded} /> : <span className="text-xs text-slate-400">—</span>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Card>
-  );
-}
 
 function HistoryPanel({ history }: { history: ReturnType<typeof useStudentPointHistory> }) {
   const [detailId, setDetailId] = useState<string | null>(null);
