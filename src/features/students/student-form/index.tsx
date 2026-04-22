@@ -476,14 +476,23 @@ interface Errors {
   age?: string;
 }
 
-export function StudentForm() {
+interface Props {
+  mode?: 'create' | 'edit';
+  studentId?: string;
+}
+
+export function StudentForm({ mode = 'create', studentId }: Props) {
   const router = useRouter();
   const addStudent = useAppStore((s) => s.addStudent);
+  const updateStudent = useAppStore((s) => s.updateStudent);
+  const students = useAppStore((s) => s.students);
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
   const [errors, setErrors] = useState<Errors>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [studentNotFound, setStudentNotFound] = useState(false);
+  const hasLoaded = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentZoneRef = useRef<HTMLDivElement>(null);
   const fullNameRef = useRef<HTMLInputElement>(null);
@@ -508,6 +517,38 @@ export function StudentForm() {
   function handleAvatarRemove() {
     upd('avatar', undefined);
   }
+
+  useEffect(() => {
+    if (mode !== 'edit' || !studentId || hasLoaded.current) return;
+    const student = students.find((s) => s.id === studentId);
+    if (!student) {
+      setStudentNotFound(true);
+      return;
+    }
+    hasLoaded.current = true;
+    setForm({
+      fullName: student.fullName,
+      age: String(student.age),
+      group: student.group,
+      level: student.level,
+      startedAt: student.startedAt,
+      address: student.address ?? '',
+      contacts: student.contacts.map((c) => ({ ...c, _key: c.id })),
+      friendContacts: student.friendContacts.map((f) => ({ ...f, _key: f.id })),
+      notes: student.notes ?? '',
+      attachments: student.attachments.map((a) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        size: a.size,
+        base64: a.base64,
+        previewUrl: a.base64,
+        createdAt: a.createdAt,
+      })),
+      avatar: student.avatar,
+    });
+    setIsDirty(false);
+  }, [mode, studentId, students]);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -647,7 +688,7 @@ export function StudentForm() {
       createdAt: a.createdAt,
     }));
 
-    const id = addStudent({
+    const payload = {
       fullName: form.fullName.trim(),
       age: Number(form.age),
       group: form.group,
@@ -660,10 +701,17 @@ export function StudentForm() {
       notes: form.notes.trim(),
       attachments: persistedAttachments,
       avatar: form.avatar,
-    });
+    };
 
-    setIsDirty(false);
-    router.push(`/students/${id}`);
+    if (mode === 'edit' && studentId) {
+      updateStudent(studentId, payload);
+      setIsDirty(false);
+      router.push(`/students/${studentId}`);
+    } else {
+      const id = addStudent(payload);
+      setIsDirty(false);
+      router.push(`/students/${id}`);
+    }
   }
 
   function handleCancel() {
@@ -674,6 +722,20 @@ export function StudentForm() {
   const hasNonPersistedFiles = form.attachments.some((a) => !a.base64 && !a.type.startsWith('image/'));
 
   // ── render ────────────────────────────────────────────────────────────────
+
+  if (studentNotFound) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+        <AlertTriangle className="size-8 text-red-400" />
+        <p className="text-lg font-semibold text-slate-700">Ученик не найден</p>
+        <p className="text-sm text-slate-400">Возможно, он был удалён или ссылка неверна.</p>
+        <Button variant="outline" onClick={() => router.push('/students')}>
+          <ArrowLeft className="size-4" />
+          Назад к списку
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -689,8 +751,12 @@ export function StudentForm() {
             <ArrowLeft className="size-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Новый ученик</h1>
-            <p className="text-sm text-slate-500">Заполните информацию об ученике</p>
+            <h1 className="text-xl font-bold text-slate-900">
+              {mode === 'edit' ? 'Редактировать ученика' : 'Новый ученик'}
+            </h1>
+            <p className="text-sm text-slate-500">
+              {mode === 'edit' ? 'Измените данные и сохраните' : 'Заполните информацию об ученике'}
+            </p>
           </div>
         </div>
       </div>
@@ -917,7 +983,7 @@ export function StudentForm() {
           <Button variant="outline" onClick={handleCancel}>Отмена</Button>
           <Button onClick={handleSubmit} loading={saving}>
             <Save className="size-4" />
-            Сохранить ученика
+            {mode === 'edit' ? 'Сохранить изменения' : 'Сохранить ученика'}
           </Button>
         </div>
       </div>

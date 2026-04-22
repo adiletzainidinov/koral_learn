@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { Plus, BookOpen, Trash2, Paperclip } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
-import { AssignmentStatusBadge, AssignmentTypeBadge } from '@/shared/ui/badge';
+import { AssignmentTypeBadge } from '@/shared/ui/badge';
 import { EmptyState } from '@/shared/ui/empty-state';
-import { PageHeader } from '@/shared/ui/page-header';
 import { CreateAssignmentModal } from '@/features/assignments/create-assignment-modal';
-import { useAppStore, useAssignments, useStudents } from '@/store/app-store';
+import { useAppStore, useStudentAssignments } from '@/store/app-store';
 import { formatDate } from '@/shared/lib/dates';
+import { ASSIGNMENT_STATUS_LABELS, ASSIGNMENT_TYPE_LABELS } from '@/entities/assignment/model/types';
 import type { AssignmentStatus, AssignmentType } from '@/entities/assignment/model/types';
 
 const STATUS_FILTERS: { value: AssignmentStatus | 'all'; label: string }[] = [
@@ -27,16 +27,25 @@ const TYPE_FILTERS: { value: AssignmentType | 'all'; label: string }[] = [
   { value: 'homework', label: 'Домашние' },
 ];
 
-export function AssignmentsList() {
-  const assignments = useAssignments();
-  const students = useStudents();
-  const removeAssignment = useAppStore((s) => s.removeAssignment);
-  const [createOpen, setCreateOpen] = useState(false);
+const STATUS_COLORS: Record<AssignmentStatus, string> = {
+  pending: 'bg-amber-100 text-amber-700 border-amber-200',
+  not_done: 'bg-red-100 text-red-700 border-red-200',
+  done: 'bg-blue-100 text-blue-700 border-blue-200',
+  good: 'bg-green-100 text-green-700 border-green-200',
+  excellent: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+};
+
+interface Props {
+  studentId: string;
+}
+
+export function StudentAssignmentsSection({ studentId }: Props) {
+  const assignments = useStudentAssignments(studentId);
+  const { removeAssignment, updateAssignmentStatus } = useAppStore();
+
   const [statusFilter, setStatusFilter] = useState<AssignmentStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<AssignmentType | 'all'>('all');
-
-  const studentName = (id: string) =>
-    students.find((s) => s.id === id)?.fullName ?? 'Неизвестный';
+  const [createOpen, setCreateOpen] = useState(false);
 
   const filtered = assignments
     .filter((a) => statusFilter === 'all' || a.status === statusFilter)
@@ -47,22 +56,26 @@ export function AssignmentsList() {
   );
 
   return (
-    <div>
-      <PageHeader
-        title="Задания"
-        description={`${assignments.length} заданий всего`}
-        action={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4" />
-            Создать задание
-          </Button>
-        }
-      />
+    <div className="flex flex-col gap-4">
+      {/* header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">Задания</p>
+          <p className="text-xs text-slate-400">{assignments.length} заданий</p>
+        </div>
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Plus className="size-3.5" />
+          Создать задание
+        </Button>
+      </div>
 
       {/* status filters */}
-      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+      <div className="flex items-center gap-1.5 flex-wrap">
         {STATUS_FILTERS.map((f) => {
-          const count = f.value === 'all' ? assignments.length : assignments.filter((a) => a.status === f.value).length;
+          const count =
+            f.value === 'all'
+              ? assignments.length
+              : assignments.filter((a) => a.status === f.value).length;
           return (
             <button
               key={f.value}
@@ -80,11 +93,12 @@ export function AssignmentsList() {
       </div>
 
       {/* type filters */}
-      <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+      <div className="flex items-center gap-1.5 flex-wrap -mt-1">
         {TYPE_FILTERS.map((f) => {
-          const count = f.value === 'all'
-            ? assignments.length
-            : assignments.filter((a) => (a.assignmentType ?? 'homework') === f.value).length;
+          const count =
+            f.value === 'all'
+              ? assignments.length
+              : assignments.filter((a) => (a.assignmentType ?? 'homework') === f.value).length;
           return (
             <button
               key={f.value}
@@ -101,26 +115,37 @@ export function AssignmentsList() {
         })}
       </div>
 
+      {/* list */}
       <Card padding="none">
         {sorted.length === 0 ? (
           <EmptyState
             icon={<BookOpen className="size-5" />}
             title="Заданий нет"
-            description="Создайте первое задание"
-            action={<Button onClick={() => setCreateOpen(true)}><Plus className="size-4" />Создать задание</Button>}
-            className="py-20"
+            description={
+              statusFilter === 'all' && typeFilter === 'all'
+                ? 'Создайте первое задание'
+                : 'Нет заданий с такими фильтрами'
+            }
+            action={
+              statusFilter === 'all' && typeFilter === 'all' ? (
+                <Button size="sm" onClick={() => setCreateOpen(true)}>
+                  <Plus className="size-3.5" />Создать задание
+                </Button>
+              ) : undefined
+            }
+            className="py-16"
           />
         ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Задание</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ученик</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Тип</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Статус</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Выдано</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Дедлайн</th>
-                <th className="px-4 py-3" />
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Баллы</th>
+                <th className="px-4 py-3 w-10" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -144,19 +169,26 @@ export function AssignmentsList() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-sm text-slate-600">{studentName(a.studentId)}</span>
-                    </td>
-                    <td className="px-4 py-3">
                       {a.assignmentType && <AssignmentTypeBadge type={a.assignmentType} />}
                     </td>
                     <td className="px-4 py-3">
-                      <AssignmentStatusBadge status={a.status} />
+                      <StatusSelect
+                        value={a.status}
+                        onChange={(s) => updateAssignmentStatus(a.id, s)}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-sm text-slate-500">{formatDate(a.issuedAt)}</span>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-sm text-slate-500">{a.dueDate ? formatDate(a.dueDate) : '—'}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {a.pointsAwarded > 0 ? (
+                        <span className="text-sm font-semibold text-amber-600">+{a.pointsAwarded}</span>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <Button
@@ -176,7 +208,37 @@ export function AssignmentsList() {
         )}
       </Card>
 
-      <CreateAssignmentModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
+      <CreateAssignmentModal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        preselectedStudentId={studentId}
+      />
     </div>
   );
 }
+
+function StatusSelect({
+  value,
+  onChange,
+}: {
+  value: AssignmentStatus;
+  onChange: (s: AssignmentStatus) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as AssignmentStatus)}
+      className={`text-xs font-medium px-2 py-1 rounded-md border cursor-pointer transition-colors appearance-none pr-5 bg-no-repeat bg-[right_6px_center] ${STATUS_COLORS[value]}`}
+      style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+      }}
+    >
+      {Object.entries(ASSIGNMENT_STATUS_LABELS).map(([status, label]) => (
+        <option key={status} value={status}>{label}</option>
+      ))}
+    </select>
+  );
+}
+
+// suppress unused import warning — used via ASSIGNMENT_TYPE_LABELS in future if needed
+void ASSIGNMENT_TYPE_LABELS;

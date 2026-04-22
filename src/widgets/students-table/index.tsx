@@ -14,44 +14,23 @@ import { Modal } from '@/shared/ui/modal';
 import { Select } from '@/shared/ui/select';
 import { useAppStore, useStudents, useAttendanceRecords } from '@/store/app-store';
 import { formatDate } from '@/shared/lib/dates';
+import { getDaysAgoLabel, getDaysCount, getAttendanceVariant } from '@/shared/lib/getDaysAgo';
 import type { AttendanceRecord } from '@/entities/attendance/model/types';
 import { STUDENT_LEVEL_LABELS, type StudentLevel } from '@/entities/student/model/types';
 
 // ─── Attendance presence helper ───────────────────────────────────────────────
 
-type PresenceStatus = 'recent' | 'few_days' | 'long_absent' | 'no_data';
-
-function getPresenceStatus(studentId: string, records: AttendanceRecord[]): PresenceStatus {
+function getLatestAttendanceDate(studentId: string, records: AttendanceRecord[]): string | null {
   const studentRecords = records.filter((r) => r.studentId === studentId);
-  if (studentRecords.length === 0) return 'no_data';
-
-  const latest = studentRecords.reduce((best, r) => (r.date > best.date ? r : best));
-  const today = new Date().toISOString().slice(0, 10);
-  const diffMs = new Date(today).getTime() - new Date(latest.date).getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays <= 3) return 'recent';
-  if (diffDays <= 9) return 'few_days';
-  return 'long_absent';
+  if (studentRecords.length === 0) return null;
+  return studentRecords.reduce((best, r) => (r.date > best.date ? r : best)).date;
 }
 
-const PRESENCE_LABELS: Record<PresenceStatus, string> = {
-  recent: 'Недавно',
-  few_days: 'Несколько дней',
-  long_absent: 'Давно не был',
-  no_data: 'Нет данных',
-};
-
-const PRESENCE_VARIANTS: Record<PresenceStatus, 'success' | 'warning' | 'danger' | 'slate'> = {
-  recent: 'success',
-  few_days: 'warning',
-  long_absent: 'danger',
-  no_data: 'slate',
-};
-
 function PresenceBadge({ studentId, records }: { studentId: string; records: AttendanceRecord[] }) {
-  const status = getPresenceStatus(studentId, records);
-  return <Badge variant={PRESENCE_VARIANTS[status]}>{PRESENCE_LABELS[status]}</Badge>;
+  const latestDate = getLatestAttendanceDate(studentId, records);
+  if (!latestDate) return <Badge variant="slate">Нет данных</Badge>;
+  const days = getDaysCount(latestDate);
+  return <Badge variant={getAttendanceVariant(days)}>{getDaysAgoLabel(latestDate)}</Badge>;
 }
 
 // ─── Sort / filter types ───────────────────────────────────────────────────────
@@ -88,9 +67,10 @@ export function StudentsTable() {
 
   const presenceOptions = [
     { value: '', label: 'Любой статус' },
-    { value: 'recent', label: 'Недавно' },
-    { value: 'few_days', label: 'Несколько дней' },
-    { value: 'long_absent', label: 'Давно не был' },
+    { value: 'today', label: 'Сегодня' },
+    { value: 'recent', label: 'До 3 дней' },
+    { value: 'few_days', label: '4–9 дней' },
+    { value: 'long_absent', label: '10+ дней' },
     { value: 'no_data', label: 'Нет данных' },
   ];
 
@@ -115,7 +95,17 @@ export function StudentsTable() {
       result = result.filter((s) => s.level === filterLevel);
     }
     if (filterPresence) {
-      result = result.filter((s) => getPresenceStatus(s.id, records) === filterPresence);
+      result = result.filter((s) => {
+        const latestDate = getLatestAttendanceDate(s.id, records);
+        if (filterPresence === 'no_data') return !latestDate;
+        if (!latestDate) return false;
+        const days = getDaysCount(latestDate);
+        if (filterPresence === 'today') return days === 0;
+        if (filterPresence === 'recent') return days >= 1 && days <= 3;
+        if (filterPresence === 'few_days') return days >= 4 && days <= 9;
+        if (filterPresence === 'long_absent') return days >= 10;
+        return false;
+      });
     }
 
     return [...result].sort((a, b) => {

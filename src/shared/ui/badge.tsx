@@ -1,5 +1,5 @@
 import { cn } from '../lib/cn';
-import type { AssignmentStatus } from '@/entities/assignment/model/types';
+import type { AssignmentStatus, AssignmentType } from '@/entities/assignment/model/types';
 import type { AttendanceStatus } from '@/entities/attendance/model/types';
 import type { StudentLevel } from '@/entities/student/model/types';
 
@@ -53,6 +53,15 @@ export function AssignmentStatusBadge({ status }: { status: AssignmentStatus }) 
     excellent: { label: 'Отлично', variant: 'emerald' },
   };
   const { label, variant } = config[status];
+  return <Badge variant={variant}>{label}</Badge>;
+}
+
+export function AssignmentTypeBadge({ type }: { type: AssignmentType }) {
+  const config: Record<AssignmentType, { label: string; variant: BadgeVariant }> = {
+    intermediate: { label: 'Промежуточная', variant: 'info' },
+    homework: { label: 'Домашняя', variant: 'purple' },
+  };
+  const { label, variant } = config[type];
   return <Badge variant={variant}>{label}</Badge>;
 }
 

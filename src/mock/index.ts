@@ -168,6 +168,8 @@ export const mockAssignments: Assignment[] = [
     dueDate: '2026-04-17',
     status: 'excellent',
     pointsAwarded: 3,
+    assignmentType: 'homework',
+    attachments: [],
   },
   {
     id: 'a2',
@@ -178,6 +180,8 @@ export const mockAssignments: Assignment[] = [
     dueDate: '2026-04-20',
     status: 'pending',
     pointsAwarded: 0,
+    assignmentType: 'intermediate',
+    attachments: [],
   },
   {
     id: 'a3',
@@ -188,6 +192,8 @@ export const mockAssignments: Assignment[] = [
     dueDate: '2026-04-17',
     status: 'good',
     pointsAwarded: 2,
+    assignmentType: 'homework',
+    attachments: [],
   },
   {
     id: 'a4',
@@ -197,6 +203,8 @@ export const mockAssignments: Assignment[] = [
     issuedAt: '2026-04-14T09:00:00Z',
     status: 'pending',
     pointsAwarded: 0,
+    assignmentType: 'intermediate',
+    attachments: [],
   },
   {
     id: 'a5',
@@ -207,6 +215,8 @@ export const mockAssignments: Assignment[] = [
     dueDate: '2026-04-14',
     status: 'done',
     pointsAwarded: 1,
+    assignmentType: 'homework',
+    attachments: [],
   },
   {
     id: 'a6',
@@ -217,6 +227,8 @@ export const mockAssignments: Assignment[] = [
     dueDate: '2026-04-21',
     status: 'pending',
     pointsAwarded: 0,
+    assignmentType: 'intermediate',
+    attachments: [],
   },
   {
     id: 'a7',
@@ -227,6 +239,8 @@ export const mockAssignments: Assignment[] = [
     dueDate: '2026-04-17',
     status: 'not_done',
     pointsAwarded: 0,
+    assignmentType: 'homework',
+    attachments: [],
   },
   {
     id: 'a8',
@@ -237,6 +251,8 @@ export const mockAssignments: Assignment[] = [
     dueDate: '2026-04-17',
     status: 'excellent',
     pointsAwarded: 3,
+    assignmentType: 'homework',
+    attachments: [],
   },
   {
     id: 'a9',
@@ -246,6 +262,8 @@ export const mockAssignments: Assignment[] = [
     issuedAt: '2026-04-15T09:00:00Z',
     status: 'pending',
     pointsAwarded: 0,
+    assignmentType: 'intermediate',
+    attachments: [],
   },
   {
     id: 'a10',
@@ -256,6 +274,8 @@ export const mockAssignments: Assignment[] = [
     dueDate: '2026-04-15',
     status: 'good',
     pointsAwarded: 2,
+    assignmentType: 'homework',
+    attachments: [],
   },
   {
     id: 'a11',
@@ -266,6 +286,8 @@ export const mockAssignments: Assignment[] = [
     dueDate: '2026-04-22',
     status: 'pending',
     pointsAwarded: 0,
+    assignmentType: 'intermediate',
+    attachments: [],
   },
   {
     id: 'a12',
@@ -276,26 +298,36 @@ export const mockAssignments: Assignment[] = [
     dueDate: '2026-04-17',
     status: 'excellent',
     pointsAwarded: 3,
+    assignmentType: 'homework',
+    attachments: [],
   },
 ];
 
 export const mockAttendanceRecords: AttendanceRecord[] = [
-  { id: 'at1', studentId: 's1', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
-  { id: 'at2', studentId: 's2', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
-  { id: 'at3', studentId: 's3', date: '2026-04-14', status: 'late', pointsAwarded: 0 },
-  { id: 'at4', studentId: 's4', date: '2026-04-14', status: 'absent', pointsAwarded: 0 },
-  { id: 'at5', studentId: 's5', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
-  { id: 'at6', studentId: 's6', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
-  { id: 'at7', studentId: 's7', date: '2026-04-14', status: 'excused', pointsAwarded: 0 },
-  { id: 'at8', studentId: 's8', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
-  { id: 'at9', studentId: 's1', date: '2026-04-10', status: 'present', pointsAwarded: 1 },
-  { id: 'at10', studentId: 's2', date: '2026-04-10', status: 'present', pointsAwarded: 1 },
-  { id: 'at11', studentId: 's3', date: '2026-04-10', status: 'present', pointsAwarded: 1 },
+  // s1 — был сегодня (2026-04-20) → Сегодня 🟢
+  { id: 'at1', studentId: 's1', date: '2026-04-20', status: 'present', pointsAwarded: 1 },
+  { id: 'at9', studentId: 's1', date: '2026-04-17', status: 'present', pointsAwarded: 1 },
+  // s2 — вчера (2026-04-19) → Вчера 🟡
+  { id: 'at2', studentId: 's2', date: '2026-04-19', status: 'present', pointsAwarded: 1 },
+  { id: 'at10', studentId: 's2', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
+  // s3 — 3 дня назад (2026-04-17) → 3 дн. назад 🟡
+  { id: 'at3', studentId: 's3', date: '2026-04-17', status: 'late', pointsAwarded: 0 },
+  { id: 'at11', studentId: 's3', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
+  // s4 — 7 дней назад (2026-04-13) → 7 дн. назад 🔴
+  { id: 'at4', studentId: 's4', date: '2026-04-13', status: 'absent', pointsAwarded: 0 },
   { id: 'at12', studentId: 's4', date: '2026-04-10', status: 'present', pointsAwarded: 1 },
-  { id: 'at13', studentId: 's5', date: '2026-04-10', status: 'present', pointsAwarded: 1 },
-  { id: 'at14', studentId: 's6', date: '2026-04-10', status: 'present', pointsAwarded: 1 },
-  { id: 'at15', studentId: 's7', date: '2026-04-10', status: 'late', pointsAwarded: 0 },
-  { id: 'at16', studentId: 's8', date: '2026-04-10', status: 'present', pointsAwarded: 1 },
+  // s5 — 2 дня назад (2026-04-18) → 2 дн. назад 🟡
+  { id: 'at5', studentId: 's5', date: '2026-04-18', status: 'present', pointsAwarded: 1 },
+  { id: 'at13', studentId: 's5', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
+  // s6 — сегодня (2026-04-20) → Сегодня 🟢
+  { id: 'at6', studentId: 's6', date: '2026-04-20', status: 'present', pointsAwarded: 1 },
+  { id: 'at14', studentId: 's6', date: '2026-04-17', status: 'present', pointsAwarded: 1 },
+  // s7 — 14 дней назад (2026-04-06) → 14 дн. назад 🔴
+  { id: 'at7', studentId: 's7', date: '2026-04-06', status: 'excused', pointsAwarded: 0 },
+  { id: 'at15', studentId: 's7', date: '2026-03-30', status: 'late', pointsAwarded: 0 },
+  // s8 — вчера (2026-04-19) → Вчера 🟡
+  { id: 'at8', studentId: 's8', date: '2026-04-19', status: 'present', pointsAwarded: 1 },
+  { id: 'at16', studentId: 's8', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
 ];
 
 export const mockPointHistory: PointHistoryItem[] = [
