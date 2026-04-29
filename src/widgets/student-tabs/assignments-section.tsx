@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus, BookOpen, Trash2, Paperclip, Pencil } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -42,15 +43,19 @@ interface Props {
 }
 
 export function StudentAssignmentsSection({ studentId }: Props) {
+  const router = useRouter();
   const assignments = useStudentAssignments(studentId);
   const { removeAssignment, updateAssignmentStatus } = useAppStore();
 
   const [statusFilter, setStatusFilter] = useState<AssignmentStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<AssignmentType | 'all'>('all');
-  const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+
+  function handleCreate() {
+    router.push(`/students/${studentId}/tasks/create`);
+  }
 
   const filtered = assignments
     .filter((a) => statusFilter === 'all' || a.status === statusFilter)
@@ -68,7 +73,7 @@ export function StudentAssignmentsSection({ studentId }: Props) {
           <p className="text-sm font-semibold text-slate-900">Задания</p>
           <p className="text-xs text-slate-400">{assignments.length} заданий</p>
         </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" onClick={handleCreate}>
           <Plus className="size-3.5" />
           Создать задание
         </Button>
@@ -133,7 +138,7 @@ export function StudentAssignmentsSection({ studentId }: Props) {
             }
             action={
               statusFilter === 'all' && typeFilter === 'all' ? (
-                <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Button size="sm" onClick={handleCreate}>
                   <Plus className="size-3.5" />Создать задание
                 </Button>
               ) : undefined
@@ -224,12 +229,6 @@ export function StudentAssignmentsSection({ studentId }: Props) {
           </table>
         )}
       </Card>
-
-      <CreateAssignmentModal
-        isOpen={createOpen}
-        onClose={() => setCreateOpen(false)}
-        preselectedStudentId={studentId}
-      />
 
       <AssignmentDetailsModal
         assignmentId={detailId}

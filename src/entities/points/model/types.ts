@@ -8,6 +8,8 @@ export interface PointHistoryItem {
   points: number;
   createdAt: string;
   assignmentId?: string;
+  attendanceId?: string;
+  comment?: string;
 }
 
 export const POINT_SOURCE_LABELS: Record<PointSource, string> = {

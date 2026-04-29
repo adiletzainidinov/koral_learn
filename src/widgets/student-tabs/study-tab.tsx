@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BookOpen, CalendarDays, Star, Calendar, ExternalLink } from 'lucide-react';
+import { BookOpen, CalendarDays, Star, Calendar, Pencil } from 'lucide-react';
 import { Card } from '@/shared/ui/card';
 import { Badge, LevelBadge, PointsBadge } from '@/shared/ui/badge';
 import { EmptyState } from '@/shared/ui/empty-state';
@@ -15,7 +15,7 @@ import { formatDate, formatRelative } from '@/shared/lib/dates';
 import { POINT_SOURCE_LABELS } from '@/entities/points/model/types';
 import { StudentAssignmentsSection } from './assignments-section';
 import { StudentAttendanceSection } from './attendance-section';
-import { AssignmentDetailsModal } from '@/features/assignments/assignment-details-modal';
+import { PointHistoryDetailsModal } from '@/features/points/point-history-details-modal';
 
 interface Props {
   studentId: string;
@@ -128,7 +128,7 @@ export function StudyTab({ studentId }: Props) {
 
 
 function HistoryPanel({ history }: { history: ReturnType<typeof useStudentPointHistory> }) {
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   if (history.length === 0)
     return <EmptyState icon={<Star className="size-5" />} title="История баллов пуста" />;
@@ -143,43 +143,40 @@ function HistoryPanel({ history }: { history: ReturnType<typeof useStudentPointH
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Источник</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Баллы</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Дата</th>
+              <th className="px-4 py-3 w-8" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {history.map((item) => {
-              const isAssignment = item.source === 'assignment' && !!item.assignmentId;
-              return (
-                <tr key={item.id} className="hover:bg-slate-50/60">
-                  <td className="px-5 py-3">
-                    {isAssignment ? (
-                      <button
-                        onClick={() => setDetailId(item.assignmentId!)}
-                        className="flex items-center gap-1.5 text-sm text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer text-left"
-                      >
-                        {item.reason}
-                        <ExternalLink className="size-3 shrink-0 opacity-60" />
-                      </button>
-                    ) : (
-                      <span className="text-sm text-slate-700">{item.reason}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant="slate">{POINT_SOURCE_LABELS[item.source]}</Badge>
-                  </td>
-                  <td className="px-4 py-3"><PointsBadge points={item.points} /></td>
-                  <td className="px-4 py-3">
-                    <span className="text-xs text-slate-400">{formatRelative(item.createdAt)}</span>
-                  </td>
-                </tr>
-              );
-            })}
+            {history.map((item) => (
+              <tr
+                key={item.id}
+                onClick={() => setSelectedId(item.id)}
+                className="group hover:bg-slate-50/60 cursor-pointer transition-colors"
+              >
+                <td className="px-5 py-3">
+                  <span className="text-sm text-slate-700">{item.reason}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant="slate">{POINT_SOURCE_LABELS[item.source]}</Badge>
+                </td>
+                <td className="px-4 py-3"><PointsBadge points={item.points} /></td>
+                <td className="px-4 py-3">
+                  <span className="text-xs text-slate-400">{formatRelative(item.createdAt)}</span>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {item.source === 'bonus' && (
+                    <Pencil className="size-3 text-slate-300 group-hover:text-slate-400 inline-block" />
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </Card>
 
-      <AssignmentDetailsModal
-        assignmentId={detailId}
-        onClose={() => setDetailId(null)}
+      <PointHistoryDetailsModal
+        itemId={selectedId}
+        onClose={() => setSelectedId(null)}
       />
     </>
   );

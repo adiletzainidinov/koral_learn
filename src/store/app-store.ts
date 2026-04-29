@@ -4,11 +4,11 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useShallow } from 'zustand/shallow';
 import type { Student, CreateStudentInput, UpdateStudentInput } from '@/entities/student/model/types';
-import type { Assignment, AssignmentStatus, CreateAssignmentInput, UpdateAssignmentInput } from '@/entities/assignment/model/types';
+import type { Assignment, AssignmentStatus, CreateAssignmentInput, CreateAssignmentContent, UpdateAssignmentInput } from '@/entities/assignment/model/types';
 import type { AttendanceRecord, AttendanceStatus } from '@/entities/attendance/model/types';
 import type { PointHistoryItem } from '@/entities/points/model/types';
 import { getAssignmentPoints } from '@/entities/assignment/model/types';
-import { ATTENDANCE_STATUS_POINTS } from '@/entities/attendance/model/types';
+import { getAttendancePoints } from '@/entities/attendance/model/types';
 import { generateId } from '@/shared/lib/ids';
 import { todayISO } from '@/shared/lib/dates';
 import {
@@ -33,6 +33,7 @@ interface AppState {
   removeStudent: (id: string) => void;
 
   createAssignment: (data: CreateAssignmentInput) => void;
+  createAssignmentsForStudents: (content: CreateAssignmentContent, studentIds: string[]) => void;
   updateAssignment: (id: string, data: UpdateAssignmentInput) => void;
   updateAssignmentStatus: (id: string, status: AssignmentStatus) => void;
   updateAssignmentComment: (id: string, comment: string) => void;
@@ -41,6 +42,7 @@ interface AppState {
   markAttendance: (studentId: string, date: string, status: AttendanceStatus) => void;
 
   awardBonusPoints: (studentId: string, reason: string, points: number) => void;
+  updateBonusHistoryItem: (id: string, patch: { reason: string; points: number; comment?: string }) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -100,6 +102,19 @@ export const useAppStore = create<AppState>()(
           pointsAwarded: 0,
         };
         set((state) => ({ assignments: [...state.assignments, assignment] }));
+      },
+
+      createAssignmentsForStudents: (content, studentIds) => {
+        const issuedAt = new Date().toISOString();
+        const newAssignments: Assignment[] = studentIds.map((studentId) => ({
+          ...content,
+          id: generateId(),
+          studentId,
+          issuedAt,
+          status: 'pending',
+          pointsAwarded: 0,
+        }));
+        set((state) => ({ assignments: [...state.assignments, ...newAssignments] }));
       },
 
       updateAssignmentStatus: (id, status) => {
@@ -182,27 +197,21 @@ export const useAppStore = create<AppState>()(
           (r) => r.studentId === studentId && r.date === date
         );
 
-        const newPoints = ATTENDANCE_STATUS_POINTS[status];
+        const newPoints = getAttendancePoints(status);
         const oldPoints = existing?.pointsAwarded ?? 0;
         const delta = newPoints - oldPoints;
 
-        let updatedRecords: AttendanceRecord[];
-        if (existing) {
-          updatedRecords = attendanceRecords.map((r) =>
-            r.studentId === studentId && r.date === date
-              ? { ...r, status, pointsAwarded: newPoints }
-              : r
-          );
-        } else {
-          const newRecord: AttendanceRecord = {
-            id: generateId(),
-            studentId,
-            date,
-            status,
-            pointsAwarded: newPoints,
-          };
-          updatedRecords = [...attendanceRecords, newRecord];
-        }
+        // Resolve the stable id for this attendance record
+        const attendanceId = existing?.id ?? generateId();
+
+        const updatedRecords: AttendanceRecord[] = existing
+          ? attendanceRecords.map((r) =>
+              r.id === attendanceId ? { ...r, status, pointsAwarded: newPoints } : r
+            )
+          : [
+              ...attendanceRecords,
+              { id: attendanceId, studentId, date, status, pointsAwarded: newPoints },
+            ];
 
         const updatedStudents = delta !== 0
           ? students.map((s) =>
@@ -212,22 +221,43 @@ export const useAppStore = create<AppState>()(
             )
           : students;
 
+        // One history entry per attendance record — update in-place rather than appending
         const dateFormatted = date.split('-').reverse().join('.');
-        const newHistory: PointHistoryItem[] = delta !== 0
-          ? [
-              ...pointHistory,
-              {
-                id: generateId(),
-                studentId,
-                source: 'attendance',
-                reason: `Посещение ${dateFormatted}`,
-                points: delta,
-                createdAt: new Date().toISOString(),
-              },
-            ]
-          : pointHistory;
+        const reason = `Посещение ${dateFormatted}`;
+        const existingHistoryIdx = pointHistory.findIndex(
+          (h) => h.attendanceId === attendanceId
+        );
 
-        set({ attendanceRecords: updatedRecords, students: updatedStudents, pointHistory: newHistory });
+        let updatedHistory: PointHistoryItem[];
+        if (existingHistoryIdx !== -1) {
+          if (newPoints === 0) {
+            // Status changed to one that gives no points — remove the entry
+            updatedHistory = pointHistory.filter((_, i) => i !== existingHistoryIdx);
+          } else {
+            // Update absolute points in the existing entry
+            updatedHistory = pointHistory.map((h, i) =>
+              i === existingHistoryIdx ? { ...h, points: newPoints, reason } : h
+            );
+          }
+        } else if (newPoints > 0) {
+          // First time earning points for this date
+          updatedHistory = [
+            ...pointHistory,
+            {
+              id: generateId(),
+              studentId,
+              source: 'attendance' as const,
+              reason,
+              points: newPoints,
+              createdAt: new Date().toISOString(),
+              attendanceId,
+            },
+          ];
+        } else {
+          updatedHistory = pointHistory;
+        }
+
+        set({ attendanceRecords: updatedRecords, students: updatedStudents, pointHistory: updatedHistory });
       },
 
       awardBonusPoints: (studentId, reason, points) => {
@@ -250,6 +280,27 @@ export const useAppStore = create<AppState>()(
         };
 
         set({ students: updatedStudents, pointHistory: [...pointHistory, newEntry] });
+      },
+
+      updateBonusHistoryItem: (id, patch) => {
+        const { pointHistory, students } = get();
+        const item = pointHistory.find((h) => h.id === id);
+        if (!item || item.source !== 'bonus') return;
+
+        const delta = patch.points - item.points;
+
+        const updatedHistory = pointHistory.map((h) =>
+          h.id === id ? { ...h, ...patch } : h
+        );
+        const updatedStudents = delta !== 0
+          ? students.map((s) =>
+              s.id === item.studentId
+                ? { ...s, totalPoints: Math.max(0, s.totalPoints + delta) }
+                : s
+            )
+          : students;
+
+        set({ pointHistory: updatedHistory, students: updatedStudents });
       },
     }),
     {

@@ -83,3 +83,6 @@ export interface CreateAssignmentInput {
   assignmentType: AssignmentType;
   attachments: AssignmentAttachment[];
 }
+
+/** Form content without a specific student — used for bulk creation. */
+export type CreateAssignmentContent = Omit<CreateAssignmentInput, 'studentId'>;

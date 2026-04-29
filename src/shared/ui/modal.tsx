@@ -13,6 +13,7 @@ interface ModalProps {
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg';
   footer?: React.ReactNode;
+  closeOnBackdrop?: boolean;
 }
 
 const sizeClasses = {
@@ -21,7 +22,7 @@ const sizeClasses = {
   lg: 'max-w-2xl',
 };
 
-export function Modal({ isOpen, onClose, title, description, children, size = 'md', footer }: ModalProps) {
+export function Modal({ isOpen, onClose, title, description, children, size = 'md', footer, closeOnBackdrop = true }: ModalProps) {
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
@@ -41,7 +42,7 @@ export function Modal({ isOpen, onClose, title, description, children, size = 'm
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={closeOnBackdrop ? onClose : undefined}
       />
       <div
         className={cn(

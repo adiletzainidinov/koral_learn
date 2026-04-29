@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { CalendarDays, CheckCircle2 } from 'lucide-react';
+import { useState, Fragment } from 'react';
+import { CalendarDays, CheckCircle2, ChevronDown } from 'lucide-react';
 import { Card } from '@/shared/ui/card';
 import { AttendanceStatusBadge, PointsBadge } from '@/shared/ui/badge';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { useAppStore, useStudentAttendance } from '@/store/app-store';
 import { todayISO, formatShortDate } from '@/shared/lib/dates';
-import { ATTENDANCE_STATUS_POINTS } from '@/entities/attendance/model/types';
+import { getAttendancePoints, getEffectiveAttendanceStatus } from '@/entities/attendance/model/types';
 import type { AttendanceStatus } from '@/entities/attendance/model/types';
 
 const STATUS_BUTTONS: {
@@ -42,17 +42,37 @@ const STATUS_BUTTONS: {
   },
 ];
 
+// Compact inline buttons for history row editing
+const INLINE_BUTTONS: { status: AttendanceStatus; label: string; classes: string }[] = [
+  { status: 'present',  label: 'Присутствовал',   classes: 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100' },
+  { status: 'late',     label: 'Опоздал',          classes: 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' },
+  { status: 'absent',   label: 'Отсутствовал',     classes: 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100' },
+  { status: 'excused',  label: 'Уваж. причина',    classes: 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100' },
+];
+
 interface Props {
   studentId: string;
 }
 
 export function StudentAttendanceSection({ studentId }: Props) {
   const [date, setDate] = useState(todayISO());
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const attendance = useStudentAttendance(studentId);
   const markAttendance = useAppStore((s) => s.markAttendance);
 
-  const todayRecord = attendance.find((r) => r.date === date);
+  const selectedRecord = attendance.find((r) => r.date === date);
+  // Default to 'absent' if no record exists for the selected date
+  const activeStatus = getEffectiveAttendanceStatus(selectedRecord);
   const isToday = date === todayISO();
+
+  function handleMark(targetDate: string, status: AttendanceStatus) {
+    markAttendance(studentId, targetDate, status);
+    setExpandedDate(null);
+  }
+
+  function toggleExpanded(recordDate: string) {
+    setExpandedDate((prev) => (prev === recordDate ? null : recordDate));
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -89,28 +109,28 @@ export function StudentAttendanceSection({ studentId }: Props) {
             <span className="font-medium">{formatShortDate(date)}</span>
             {isToday && <span className="text-xs text-emerald-600 font-medium">· Сегодня</span>}
           </div>
-          {todayRecord ? (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            {selectedRecord ? (
               <CheckCircle2 className="size-3.5 text-emerald-500" />
-              <AttendanceStatusBadge status={todayRecord.status} />
-              {todayRecord.pointsAwarded > 0 && (
-                <PointsBadge points={todayRecord.pointsAwarded} />
-              )}
-            </div>
-          ) : (
-            <span className="text-xs text-slate-400 italic">Не отмечено</span>
-          )}
+            ) : (
+              <span className="text-xs text-slate-400 italic">по умолчанию</span>
+            )}
+            <AttendanceStatusBadge status={activeStatus} />
+            {(selectedRecord?.pointsAwarded ?? 0) > 0 && (
+              <PointsBadge points={selectedRecord!.pointsAwarded} />
+            )}
+          </div>
         </div>
 
-        {/* status buttons */}
+        {/* status buttons — 'absent' highlighted when no record exists */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {STATUS_BUTTONS.map(({ status, label, base, active }) => {
-            const isActive = todayRecord?.status === status;
-            const points = ATTENDANCE_STATUS_POINTS[status];
+            const isActive = activeStatus === status;
+            const points = getAttendancePoints(status);
             return (
               <button
                 key={status}
-                onClick={() => markAttendance(studentId, date, status)}
+                onClick={() => handleMark(date, status)}
                 className={`flex flex-col items-center gap-1 px-3 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                   isActive ? active : base
                 }`}
@@ -143,24 +163,60 @@ export function StudentAttendanceSection({ studentId }: Props) {
             </p>
           </div>
           <table className="w-full">
-            <tbody className="divide-y divide-slate-50">
-              {attendance.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="px-5 py-3">
-                    <span className="text-sm text-slate-700 font-medium">{formatShortDate(r.date)}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <AttendanceStatusBadge status={r.status} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {r.pointsAwarded > 0 ? (
-                      <PointsBadge points={r.pointsAwarded} />
-                    ) : (
-                      <span className="text-xs text-slate-400">—</span>
+            <tbody>
+              {attendance.map((r) => {
+                const isExpanded = expandedDate === r.date;
+                return (
+                  <Fragment key={r.id}>
+                    <tr
+                      onClick={() => toggleExpanded(r.date)}
+                      className={`cursor-pointer transition-colors border-b border-slate-50 ${
+                        isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50/60'
+                      }`}
+                    >
+                      <td className="px-5 py-3">
+                        <span className="text-sm text-slate-700 font-medium">{formatShortDate(r.date)}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <AttendanceStatusBadge status={r.status} />
+                      </td>
+                      <td className="px-4 py-3">
+                        {r.pointsAwarded > 0 ? (
+                          <PointsBadge points={r.pointsAwarded} />
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 w-8 text-right">
+                        <ChevronDown
+                          className={`size-3.5 text-slate-400 transition-transform inline-block ${isExpanded ? 'rotate-180' : ''}`}
+                        />
+                      </td>
+                    </tr>
+
+                    {isExpanded && (
+                      <tr className="bg-slate-50 border-b border-slate-100">
+                        <td colSpan={4} className="px-5 py-3">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-slate-500 mr-1">Изменить:</span>
+                            {INLINE_BUTTONS.map(({ status, label, classes }) => (
+                              <button
+                                key={status}
+                                onClick={(e) => { e.stopPropagation(); handleMark(r.date, status); }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${classes} ${
+                                  r.status === status ? 'ring-2 ring-offset-1 ring-current font-semibold' : ''
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                </tr>
-              ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </Card>

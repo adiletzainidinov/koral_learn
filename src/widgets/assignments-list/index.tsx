@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus, BookOpen, Trash2, Paperclip } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
@@ -8,10 +9,12 @@ import { AssignmentStatusBadge, AssignmentTypeBadge } from '@/shared/ui/badge';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { PageHeader } from '@/shared/ui/page-header';
 import { Modal } from '@/shared/ui/modal';
-import { CreateAssignmentModal } from '@/features/assignments/create-assignment-modal';
 import { useAppStore, useAssignments, useStudents } from '@/store/app-store';
+import { useUIStore } from '@/store/ui-store';
 import { formatDate } from '@/shared/lib/dates';
 import type { AssignmentStatus, AssignmentType } from '@/entities/assignment/model/types';
+
+// ─── constants ───────────────────────────────────────────────────────────────
 
 const STATUS_FILTERS: { value: AssignmentStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'Все' },
@@ -28,11 +31,15 @@ const TYPE_FILTERS: { value: AssignmentType | 'all'; label: string }[] = [
   { value: 'homework', label: 'Домашние' },
 ];
 
+// ─── component ───────────────────────────────────────────────────────────────
+
 export function AssignmentsList() {
+  const router = useRouter();
   const assignments = useAssignments();
   const students = useStudents();
-  const removeAssignment = useAppStore((s) => s.removeAssignment);
-  const [createOpen, setCreateOpen] = useState(false);
+  const { removeAssignment } = useAppStore();
+  const { clearSelectedStudentIds } = useUIStore();
+
   const [statusFilter, setStatusFilter] = useState<AssignmentStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<AssignmentType | 'all'>('all');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
@@ -48,13 +55,20 @@ export function AssignmentsList() {
     (a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()
   );
 
+  function handleCreate() {
+    clearSelectedStudentIds();
+    router.push('/assignments/create/select-students');
+  }
+
+  // ─── render ──────────────────────────────────────────────────────────────
+
   return (
     <div>
       <PageHeader
         title="Задания"
         description={`${assignments.length} заданий всего`}
         action={
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={handleCreate}>
             <Plus className="size-4" />
             Создать задание
           </Button>
@@ -103,13 +117,14 @@ export function AssignmentsList() {
         })}
       </div>
 
+      {/* assignments table */}
       <Card padding="none">
         {sorted.length === 0 ? (
           <EmptyState
             icon={<BookOpen className="size-5" />}
             title="Заданий нет"
             description="Создайте первое задание"
-            action={<Button onClick={() => setCreateOpen(true)}><Plus className="size-4" />Создать задание</Button>}
+            action={<Button onClick={handleCreate}><Plus className="size-4" />Создать задание</Button>}
             className="py-20"
           />
         ) : (
@@ -178,8 +193,7 @@ export function AssignmentsList() {
         )}
       </Card>
 
-      <CreateAssignmentModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
-
+      {/* ── delete confirm ──────────────────────────────────────────────────── */}
       <Modal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}

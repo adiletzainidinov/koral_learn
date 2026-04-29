@@ -10,6 +10,7 @@ import { PageHeader } from '@/shared/ui/page-header';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { useAppStore, useStudents, useAttendanceRecords } from '@/store/app-store';
 import { todayISO, formatShortDate } from '@/shared/lib/dates';
+import { getEffectiveAttendanceStatus } from '@/entities/attendance/model/types';
 import type { AttendanceStatus } from '@/entities/attendance/model/types';
 
 const STATUS_BUTTONS: { status: AttendanceStatus; label: string; classes: string }[] = [
@@ -102,11 +103,10 @@ export function AttendanceTable() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      {record ? (
-                        <AttendanceStatusBadge status={record.status} />
-                      ) : (
-                        <span className="text-xs text-slate-400">Не отмечен</span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        <AttendanceStatusBadge status={getEffectiveAttendanceStatus(record)} />
+                        {!record && <span className="text-xs text-slate-400 italic">по умолч.</span>}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 flex-wrap">
