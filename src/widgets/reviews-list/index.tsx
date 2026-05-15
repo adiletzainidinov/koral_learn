@@ -301,40 +301,48 @@ function AssignmentDetailModal({
   // ── footer
 
   const footer = isEditing ? (
-    <>
-      <Button variant="outline" onClick={handleCancelEdit} className="mr-auto">
+    <div className="flex items-center justify-between w-full">
+      <Button variant="outline" onClick={handleCancelEdit}>
         Отмена
       </Button>
       <Button onClick={handleSave}>
         Сохранить изменения
       </Button>
-    </>
+    </div>
   ) : (
-    <>
-      <Button variant="outline" onClick={onClose} className="mr-auto">
-        Закрыть
-      </Button>
-      <Button
-        variant="ghost"
-        onClick={handleStartEdit}
-        className="text-slate-500 hover:text-slate-800 gap-1.5"
-      >
-        <Pencil className="size-3.5" />
-        Редактировать
-      </Button>
-      {REVIEW_ACTIONS.map(({ status, label, cls }) => (
+    <div className="flex items-center justify-between w-full gap-3">
+      {/* LEFT: secondary actions */}
+      <div className="flex items-center gap-2">
         <button
-          key={status}
-          onClick={() => handleStatus(status)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${cls}`}
+          onClick={onClose}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
         >
-          {label}
-          <span className="opacity-60 ml-1">
-            +{getAssignmentPoints(status, assignment.assignmentType)}б
-          </span>
+          Закрыть
         </button>
-      ))}
-    </>
+        <button
+          onClick={handleStartEdit}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
+        >
+          <Pencil className="size-3.5" />
+          Редактировать
+        </button>
+      </div>
+      {/* RIGHT: primary actions */}
+      <div className="flex items-center gap-2">
+        {REVIEW_ACTIONS.map(({ status, label, cls }) => (
+          <button
+            key={status}
+            onClick={() => handleStatus(status)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${cls}`}
+          >
+            {label}
+            <span className="opacity-60 ml-1">
+              +{getAssignmentPoints(status, assignment.assignmentType)}б
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 
   return (
