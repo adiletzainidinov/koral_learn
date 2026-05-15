@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { CalendarDays, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { CalendarDays, CheckCircle, Users } from 'lucide-react';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 import { PageHeader } from '@/shared/ui/page-header';
@@ -15,31 +15,35 @@ const CYCLE: AttendanceStatus[] = ['present', 'late', 'absent', 'excused'];
 
 const CFG: Record<
   AttendanceStatus,
-  { label: string; points: number; rowBg: string; activeBg: string; activeText: string; accentBorder: string }
+  { label: string; points: number; rowBg: string; activeBg: string; activeText: string; accentBorder: string; statColor: string }
 > = {
   present: {
     label: 'Присутствовал', points: 5,
     rowBg: 'bg-green-50/60',
     activeBg: 'bg-green-500', activeText: 'text-white',
     accentBorder: 'border-l-green-400',
+    statColor: 'text-green-600',
   },
   late: {
     label: 'Опоздал', points: 3,
     rowBg: 'bg-amber-50/60',
     activeBg: 'bg-amber-400', activeText: 'text-white',
     accentBorder: 'border-l-amber-400',
+    statColor: 'text-amber-600',
   },
   absent: {
     label: 'Отсутствовал', points: 0,
     rowBg: 'bg-red-50/60',
     activeBg: 'bg-red-500', activeText: 'text-white',
     accentBorder: 'border-l-red-400',
+    statColor: 'text-red-500',
   },
   excused: {
     label: 'Уваж. причина', points: 1,
     rowBg: 'bg-blue-50/60',
     activeBg: 'bg-blue-500', activeText: 'text-white',
     accentBorder: 'border-l-blue-400',
+    statColor: 'text-blue-500',
   },
 };
 
@@ -49,17 +53,56 @@ const BULK: { status: AttendanceStatus; label: string; cls: string }[] = [
   { status: 'late',    label: 'Всем: Опоздал',       cls: 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' },
 ];
 
+const ALL = 'ALL';
+
 export function AttendanceTable() {
   const students = useStudents().filter((s) => s.isActive);
   const allRecords = useAttendanceRecords();
   const markAttendance = useAppStore((s) => s.markAttendance);
   const [date, setDate] = useState(todayISO());
+  const [groupFilter, setGroupFilter] = useState<string>(ALL);
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
 
+  // Sorted unique groups from active students
+  const groups = useMemo(
+    () => [...new Set(students.map((s) => s.group))].sort(),
+    [students]
+  );
+
+  // Reset filter if selected group disappears
+  useEffect(() => {
+    if (groupFilter !== ALL && !groups.includes(groupFilter)) {
+      setGroupFilter(ALL);
+    }
+  }, [groups, groupFilter]);
+
+  // Reset keyboard focus when filter changes
+  useEffect(() => {
+    setFocusedIdx(null);
+  }, [groupFilter, date]);
+
+  const visibleStudents = useMemo(
+    () => (groupFilter === ALL ? students : students.filter((s) => s.group === groupFilter)),
+    [students, groupFilter]
+  );
+
   const dateRecords = allRecords.filter((r) => r.date === date);
   const getRecord = (id: string) => dateRecords.find((r) => r.studentId === id);
-  const markedCount = students.filter((s) => getRecord(s.id)).length;
+
+  // Counts scoped to visibleStudents
+  const stats = useMemo(() => {
+    const counts = { present: 0, late: 0, absent: 0, excused: 0, marked: 0 };
+    visibleStudents.forEach((s) => {
+      const rec = getRecord(s.id);
+      if (rec) {
+        counts[rec.status]++;
+        counts.marked++;
+      }
+    });
+    return counts;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleStudents, dateRecords]);
 
   const flash = useCallback((id: string) => {
     setFlashId(id);
@@ -84,8 +127,9 @@ export function AttendanceTable() {
     [dateRecords, mark]
   );
 
+  // Bulk applies only to visibleStudents
   const markAll = (status: AttendanceStatus) => {
-    students.forEach((s) => markAttendance(s.id, date, status));
+    visibleStudents.forEach((s) => markAttendance(s.id, date, status));
   };
 
   useEffect(() => {
@@ -97,13 +141,13 @@ export function AttendanceTable() {
         '1': 'present', '2': 'late', '3': 'absent', '4': 'excused',
       };
       if (map[e.key]) {
-        const student = students[focusedIdx];
+        const student = visibleStudents[focusedIdx];
         if (student) mark(student.id, map[e.key]);
         return;
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setFocusedIdx((i) => (i === null ? 0 : Math.min(i + 1, students.length - 1)));
+        setFocusedIdx((i) => (i === null ? 0 : Math.min(i + 1, visibleStudents.length - 1)));
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault();
@@ -112,7 +156,9 @@ export function AttendanceTable() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [focusedIdx, students, mark]);
+  }, [focusedIdx, visibleStudents, mark]);
+
+  const allMarked = stats.marked === visibleStudents.length && visibleStudents.length > 0;
 
   return (
     <div>
@@ -121,8 +167,10 @@ export function AttendanceTable() {
         description="Кликните строку для смены статуса · 1 Присутствовал · 2 Опоздал · 3 Отсутствовал · 4 Уваж. причина"
       />
 
-      {/* Sticky control bar — sits below the 56px sticky AppHeader (top-14) */}
+      {/* Sticky control bar */}
       <div className="sticky top-14 z-10 -mx-6 xl:-mx-8 px-6 xl:px-8 py-3 mb-5 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm">
+
+        {/* Row 1: date · group chips · counter */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 shrink-0">
             <CalendarDays className="size-4 text-slate-400" />
@@ -134,37 +182,88 @@ export function AttendanceTable() {
             />
           </div>
 
-          <div className="h-4 w-px bg-slate-200 shrink-0" />
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            {BULK.map(({ status, label, cls }) => (
-              <button
-                key={status}
-                onClick={() => markAll(status)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${cls}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          {groups.length > 0 && (
+            <>
+              <div className="h-4 w-px bg-slate-200 shrink-0" />
+              <div className="flex flex-wrap items-center gap-1">
+                <button
+                  onClick={() => setGroupFilter(ALL)}
+                  className={[
+                    'px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150',
+                    groupFilter === ALL
+                      ? 'bg-slate-800 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700',
+                  ].join(' ')}
+                >
+                  Все группы
+                </button>
+                {groups.map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setGroupFilter(g)}
+                    className={[
+                      'px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150',
+                      groupFilter === g
+                        ? 'bg-slate-800 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700',
+                    ].join(' ')}
+                  >
+                    Группа {g}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="ml-auto shrink-0 flex items-center gap-1.5 text-sm">
-            {markedCount === students.length && students.length > 0 ? (
+            {allMarked ? (
               <span className="flex items-center gap-1 text-emerald-600 font-medium">
                 <CheckCircle className="size-4" />
                 Все отмечены
               </span>
             ) : (
               <span className="text-slate-500 tabular-nums">
-                {markedCount} / {students.length} отмечено
+                {stats.marked} / {visibleStudents.length} отмечено
               </span>
             )}
           </div>
         </div>
 
-        {/* Keyboard hint — appears only when a row is focused */}
+        {/* Row 2: bulk actions · status stats */}
+        {students.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 mt-2 pt-2 border-t border-slate-50">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {BULK.map(({ status, label, cls }) => (
+                <button
+                  key={status}
+                  onClick={() => markAll(status)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${cls}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {stats.marked > 0 && (
+              <>
+                <div className="h-4 w-px bg-slate-200 shrink-0" />
+                <div className="flex items-center gap-2.5 text-xs">
+                  {((['present', 'late', 'absent', 'excused'] as const)).map((s) =>
+                    stats[s] > 0 ? (
+                      <span key={s} className={`font-medium ${CFG[s].statColor}`}>
+                        {CFG[s].label.split(' ')[0]} {stats[s]}
+                      </span>
+                    ) : null
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Row 3: keyboard hint — only when a row is focused */}
         {focusedIdx !== null && (
-          <p className="mt-1.5 text-xs text-slate-400">
+          <p className="mt-2 pt-2 border-t border-slate-50 text-xs text-slate-400">
             {(['1', '2', '3', '4'] as const).map((k, i) => (
               <span key={k}>
                 <kbd className="px-1 py-0.5 bg-slate-100 rounded text-[11px] font-mono">{k}</kbd>{' '}
@@ -178,7 +277,8 @@ export function AttendanceTable() {
         )}
       </div>
 
-      {students.length === 0 ? (
+      {/* No active students at all */}
+      {students.length === 0 && (
         <Card>
           <EmptyState
             icon={<CalendarDays className="size-5" />}
@@ -187,13 +287,33 @@ export function AttendanceTable() {
             className="py-16"
           />
         </Card>
-      ) : (
+      )}
+
+      {/* Students exist but this group is empty */}
+      {students.length > 0 && visibleStudents.length === 0 && (
+        <Card>
+          <EmptyState
+            icon={<Users className="size-5" />}
+            title="В этой группе пока нет учеников"
+            description={`Группа ${groupFilter} · добавьте учеников или выберите другую группу`}
+            className="py-16"
+          />
+        </Card>
+      )}
+
+      {/* Main table */}
+      {visibleStudents.length > 0 && (
         <Card padding="none">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-[30%]">
                   Ученик
+                  {groupFilter !== ALL && (
+                    <span className="ml-1.5 font-normal normal-case text-slate-400">
+                      · Группа {groupFilter}
+                    </span>
+                  )}
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
                   Статус
@@ -204,7 +324,7 @@ export function AttendanceTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {students.map((student, idx) => {
+              {visibleStudents.map((student, idx) => {
                 const record = getRecord(student.id);
                 const isSet = !!record;
                 const status = getEffectiveAttendanceStatus(record);
@@ -223,7 +343,7 @@ export function AttendanceTable() {
                       'cursor-pointer select-none border-l-2 transition-all duration-200 ease-out',
                       isSet ? cfg.rowBg : '',
                       isSet && isFocused ? cfg.accentBorder : isFocused ? 'border-l-slate-300' : 'border-l-transparent',
-                      isFlashing ? 'brightness-95 scale-x-[1.002]' : '',
+                      isFlashing ? 'brightness-95' : '',
                     ].join(' ')}
                   >
                     {/* Avatar + Name */}
@@ -244,7 +364,7 @@ export function AttendanceTable() {
                       </div>
                     </td>
 
-                    {/* Segmented status control — stopPropagation so direct clicks don't cycle */}
+                    {/* Segmented status control */}
                     <td className="px-4 py-3.5">
                       <div
                         className="flex gap-1 flex-wrap"
