@@ -297,20 +297,25 @@ export function LeaderboardTable() {
         </div>
       )}
 
-      {/* ── Sticky filter bar ────────────────────────────────────────────── */}
-      <div className="sticky top-14 z-10 -mx-6 xl:-mx-8 px-6 xl:px-8 py-3 mb-5 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm space-y-2">
+      {/* ── Sticky control bar ───────────────────────────────────────────── */}
+      <div className="sticky top-14 z-10 -mx-6 xl:-mx-8 px-6 xl:px-8 pt-3 pb-2 mb-5 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm space-y-0">
 
-        {/* Row 1: search · groups · levels · sort · reset */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* ── Row 1: search + group + level chips ──────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-2 pb-2">
+          {/* Label */}
+          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0 mr-1">
+            Фильтры
+          </span>
+
           {/* Search */}
           <div className="relative shrink-0">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Поиск по имени, группе, уровню..."
+              placeholder="Поиск..."
               value={filters.search}
               onChange={(e) => setFilter('search', e.target.value)}
-              className="pl-8 pr-7 h-8 w-56 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              className="pl-8 pr-7 h-7 w-44 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
             />
             {filters.search && (
               <button
@@ -325,7 +330,7 @@ export function LeaderboardTable() {
           {/* Group chips */}
           {groups.length > 0 && (
             <>
-              <div className="h-4 w-px bg-slate-200 shrink-0" />
+              <div className="h-3.5 w-px bg-slate-200 shrink-0" />
               <div className="flex flex-wrap gap-1">
                 <Chip label="Все группы" active={filters.group === 'ALL'} onClick={() => setFilter('group', 'ALL')} />
                 {groups.map((g) => (
@@ -336,7 +341,7 @@ export function LeaderboardTable() {
           )}
 
           {/* Level chips */}
-          <div className="h-4 w-px bg-slate-200 shrink-0" />
+          <div className="h-3.5 w-px bg-slate-200 shrink-0" />
           <div className="flex flex-wrap gap-1">
             <Chip label="Все уровни" active={filters.level === 'ALL'} onClick={() => setFilter('level', 'ALL')} />
             {(['beginner', 'intermediate', 'advanced'] as const).map((l) => (
@@ -345,7 +350,7 @@ export function LeaderboardTable() {
                 label={STUDENT_LEVEL_LABELS[l]}
                 active={filters.level === l}
                 activeClass={
-                  l === 'beginner' ? 'bg-slate-600 text-white shadow-sm'
+                  l === 'beginner'     ? 'bg-slate-600 text-white shadow-sm'
                   : l === 'intermediate' ? 'bg-blue-500 text-white shadow-sm'
                   : 'bg-purple-500 text-white shadow-sm'
                 }
@@ -354,7 +359,7 @@ export function LeaderboardTable() {
             ))}
           </div>
 
-          {/* Sort + direction */}
+          {/* Counter + reset — far right */}
           <div className="ml-auto flex items-center gap-2 shrink-0">
             {filtersActive && (
               <button
@@ -365,52 +370,79 @@ export function LeaderboardTable() {
                 Сбросить
               </button>
             )}
-            <div className="flex items-center gap-1 bg-slate-50 rounded-lg border border-slate-200 px-1 py-0.5">
-              <span className="text-xs text-slate-400 px-1">Сорт:</span>
-              <select
-                value={filters.sortKey}
-                onChange={(e) => handleSort(e.target.value as SortKey)}
-                className="text-xs font-medium text-slate-700 bg-transparent border-none outline-none cursor-pointer pr-1"
-              >
-                {Object.entries(SORT_LABELS).map(([k, label]) => (
-                  <option key={k} value={k}>{label}</option>
-                ))}
-              </select>
-              <button
-                onClick={() => setFilter('sortDir', filters.sortDir === 'desc' ? 'asc' : 'desc')}
-                className="p-0.5 rounded hover:bg-slate-200 transition-colors"
-                title={filters.sortDir === 'desc' ? 'По убыванию' : 'По возрастанию'}
-              >
-                {filters.sortDir === 'desc'
-                  ? <ChevronDown className="size-3.5 text-slate-600" />
-                  : <ChevronUp className="size-3.5 text-slate-600" />}
-              </button>
-            </div>
             <span className="text-xs text-slate-400 tabular-nums">
-              {filtersActive ? `${sorted.length} из ${allStudents.length}` : `${allStudents.length} учеников`}
+              {filtersActive
+                ? `${sorted.length} из ${allStudents.length}`
+                : `${allStudents.length} учеников`}
             </span>
           </div>
         </div>
 
-        {/* Row 2: activity filter chips */}
+        {/* ── Divider ───────────────────────────────────────────────────────── */}
+        <div className="border-t border-slate-100" />
+
+        {/* ── Row 2: activity filter chips + sort chips ─────────────────────── */}
         {allStudents.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1">
-            {(Object.entries(ACTIVITY_LABELS) as [typeof filters.activity, string][]).map(([key, label]) => (
-              <Chip
-                key={key}
-                label={label}
-                active={filters.activity === key}
-                activeClass={
-                  key === 'ALL' ? 'bg-slate-800 text-white shadow-sm'
-                  : key === 'active' ? 'bg-emerald-500 text-white shadow-sm'
-                  : key === 'growing' ? 'bg-teal-500 text-white shadow-sm'
-                  : key === 'often_absent' ? 'bg-red-500 text-white shadow-sm'
-                  : key === 'inactive' ? 'bg-slate-600 text-white shadow-sm'
-                  : 'bg-amber-500 text-white shadow-sm'
-                }
-                onClick={() => setFilter('activity', key)}
-              />
-            ))}
+          <div className="flex flex-wrap items-center gap-0 pt-2 pb-1">
+
+            {/* FILTER zone */}
+            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0">
+                Активность
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {(Object.entries(ACTIVITY_LABELS) as [typeof filters.activity, string][]).map(([key, label]) => (
+                  <Chip
+                    key={key}
+                    label={label}
+                    active={filters.activity === key}
+                    activeClass={
+                      key === 'ALL'           ? 'bg-slate-800 text-white shadow-sm'
+                      : key === 'active'      ? 'bg-emerald-500 text-white shadow-sm'
+                      : key === 'growing'     ? 'bg-teal-500 text-white shadow-sm'
+                      : key === 'often_absent'? 'bg-red-500 text-white shadow-sm'
+                      : key === 'inactive'    ? 'bg-slate-500 text-white shadow-sm'
+                      : 'bg-amber-500 text-white shadow-sm'
+                    }
+                    onClick={() => setFilter('activity', key)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Vertical divider */}
+            <div className="self-stretch w-px bg-slate-150 mx-4 shrink-0" style={{ background: '#e9ecef' }} />
+
+            {/* SORT zone */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                Сортировка
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {(Object.entries(SORT_LABELS) as [SortKey, string][]).map(([key, label]) => {
+                  const active = filters.sortKey === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => handleSort(key)}
+                      className={[
+                        'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150',
+                        active
+                          ? 'bg-slate-900 text-white shadow-sm'
+                          : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50',
+                      ].join(' ')}
+                    >
+                      {label}
+                      {active && (
+                        filters.sortDir === 'desc'
+                          ? <ChevronDown className="size-3 opacity-80" />
+                          : <ChevronUp className="size-3 opacity-80" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>
