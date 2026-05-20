@@ -486,13 +486,13 @@ export function LeaderboardTable() {
               <tr className="border-b border-slate-100">
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-12">#</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ученик</th>
-                <SortHeader label="Группа"    sortKey="points"      current={filters.sortKey} dir={filters.sortDir} onClick={() => {}} />
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Группа</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Уровень</th>
                 <SortHeader label="Задания"   sortKey="assignments" current={filters.sortKey} dir={filters.sortDir} onClick={handleSort} />
                 <SortHeader label="Посещения" sortKey="attendance"  current={filters.sortKey} dir={filters.sortDir} onClick={handleSort} />
                 <SortHeader label="Рост"      sortKey="growth"      current={filters.sortKey} dir={filters.sortDir} onClick={handleSort} />
                 <SortHeader label="Баллы"     sortKey="points"      current={filters.sortKey} dir={filters.sortDir} onClick={handleSort} />
-                <th className="w-24" /> {/* quick actions */}
+                <th className="w-24" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
