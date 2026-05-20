@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   CalendarDays,
   Trophy,
+  UsersRound,
   Settings,
   BookMarked,
 } from 'lucide-react';
@@ -21,6 +22,7 @@ const navItems = [
   { href: '/reviews', label: 'Проверка', icon: ClipboardCheck },
   { href: '/attendance', label: 'Посещаемость', icon: CalendarDays },
   { href: '/leaderboard', label: 'Рейтинг', icon: Trophy },
+  { href: '/teams', label: 'Команды', icon: UsersRound },
 ];
 
 const bottomItems = [

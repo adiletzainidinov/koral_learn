@@ -7,6 +7,7 @@ import type { Student, CreateStudentInput, UpdateStudentInput } from '@/entities
 import type { Assignment, AssignmentStatus, CreateAssignmentInput, CreateAssignmentContent, UpdateAssignmentInput } from '@/entities/assignment/model/types';
 import type { AttendanceRecord, AttendanceStatus, TimerStatus } from '@/entities/attendance/model/types';
 import type { PointHistoryItem } from '@/entities/points/model/types';
+import type { Team, TeamPointHistory, TeamGame, CreateTeamInput, UpdateTeamInput, CreateTeamGameInput } from '@/entities/team/model/types';
 import { getAssignmentPoints } from '@/entities/assignment/model/types';
 import {
   getAttendancePoints,
@@ -21,6 +22,9 @@ import {
   mockAssignments,
   mockAttendanceRecords,
   mockPointHistory,
+  mockTeams,
+  mockTeamPointHistory,
+  mockTeamGames,
 } from '@/mock';
 
 interface AppState {
@@ -50,6 +54,23 @@ interface AppState {
 
   awardBonusPoints: (studentId: string, reason: string, points: number) => void;
   updateBonusHistoryItem: (id: string, patch: { reason: string; points: number; comment?: string }) => void;
+
+  // ─── Teams ───────────────────────────────────────────────────────────────
+  teams: Team[];
+  teamPointHistory: TeamPointHistory[];
+  teamGames: TeamGame[];
+
+  createTeam: (input: CreateTeamInput) => string;
+  updateTeam: (id: string, patch: UpdateTeamInput) => void;
+  deleteTeam: (id: string) => void;
+  addStudentToTeam: (teamId: string, studentId: string) => void;
+  removeStudentFromTeam: (teamId: string, studentId: string) => void;
+  awardTeamPoints: (teamId: string, points: number, reason: string, source: TeamPointHistory['source']) => void;
+  createTeamGoal: (teamId: string, goal: { title: string; targetPoints: number; reward?: string; deadline?: string }) => void;
+  updateTeamGoal: (teamId: string, patch: Partial<Omit<Team['goal'], 'id'>>) => void;
+  completeTeamGoal: (teamId: string) => void;
+  createTeamGame: (input: CreateTeamGameInput) => void;
+  finishTeamGame: (gameId: string, winnerTeamId: string) => void;
 }
 
 // ─── point-history helper ─────────────────────────────────────────────────────
@@ -93,6 +114,9 @@ export const useAppStore = create<AppState>()(
       assignments: [],
       attendanceRecords: [],
       pointHistory: [],
+      teams: [],
+      teamPointHistory: [],
+      teamGames: [],
 
       _seed: () => {
         const { _seeded } = get();
@@ -103,6 +127,9 @@ export const useAppStore = create<AppState>()(
           assignments: mockAssignments,
           attendanceRecords: mockAttendanceRecords,
           pointHistory: mockPointHistory,
+          teams: mockTeams,
+          teamPointHistory: mockTeamPointHistory,
+          teamGames: mockTeamGames,
         });
       },
 
@@ -403,6 +430,146 @@ export const useAppStore = create<AppState>()(
 
         set({ pointHistory: updatedHistory, students: updatedStudents });
       },
+
+      // ─── Team actions ─────────────────────────────────────────────────────
+
+      createTeam: (input) => {
+        const id = generateId();
+        const { teams } = get();
+        const movedStudents = new Set(input.studentIds);
+        const updatedTeams = movedStudents.size > 0
+          ? teams.map((t) => ({ ...t, studentIds: t.studentIds.filter((sid) => !movedStudents.has(sid)) }))
+          : teams;
+
+        const goal = input.goal
+          ? { id: generateId(), ...input.goal, currentPoints: 0, status: 'active' as const }
+          : undefined;
+
+        const newTeam: Team = {
+          id,
+          name: input.name,
+          description: input.description,
+          color: input.color,
+          emoji: input.emoji,
+          studentIds: input.studentIds,
+          points: 0,
+          createdAt: new Date().toISOString(),
+          goal,
+        };
+        set({ teams: [...updatedTeams, newTeam] });
+        return id;
+      },
+
+      updateTeam: (id, patch) => {
+        set((state) => ({
+          teams: state.teams.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+        }));
+      },
+
+      deleteTeam: (id) => {
+        set((state) => ({
+          teams: state.teams.filter((t) => t.id !== id),
+          teamPointHistory: state.teamPointHistory.filter((h) => h.teamId !== id),
+          teamGames: state.teamGames.map((g) => ({
+            ...g,
+            teamIds: g.teamIds.filter((tid) => tid !== id),
+            winnerTeamId: g.winnerTeamId === id ? undefined : g.winnerTeamId,
+          })),
+        }));
+      },
+
+      addStudentToTeam: (teamId, studentId) => {
+        set((state) => ({
+          teams: state.teams.map((t) => {
+            if (t.id === teamId) {
+              return { ...t, studentIds: [...t.studentIds.filter((id) => id !== studentId), studentId] };
+            }
+            return { ...t, studentIds: t.studentIds.filter((id) => id !== studentId) };
+          }),
+        }));
+      },
+
+      removeStudentFromTeam: (teamId, studentId) => {
+        set((state) => ({
+          teams: state.teams.map((t) =>
+            t.id === teamId
+              ? { ...t, studentIds: t.studentIds.filter((id) => id !== studentId) }
+              : t
+          ),
+        }));
+      },
+
+      awardTeamPoints: (teamId, points, reason, source) => {
+        const { teams, teamPointHistory } = get();
+        const team = teams.find((t) => t.id === teamId);
+        if (!team) return;
+
+        const updatedGoal =
+          team.goal && team.goal.status === 'active'
+            ? { ...team.goal, currentPoints: team.goal.currentPoints + points }
+            : team.goal;
+
+        const updatedTeams = teams.map((t) =>
+          t.id === teamId ? { ...t, points: t.points + points, goal: updatedGoal } : t
+        );
+
+        const entry: TeamPointHistory = {
+          id: generateId(),
+          teamId,
+          points,
+          reason,
+          source,
+          createdAt: new Date().toISOString(),
+        };
+
+        set({ teams: updatedTeams, teamPointHistory: [...teamPointHistory, entry] });
+      },
+
+      createTeamGoal: (teamId, goal) => {
+        const newGoal = { id: generateId(), ...goal, currentPoints: 0, status: 'active' as const };
+        set((state) => ({
+          teams: state.teams.map((t) => (t.id === teamId ? { ...t, goal: newGoal } : t)),
+        }));
+      },
+
+      updateTeamGoal: (teamId, patch) => {
+        set((state) => ({
+          teams: state.teams.map((t) =>
+            t.id === teamId && t.goal ? { ...t, goal: { ...t.goal, ...patch } } : t
+          ),
+        }));
+      },
+
+      completeTeamGoal: (teamId) => {
+        set((state) => ({
+          teams: state.teams.map((t) =>
+            t.id === teamId && t.goal
+              ? { ...t, goal: { ...t.goal, status: 'completed' } }
+              : t
+          ),
+        }));
+      },
+
+      createTeamGame: (input) => {
+        const game: TeamGame = {
+          ...input,
+          id: generateId(),
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({ teamGames: [...state.teamGames, game] }));
+      },
+
+      finishTeamGame: (gameId, winnerTeamId) => {
+        const { teamGames } = get();
+        const game = teamGames.find((g) => g.id === gameId);
+        if (!game) return;
+
+        const updatedGames = teamGames.map((g) =>
+          g.id === gameId ? { ...g, status: 'finished' as const, winnerTeamId } : g
+        );
+        set({ teamGames: updatedGames });
+        get().awardTeamPoints(winnerTeamId, game.pointsForWinner, `Победа в игре: ${game.title}`, 'game');
+      },
     }),
     {
       name: 'quranlearn-v2',
@@ -492,3 +659,23 @@ export const useRecentActivity = (limit = 10) =>
         .slice(0, limit)
     )
   );
+
+// ─── Team selectors ───────────────────────────────────────────────────────────
+
+export const useTeams = () => useAppStore((s) => s.teams);
+export const useTeamGames = () => useAppStore((s) => s.teamGames);
+
+export const useTeamById = (id: string) =>
+  useAppStore((s) => s.teams.find((t) => t.id === id));
+
+export const useTeamPointHistory = (teamId: string) =>
+  useAppStore(
+    useShallow((s) =>
+      s.teamPointHistory
+        .filter((h) => h.teamId === teamId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    )
+  );
+
+export const useStudentTeam = (studentId: string) =>
+  useAppStore((s) => s.teams.find((t) => t.studentIds.includes(studentId)));

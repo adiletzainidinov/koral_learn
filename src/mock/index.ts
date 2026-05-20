@@ -2,6 +2,7 @@ import type { Student } from '@/entities/student/model/types';
 import type { Assignment } from '@/entities/assignment/model/types';
 import type { AttendanceRecord } from '@/entities/attendance/model/types';
 import type { PointHistoryItem } from '@/entities/points/model/types';
+import type { Team, TeamPointHistory, TeamGame } from '@/entities/team/model/types';
 
 export const mockStudents: Student[] = [
   {
@@ -346,4 +347,87 @@ export const mockPointHistory: PointHistoryItem[] = [
   { id: 'p10', studentId: 's5', source: 'attendance', reason: 'Посещение 14.04.2026 — Присутствовал', points: 5, createdAt: '2026-04-14T09:00:00Z', attendanceId: 'at13' },
   { id: 'p11', studentId: 's6', source: 'attendance', reason: 'Посещение 14.04.2026 — Присутствовал', points: 5, createdAt: '2026-04-14T09:00:00Z', attendanceId: 'at14' },
   { id: 'p12', studentId: 's8', source: 'attendance', reason: 'Посещение 14.04.2026 — Присутствовал', points: 5, createdAt: '2026-04-14T09:00:00Z', attendanceId: 'at16' },
+];
+
+export const mockTeams: Team[] = [
+  {
+    id: 't1',
+    name: 'Аль-Фатиха',
+    description: 'Команда начинающих учеников группы А',
+    color: 'emerald',
+    emoji: '🌿',
+    studentIds: ['s1', 's2', 's4', 's7'],
+    points: 45,
+    createdAt: '2026-04-01T09:00:00Z',
+    goal: {
+      id: 'tg1',
+      title: 'Набрать 100 баллов',
+      targetPoints: 100,
+      currentPoints: 45,
+      reward: 'Мороженое всей команде',
+      deadline: '2026-05-31',
+      status: 'active',
+    },
+  },
+  {
+    id: 't2',
+    name: 'Ан-Нур',
+    description: 'Продвинутая команда группы B',
+    color: 'blue',
+    emoji: '💡',
+    studentIds: ['s3', 's5', 's6'],
+    points: 82,
+    createdAt: '2026-04-01T09:00:00Z',
+    goal: {
+      id: 'tg2',
+      title: 'Лидеры месяца',
+      targetPoints: 120,
+      currentPoints: 82,
+      reward: 'Поход в кино',
+      deadline: '2026-05-31',
+      status: 'active',
+    },
+  },
+  {
+    id: 't3',
+    name: 'Аль-Ихлас',
+    color: 'amber',
+    emoji: '✨',
+    studentIds: ['s8'],
+    points: 38,
+    createdAt: '2026-04-01T09:00:00Z',
+  },
+];
+
+export const mockTeamPointHistory: TeamPointHistory[] = [
+  { id: 'th1', teamId: 't1', points: 20, reason: 'Победа в соревновании по чтению', source: 'game', createdAt: '2026-04-15T10:00:00Z' },
+  { id: 'th2', teamId: 't1', points: 15, reason: 'Все участники сдали задание вовремя', source: 'manual', createdAt: '2026-04-18T10:00:00Z' },
+  { id: 'th3', teamId: 't1', points: 10, reason: 'Отличная посещаемость за неделю', source: 'manual', createdAt: '2026-04-20T10:00:00Z' },
+  { id: 'th4', teamId: 't2', points: 32, reason: 'Стартовый бонус команды', source: 'manual', createdAt: '2026-04-01T10:00:00Z' },
+  { id: 'th5', teamId: 't2', points: 20, reason: 'Победа в турнире по таджвиду', source: 'game', createdAt: '2026-04-12T10:00:00Z' },
+  { id: 'th6', teamId: 't2', points: 30, reason: 'Лучшие результаты в заданиях', source: 'manual', createdAt: '2026-04-16T10:00:00Z' },
+  { id: 'th7', teamId: 't3', points: 20, reason: 'Стартовый бонус', source: 'manual', createdAt: '2026-04-01T10:00:00Z' },
+  { id: 'th8', teamId: 't3', points: 18, reason: 'Хорошая неделя', source: 'manual', createdAt: '2026-04-15T10:00:00Z' },
+];
+
+export const mockTeamGames: TeamGame[] = [
+  {
+    id: 'tgame1',
+    title: 'Соревнование по чтению',
+    description: 'Команды соревнуются в правильном чтении аятов',
+    teamIds: ['t1', 't2', 't3'],
+    pointsForWinner: 20,
+    status: 'finished',
+    winnerTeamId: 't1',
+    createdAt: '2026-04-14T09:00:00Z',
+  },
+  {
+    id: 'tgame2',
+    title: 'Турнир по таджвиду',
+    description: 'Применение правил таджвида на практике',
+    teamIds: ['t1', 't2'],
+    pointsForWinner: 15,
+    status: 'planned',
+    createdAt: '2026-04-20T09:00:00Z',
+  },
 ];
