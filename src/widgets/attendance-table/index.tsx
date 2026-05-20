@@ -446,20 +446,6 @@ export function AttendanceTable() {
           </div>
         )}
 
-        {/* Row 4 — keyboard hint */}
-        {focusedIdx !== null && (
-          <p className="pt-1.5 border-t border-slate-50 text-xs text-slate-400">
-            {(['1', '2', '3', '4'] as const).map((k, i) => (
-              <span key={k}>
-                <kbd className="px-1 py-0.5 bg-slate-100 rounded text-[11px] font-mono">{k}</kbd>{' '}
-                {CFG[CYCLE[i]].label}
-                {i < 3 ? ' · ' : ''}
-              </span>
-            ))}
-            {' · '}
-            <kbd className="px-1 py-0.5 bg-slate-100 rounded text-[11px] font-mono">↑↓</kbd> навигация
-          </p>
-        )}
       </div>
 
       {/* ── Empty states ────────────────────────────────────────────────────── */}
