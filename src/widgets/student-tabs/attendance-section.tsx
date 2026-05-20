@@ -1,14 +1,66 @@
 'use client';
 
-import { useState, Fragment } from 'react';
-import { CalendarDays, CheckCircle2, ChevronDown } from 'lucide-react';
+import { useState, useRef, useEffect, Fragment } from 'react';
+import { CalendarDays, CheckCircle2, ChevronDown, AlertCircle } from 'lucide-react';
 import { Card } from '@/shared/ui/card';
 import { AttendanceStatusBadge, PointsBadge } from '@/shared/ui/badge';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { useAppStore, useStudentAttendance } from '@/store/app-store';
 import { todayISO, formatShortDate } from '@/shared/lib/dates';
-import { getAttendancePoints, getEffectiveAttendanceStatus } from '@/entities/attendance/model/types';
+import { getAttendancePoints, getEffectiveAttendanceStatus, TIMER_MAX_HOURS } from '@/entities/attendance/model/types';
 import type { AttendanceStatus } from '@/entities/attendance/model/types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LiveAttendanceTimer — isolated component, only it re-renders each second
+// ─────────────────────────────────────────────────────────────────────────────
+
+function LiveAttendanceTimer({
+  checkInAt,
+  onExpire,
+}: {
+  checkInAt: string;
+  onExpire: () => void;
+}) {
+  const onExpireRef = useRef(onExpire);
+  useEffect(() => { onExpireRef.current = onExpire; });
+
+  const [elapsed, setElapsed] = useState(() =>
+    Math.max(0, Math.floor((Date.now() - new Date(checkInAt).getTime()) / 1000))
+  );
+
+  useEffect(() => {
+    const startMs = new Date(checkInAt).getTime();
+    const maxSec = TIMER_MAX_HOURS * 3600;
+    const id = setInterval(() => {
+      const s = Math.floor((Date.now() - startMs) / 1000);
+      if (s >= maxSec) {
+        clearInterval(id);
+        setElapsed(maxSec);
+        onExpireRef.current();
+        return;
+      }
+      setElapsed(s);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [checkInAt]);
+
+  const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+  const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+  const s = String(elapsed % 60).padStart(2, '0');
+
+  return (
+    <span className="font-mono text-sm tabular-nums text-slate-700 tracking-tight">
+      {h}:{m}:{s}
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function formatTimeHHMM(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
 
 const STATUS_BUTTONS: {
   status: AttendanceStatus;
@@ -42,12 +94,11 @@ const STATUS_BUTTONS: {
   },
 ];
 
-// Compact inline buttons for history row editing
 const INLINE_BUTTONS: { status: AttendanceStatus; label: string; classes: string }[] = [
-  { status: 'present',  label: 'Присутствовал',   classes: 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100' },
-  { status: 'late',     label: 'Опоздал',          classes: 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' },
-  { status: 'absent',   label: 'Отсутствовал',     classes: 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100' },
-  { status: 'excused',  label: 'Уваж. причина',    classes: 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100' },
+  { status: 'present',  label: 'Присутствовал', classes: 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100' },
+  { status: 'late',     label: 'Опоздал',        classes: 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' },
+  { status: 'absent',   label: 'Отсутствовал',   classes: 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100' },
+  { status: 'excused',  label: 'Уваж. причина',  classes: 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100' },
 ];
 
 interface Props {
@@ -58,12 +109,14 @@ export function StudentAttendanceSection({ studentId }: Props) {
   const [date, setDate] = useState(todayISO());
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const attendance = useStudentAttendance(studentId);
-  const markAttendance = useAppStore((s) => s.markAttendance);
+  const markAttendance        = useAppStore((s) => s.markAttendance);
+  const stopAttendanceTimer   = useAppStore((s) => s.stopAttendanceTimer);
+  const expireAttendanceTimer = useAppStore((s) => s.expireAttendanceTimer);
 
   const selectedRecord = attendance.find((r) => r.date === date);
-  // Default to 'absent' if no record exists for the selected date
   const activeStatus = getEffectiveAttendanceStatus(selectedRecord);
   const isToday = date === todayISO();
+  const isRunning = selectedRecord?.timerStatus === 'running';
 
   function handleMark(targetDate: string, status: AttendanceStatus) {
     markAttendance(studentId, targetDate, status);
@@ -122,11 +175,11 @@ export function StudentAttendanceSection({ studentId }: Props) {
           </div>
         </div>
 
-        {/* status buttons — 'absent' highlighted when no record exists */}
+        {/* status buttons — show base points on 'Присутствовал' */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {STATUS_BUTTONS.map(({ status, label, base, active }) => {
-            const isActive = activeStatus === status;
-            const points = getAttendancePoints(status);
+            const isActive = activeStatus === status && !!selectedRecord;
+            const pts = getAttendancePoints(status);
             return (
               <button
                 key={status}
@@ -136,15 +189,72 @@ export function StudentAttendanceSection({ studentId }: Props) {
                 }`}
               >
                 <span>{label}</span>
-                {points > 0 && (
+                {pts > 0 && (
                   <span className={`text-xs font-semibold ${isActive ? 'opacity-80' : 'opacity-50'}`}>
-                    +{points} б.
+                    +{pts} б.
                   </span>
                 )}
               </button>
             );
           })}
         </div>
+
+        {/* Timer panel — only when marked present */}
+        {selectedRecord && activeStatus === 'present' && (
+          <div className="pt-3 border-t border-slate-100">
+            {isRunning && selectedRecord.checkInAt && (
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="size-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+                  <span className="text-sm text-slate-600">На занятии:</span>
+                  <LiveAttendanceTimer
+                    checkInAt={selectedRecord.checkInAt}
+                    onExpire={() => expireAttendanceTimer(studentId, date)}
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-400">Бонус начислится после остановки</span>
+                  <button
+                    onClick={() => stopAttendanceTimer(studentId, date)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors cursor-pointer"
+                  >
+                    Остановить
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {selectedRecord.timerStatus === 'stopped' && (
+              <div className="flex items-center gap-2 text-sm text-emerald-700">
+                <CheckCircle2 className="size-4 shrink-0" />
+                {selectedRecord.completedHours > 0 ? (
+                  <span>
+                    Был {selectedRecord.completedHours}ч
+                    {' · '}
+                    <span className="font-semibold">+{selectedRecord.bonusPoints} бонус за часы</span>
+                    {' · '}
+                    итого <span className="font-semibold">+{selectedRecord.pointsAwarded} б.</span>
+                  </span>
+                ) : (
+                  <span>Без бонуса за часы · +5 б.</span>
+                )}
+              </div>
+            )}
+
+            {selectedRecord.timerStatus === 'expired' && (
+              <div className="flex items-center gap-2 text-sm text-orange-600">
+                <AlertCircle className="size-4 shrink-0" />
+                Таймер не был остановлен — бонус за часы сгорел · +5 б.
+              </div>
+            )}
+
+            {selectedRecord.timerStatus === 'not_started' && (
+              <div className="text-xs text-slate-400">
+                Записано без таймера · +5 б.
+              </div>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* history list */}
@@ -166,6 +276,14 @@ export function StudentAttendanceSection({ studentId }: Props) {
             <tbody>
               {attendance.map((r) => {
                 const isExpanded = expandedDate === r.date;
+                const timeStr = r.status === 'present' && r.checkInAt
+                  ? r.checkOutAt
+                    ? `${formatTimeHHMM(r.checkInAt)}–${formatTimeHHMM(r.checkOutAt)}`
+                    : r.timerStatus === 'running'
+                      ? `с ${formatTimeHHMM(r.checkInAt)}`
+                      : formatTimeHHMM(r.checkInAt)
+                  : null;
+
                 return (
                   <Fragment key={r.id}>
                     <tr
@@ -179,6 +297,16 @@ export function StudentAttendanceSection({ studentId }: Props) {
                       </td>
                       <td className="px-4 py-3">
                         <AttendanceStatusBadge status={r.status} />
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {r.timerStatus === 'running' ? (
+                          <span className="flex items-center gap-1 text-green-600">
+                            <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
+                            идёт
+                          </span>
+                        ) : timeStr ? (
+                          <span>{timeStr}{r.completedHours > 0 ? ` · ${r.completedHours}ч` : ''}</span>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3">
                         {r.pointsAwarded > 0 ? (
@@ -196,20 +324,53 @@ export function StudentAttendanceSection({ studentId }: Props) {
 
                     {isExpanded && (
                       <tr className="bg-slate-50 border-b border-slate-100">
-                        <td colSpan={4} className="px-5 py-3">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-slate-500 mr-1">Изменить:</span>
-                            {INLINE_BUTTONS.map(({ status, label, classes }) => (
-                              <button
-                                key={status}
-                                onClick={(e) => { e.stopPropagation(); handleMark(r.date, status); }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${classes} ${
-                                  r.status === status ? 'ring-2 ring-offset-1 ring-current font-semibold' : ''
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            ))}
+                        <td colSpan={5} className="px-5 py-3">
+                          <div className="flex flex-col gap-3">
+                            {/* Status change buttons */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs text-slate-500">Изменить:</span>
+                              {INLINE_BUTTONS.map(({ status, label, classes }) => (
+                                <button
+                                  key={status}
+                                  onClick={(e) => { e.stopPropagation(); handleMark(r.date, status); }}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${classes} ${
+                                    r.status === status ? 'ring-2 ring-offset-1 ring-current font-semibold' : ''
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Timer info for present records */}
+                            {r.status === 'present' && (
+                              <div className="text-xs text-slate-500 flex flex-col gap-1">
+                                {r.timerStatus === 'running' && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
+                                    <span>Таймер запущен с {formatTimeHHMM(r.checkInAt)}</span>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); stopAttendanceTimer(studentId, r.date); }}
+                                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors cursor-pointer"
+                                    >
+                                      Остановить
+                                    </button>
+                                  </div>
+                                )}
+                                {r.timerStatus === 'stopped' && r.checkInAt && r.checkOutAt && (
+                                  <span>
+                                    {formatTimeHHMM(r.checkInAt)}–{formatTimeHHMM(r.checkOutAt)}
+                                    {r.completedHours > 0 && ` · ${r.completedHours}ч · +${r.bonusPoints} бонус`}
+                                  </span>
+                                )}
+                                {r.timerStatus === 'expired' && (
+                                  <span className="text-orange-600 flex items-center gap-1">
+                                    <AlertCircle className="size-3" />
+                                    Бонус сгорел — таймер не был остановлен
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>

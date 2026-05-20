@@ -303,31 +303,34 @@ export const mockAssignments: Assignment[] = [
   },
 ];
 
+const PRESENT_STOPPED = { checkInAt: null, checkOutAt: null, timerStatus: 'stopped' as const, completedHours: 0, bonusPoints: 0 };
+const NON_PRESENT = { checkInAt: null, checkOutAt: null, timerStatus: 'not_started' as const, completedHours: 0, bonusPoints: 0 };
+
 export const mockAttendanceRecords: AttendanceRecord[] = [
   // s1 — был сегодня (2026-04-20) → Сегодня 🟢
-  { id: 'at1', studentId: 's1', date: '2026-04-20', status: 'present', pointsAwarded: 1 },
-  { id: 'at9', studentId: 's1', date: '2026-04-17', status: 'present', pointsAwarded: 1 },
+  { id: 'at1', studentId: 's1', date: '2026-04-20', status: 'present', ...PRESENT_STOPPED, pointsAwarded: 5 },
+  { id: 'at9', studentId: 's1', date: '2026-04-17', status: 'present', ...PRESENT_STOPPED, pointsAwarded: 5 },
   // s2 — вчера (2026-04-19) → Вчера 🟡
-  { id: 'at2', studentId: 's2', date: '2026-04-19', status: 'present', pointsAwarded: 1 },
-  { id: 'at10', studentId: 's2', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
+  { id: 'at2', studentId: 's2', date: '2026-04-19', status: 'present', ...PRESENT_STOPPED, pointsAwarded: 5 },
+  { id: 'at10', studentId: 's2', date: '2026-04-14', status: 'present', ...PRESENT_STOPPED, pointsAwarded: 5 },
   // s3 — 3 дня назад (2026-04-17) → 3 дн. назад 🟡
-  { id: 'at3', studentId: 's3', date: '2026-04-17', status: 'late', pointsAwarded: 0 },
-  { id: 'at11', studentId: 's3', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
+  { id: 'at3', studentId: 's3', date: '2026-04-17', status: 'late', ...NON_PRESENT, pointsAwarded: 3 },
+  { id: 'at11', studentId: 's3', date: '2026-04-14', status: 'present', ...PRESENT_STOPPED, pointsAwarded: 5 },
   // s4 — 7 дней назад (2026-04-13) → 7 дн. назад 🔴
-  { id: 'at4', studentId: 's4', date: '2026-04-13', status: 'absent', pointsAwarded: 0 },
-  { id: 'at12', studentId: 's4', date: '2026-04-10', status: 'present', pointsAwarded: 1 },
+  { id: 'at4', studentId: 's4', date: '2026-04-13', status: 'absent', ...NON_PRESENT, pointsAwarded: 0 },
+  { id: 'at12', studentId: 's4', date: '2026-04-10', status: 'present', ...PRESENT_STOPPED, pointsAwarded: 5 },
   // s5 — 2 дня назад (2026-04-18) → 2 дн. назад 🟡
-  { id: 'at5', studentId: 's5', date: '2026-04-18', status: 'present', pointsAwarded: 1 },
-  { id: 'at13', studentId: 's5', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
+  { id: 'at5', studentId: 's5', date: '2026-04-18', status: 'present', ...PRESENT_STOPPED, pointsAwarded: 5 },
+  { id: 'at13', studentId: 's5', date: '2026-04-14', status: 'present', ...PRESENT_STOPPED, pointsAwarded: 5 },
   // s6 — сегодня (2026-04-20) → Сегодня 🟢
-  { id: 'at6', studentId: 's6', date: '2026-04-20', status: 'present', pointsAwarded: 1 },
-  { id: 'at14', studentId: 's6', date: '2026-04-17', status: 'present', pointsAwarded: 1 },
+  { id: 'at6', studentId: 's6', date: '2026-04-20', status: 'present', ...PRESENT_STOPPED, pointsAwarded: 5 },
+  { id: 'at14', studentId: 's6', date: '2026-04-17', status: 'present', ...PRESENT_STOPPED, pointsAwarded: 5 },
   // s7 — 14 дней назад (2026-04-06) → 14 дн. назад 🔴
-  { id: 'at7', studentId: 's7', date: '2026-04-06', status: 'excused', pointsAwarded: 0 },
-  { id: 'at15', studentId: 's7', date: '2026-03-30', status: 'late', pointsAwarded: 0 },
+  { id: 'at7', studentId: 's7', date: '2026-04-06', status: 'excused', ...NON_PRESENT, pointsAwarded: 1 },
+  { id: 'at15', studentId: 's7', date: '2026-03-30', status: 'late', ...NON_PRESENT, pointsAwarded: 3 },
   // s8 — вчера (2026-04-19) → Вчера 🟡
-  { id: 'at8', studentId: 's8', date: '2026-04-19', status: 'present', pointsAwarded: 1 },
-  { id: 'at16', studentId: 's8', date: '2026-04-14', status: 'present', pointsAwarded: 1 },
+  { id: 'at8', studentId: 's8', date: '2026-04-19', status: 'present', ...PRESENT_STOPPED, pointsAwarded: 5 },
+  { id: 'at16', studentId: 's8', date: '2026-04-14', status: 'present', ...PRESENT_STOPPED, pointsAwarded: 5 },
 ];
 
 export const mockPointHistory: PointHistoryItem[] = [
@@ -338,9 +341,9 @@ export const mockPointHistory: PointHistoryItem[] = [
   { id: 'p5', studentId: 's2', source: 'assignment', reason: 'Задание: Арабский алфавит — Хорошо', points: 2, createdAt: '2026-04-13T10:00:00Z' },
   { id: 'p6', studentId: 's5', source: 'assignment', reason: 'Задание: Хизб из Аль-Бакара — Отлично', points: 3, createdAt: '2026-04-14T10:00:00Z' },
   { id: 'p7', studentId: 's8', source: 'assignment', reason: 'Задание: Хизб из Аль-Кяхф — Отлично', points: 3, createdAt: '2026-04-14T10:00:00Z' },
-  { id: 'p8', studentId: 's1', source: 'attendance', reason: 'Посещение 14.04.2026', points: 1, createdAt: '2026-04-14T09:00:00Z' },
-  { id: 'p9', studentId: 's2', source: 'attendance', reason: 'Посещение 14.04.2026', points: 1, createdAt: '2026-04-14T09:00:00Z' },
-  { id: 'p10', studentId: 's5', source: 'attendance', reason: 'Посещение 14.04.2026', points: 1, createdAt: '2026-04-14T09:00:00Z' },
-  { id: 'p11', studentId: 's6', source: 'attendance', reason: 'Посещение 14.04.2026', points: 1, createdAt: '2026-04-14T09:00:00Z' },
-  { id: 'p12', studentId: 's8', source: 'attendance', reason: 'Посещение 14.04.2026', points: 1, createdAt: '2026-04-14T09:00:00Z' },
+  { id: 'p8',  studentId: 's1', source: 'attendance', reason: 'Посещение 17.04.2026 — Присутствовал', points: 5, createdAt: '2026-04-17T09:00:00Z', attendanceId: 'at9' },
+  { id: 'p9',  studentId: 's2', source: 'attendance', reason: 'Посещение 14.04.2026 — Присутствовал', points: 5, createdAt: '2026-04-14T09:00:00Z', attendanceId: 'at10' },
+  { id: 'p10', studentId: 's5', source: 'attendance', reason: 'Посещение 14.04.2026 — Присутствовал', points: 5, createdAt: '2026-04-14T09:00:00Z', attendanceId: 'at13' },
+  { id: 'p11', studentId: 's6', source: 'attendance', reason: 'Посещение 14.04.2026 — Присутствовал', points: 5, createdAt: '2026-04-14T09:00:00Z', attendanceId: 'at14' },
+  { id: 'p12', studentId: 's8', source: 'attendance', reason: 'Посещение 14.04.2026 — Присутствовал', points: 5, createdAt: '2026-04-14T09:00:00Z', attendanceId: 'at16' },
 ];

@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { CalendarDays, CheckCircle, Search, X, Users } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { CalendarDays, CheckCircle, Search, X, Users, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
 import { PageHeader } from '@/shared/ui/page-header';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { useAppStore, useStudents, useAttendanceRecords } from '@/store/app-store';
 import { todayISO } from '@/shared/lib/dates';
-import { getEffectiveAttendanceStatus } from '@/entities/attendance/model/types';
+import { getEffectiveAttendanceStatus, TIMER_MAX_HOURS } from '@/entities/attendance/model/types';
 import type { AttendanceStatus } from '@/entities/attendance/model/types';
 import { applyFilters, isFiltersActive, DEFAULT_FILTERS } from './filters';
 import type { Filters } from './filters';
@@ -21,39 +21,81 @@ const CYCLE: AttendanceStatus[] = ['present', 'late', 'absent', 'excused'];
 
 const CFG: Record<
   AttendanceStatus,
-  { label: string; points: number; rowBg: string; activeBg: string; activeText: string; accentBorder: string; statColor: string; chipActive: string }
+  { label: string; rowBg: string; activeBg: string; activeText: string; accentBorder: string; statColor: string; chipActive: string }
 > = {
   present: {
-    label: 'Присутствовал', points: 5,
+    label: 'Присутствовал',
     rowBg: 'bg-green-50/60', activeBg: 'bg-green-500', activeText: 'text-white',
     accentBorder: 'border-l-green-400', statColor: 'text-green-600',
     chipActive: 'bg-green-500 text-white shadow-sm',
   },
   late: {
-    label: 'Опоздал', points: 3,
+    label: 'Опоздал',
     rowBg: 'bg-amber-50/60', activeBg: 'bg-amber-400', activeText: 'text-white',
     accentBorder: 'border-l-amber-400', statColor: 'text-amber-600',
     chipActive: 'bg-amber-400 text-white shadow-sm',
   },
   absent: {
-    label: 'Отсутствовал', points: 0,
+    label: 'Отсутствовал',
     rowBg: 'bg-red-50/60', activeBg: 'bg-red-500', activeText: 'text-white',
     accentBorder: 'border-l-red-400', statColor: 'text-red-500',
     chipActive: 'bg-red-500 text-white shadow-sm',
   },
   excused: {
-    label: 'Уваж. причина', points: 1,
+    label: 'Уваж. причина',
     rowBg: 'bg-blue-50/60', activeBg: 'bg-blue-500', activeText: 'text-white',
     accentBorder: 'border-l-blue-400', statColor: 'text-blue-500',
     chipActive: 'bg-blue-500 text-white shadow-sm',
   },
 };
 
-const BULK: { status: AttendanceStatus; label: string; cls: string }[] = [
-  { status: 'present', label: 'Всем: Присутствовал', cls: 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100' },
-  { status: 'absent',  label: 'Всем: Отсутствовал',  cls: 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100' },
-  { status: 'late',    label: 'Всем: Опоздал',       cls: 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' },
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// LiveAttendanceTimer — isolated; only this component re-renders each second
+// ─────────────────────────────────────────────────────────────────────────────
+
+function LiveAttendanceTimer({
+  checkInAt,
+  onExpire,
+}: {
+  checkInAt: string;
+  onExpire: () => void;
+}) {
+  // Keep onExpire ref current without restarting the interval
+  const onExpireRef = useRef(onExpire);
+  useEffect(() => { onExpireRef.current = onExpire; });
+
+  const [elapsed, setElapsed] = useState(() =>
+    Math.max(0, Math.floor((Date.now() - new Date(checkInAt).getTime()) / 1000))
+  );
+
+  useEffect(() => {
+    const startMs = new Date(checkInAt).getTime();
+    const maxSec = TIMER_MAX_HOURS * 3600;
+
+    const id = setInterval(() => {
+      const s = Math.floor((Date.now() - startMs) / 1000);
+      if (s >= maxSec) {
+        clearInterval(id);
+        setElapsed(maxSec);
+        onExpireRef.current();
+        return;
+      }
+      setElapsed(s);
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [checkInAt]); // Only re-create when checkInAt changes
+
+  const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+  const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+  const s = String(elapsed % 60).padStart(2, '0');
+
+  return (
+    <span className="font-mono text-xs tabular-nums text-slate-700 tracking-tight">
+      {h}:{m}:{s}
+    </span>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Small reusable chip
@@ -85,12 +127,14 @@ function Chip({
 export function AttendanceTable() {
   const students = useStudents().filter((s) => s.isActive);
   const allRecords = useAttendanceRecords();
-  const markAttendance = useAppStore((s) => s.markAttendance);
+  const markAttendance      = useAppStore((s) => s.markAttendance);
+  const stopAttendanceTimer = useAppStore((s) => s.stopAttendanceTimer);
+  const expireAttendanceTimer = useAppStore((s) => s.expireAttendanceTimer);
 
-  const [date, setDate]       = useState(todayISO());
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [date, setDate]         = useState(todayISO());
+  const [filters, setFilters]   = useState<Filters>(DEFAULT_FILTERS);
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null);
-  const [flashId, setFlashId] = useState<string | null>(null);
+  const [flashId, setFlashId]   = useState<string | null>(null);
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -118,15 +162,21 @@ export function AttendanceTable() {
     return c;
   }, [visibleStudents, dateRecords]);
 
+  const runningCount = useMemo(
+    () => visibleStudents.filter((s) => {
+      const rec = dateRecords.find((r) => r.studentId === s.id);
+      return rec?.timerStatus === 'running';
+    }).length,
+    [visibleStudents, dateRecords],
+  );
+
   const filtersActive = isFiltersActive(filters);
   const allMarked = stats.marked === visibleStudents.length && visibleStudents.length > 0;
 
   // ── Side-effects ─────────────────────────────────────────────────────────
 
-  // Reset focus when visible set changes
   useEffect(() => { setFocusedIdx(null); }, [filters, date]);
 
-  // If selected group disappears from data, reset it
   useEffect(() => {
     if (filters.group !== 'ALL' && !groups.includes(filters.group)) {
       setFilters((f) => ({ ...f, group: 'ALL' }));
@@ -153,20 +203,36 @@ export function AttendanceTable() {
     [date, markAttendance, flash],
   );
 
+  const handleStop = useCallback(
+    (studentId: string) => {
+      stopAttendanceTimer(studentId, date);
+      flash(studentId);
+    },
+    [date, stopAttendanceTimer, flash],
+  );
+
   const cycleRow = useCallback(
     (studentId: string) => {
       const rec = dateRecords.find((r) => r.studentId === studentId);
+      // Don't cycle if timer is actively running — stop button is the action
+      if (rec?.timerStatus === 'running') return;
       const cur = rec?.status ?? 'absent';
       mark(studentId, CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length]);
     },
     [dateRecords, mark],
   );
 
-  // Bulk applies only to currently visible students
   const markAll = (status: AttendanceStatus) =>
     visibleStudents.forEach((s) => markAttendance(s.id, date, status));
 
-  // Keyboard shortcuts — only active when a row is focused
+  const stopAllRunning = useCallback(() => {
+    visibleStudents.forEach((s) => {
+      const rec = dateRecords.find((r) => r.studentId === s.id);
+      if (rec?.timerStatus === 'running') stopAttendanceTimer(s.id, date);
+    });
+  }, [visibleStudents, dateRecords, stopAttendanceTimer, date]);
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -217,7 +283,6 @@ export function AttendanceTable() {
             />
           </div>
 
-          {/* Search input */}
           <div className="relative shrink-0">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
             <input
@@ -237,7 +302,6 @@ export function AttendanceTable() {
             )}
           </div>
 
-          {/* Group chips */}
           {groups.length > 0 && (
             <>
               <div className="h-4 w-px bg-slate-200 shrink-0" />
@@ -250,7 +314,6 @@ export function AttendanceTable() {
             </>
           )}
 
-          {/* Reset + counter */}
           <div className="ml-auto shrink-0 flex items-center gap-2">
             {filtersActive && (
               <button
@@ -276,13 +339,12 @@ export function AttendanceTable() {
           </div>
         </div>
 
-        {/* Row 2 — status · activity · problem filter chips */}
+        {/* Row 2 — filters */}
         {students.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
-            {/* Status filter */}
             <div className="flex flex-wrap items-center gap-1">
               <Chip label="Все" active={filters.status === 'ALL'} onClick={() => setFilter('status', 'ALL')} />
-              {((['present', 'late', 'absent', 'excused'] as const)).map((s) => (
+              {(['present', 'late', 'absent', 'excused'] as const).map((s) => (
                 <Chip
                   key={s}
                   label={CFG[s].label}
@@ -301,7 +363,6 @@ export function AttendanceTable() {
 
             <div className="h-4 w-px bg-slate-200 shrink-0" />
 
-            {/* Activity filter */}
             <div className="flex flex-wrap items-center gap-1">
               <Chip label="Любая" active={filters.activity === 'ALL'} onClick={() => setFilter('activity', 'ALL')} />
               <Chip label="Сегодня" active={filters.activity === 'today'} activeClass="bg-indigo-500 text-white shadow-sm" onClick={() => setFilter('activity', 'today')} />
@@ -312,7 +373,6 @@ export function AttendanceTable() {
 
             <div className="h-4 w-px bg-slate-200 shrink-0" />
 
-            {/* Problem quick-filter */}
             <div className="flex flex-wrap items-center gap-1">
               <Chip
                 label="Часто отсутствуют"
@@ -336,19 +396,37 @@ export function AttendanceTable() {
           </div>
         )}
 
-        {/* Row 3 — bulk actions + status stats */}
+        {/* Row 3 — bulk actions */}
         {students.length > 0 && (
           <div className="flex flex-wrap items-center gap-3 pt-1.5 border-t border-slate-50">
             <div className="flex flex-wrap items-center gap-1.5">
-              {BULK.map(({ status, label, cls }) => (
+              <button
+                onClick={() => markAll('present')}
+                className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-green-50 text-green-700 border border-green-200 hover:bg-green-100"
+              >
+                Всем: Присутствовал
+              </button>
+              <button
+                onClick={() => markAll('absent')}
+                className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+              >
+                Всем: Отсутствовал
+              </button>
+              <button
+                onClick={() => markAll('late')}
+                className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+              >
+                Всем: Опоздал
+              </button>
+              {runningCount > 0 && (
                 <button
-                  key={status}
-                  onClick={() => markAll(status)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${cls}`}
+                  onClick={stopAllRunning}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-slate-800 text-white hover:bg-slate-700"
                 >
-                  {label}
+                  <span className="size-1.5 rounded-full bg-green-400 animate-pulse" />
+                  Остановить таймеры ({runningCount})
                 </button>
-              ))}
+              )}
             </div>
 
             {stats.marked > 0 && (
@@ -368,7 +446,7 @@ export function AttendanceTable() {
           </div>
         )}
 
-        {/* Row 4 — keyboard hint (only when a row is focused) */}
+        {/* Row 4 — keyboard hint */}
         {focusedIdx !== null && (
           <p className="pt-1.5 border-t border-slate-50 text-xs text-slate-400">
             {(['1', '2', '3', '4'] as const).map((k, i) => (
@@ -434,7 +512,7 @@ export function AttendanceTable() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
                   Статус
                 </th>
-                <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-20">
+                <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">
                   Баллы
                 </th>
               </tr>
@@ -447,6 +525,8 @@ export function AttendanceTable() {
                 const cfg    = CFG[status];
                 const isFocused  = focusedIdx === idx;
                 const isFlashing = flashId === student.id;
+                const displayPoints = record?.pointsAwarded ?? 0;
+                const isRunning = record?.timerStatus === 'running';
 
                 return (
                   <tr
@@ -454,9 +534,10 @@ export function AttendanceTable() {
                     onClick={() => cycleRow(student.id)}
                     onMouseEnter={() => setFocusedIdx(idx)}
                     onMouseLeave={() => setFocusedIdx(null)}
-                    title="Кликните для изменения статуса"
+                    title={isRunning ? 'Таймер запущен — нажмите «Остановить» для начисления бонуса' : 'Кликните для изменения статуса'}
                     className={[
-                      'cursor-pointer select-none border-l-2 transition-all duration-200 ease-out',
+                      'select-none border-l-2 transition-all duration-200 ease-out',
+                      isRunning ? 'cursor-default' : 'cursor-pointer',
                       isSet ? cfg.rowBg : '',
                       isSet && isFocused ? cfg.accentBorder : isFocused ? 'border-l-slate-300' : 'border-l-transparent',
                       isFlashing ? 'brightness-95' : '',
@@ -478,38 +559,88 @@ export function AttendanceTable() {
                       </div>
                     </td>
 
-                    {/* Segmented status control */}
+                    {/* Status control + timer */}
                     <td className="px-4 py-3.5">
-                      <div className="flex gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
-                        {CYCLE.map((s) => {
-                          const sCfg   = CFG[s];
-                          const isActive = status === s && isSet;
-                          return (
-                            <button
-                              key={s}
-                              onClick={() => mark(student.id, s)}
-                              className={[
-                                'px-2 py-0.5 rounded text-xs font-medium transition-all duration-150 whitespace-nowrap',
-                                isActive
-                                  ? `${sCfg.activeBg} ${sCfg.activeText} shadow-sm`
-                                  : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600',
-                              ].join(' ')}
-                            >
-                              {sCfg.label}
-                            </button>
-                          );
-                        })}
+                      <div className="flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+
+                        {/* Status buttons */}
+                        <div className="flex gap-1 flex-wrap">
+                          {CYCLE.map((s) => {
+                            const sCfg = CFG[s];
+                            const isActive = status === s && isSet;
+                            return (
+                              <button
+                                key={s}
+                                onClick={() => mark(student.id, s)}
+                                className={[
+                                  'px-2 py-0.5 rounded text-xs font-medium transition-all duration-150 whitespace-nowrap',
+                                  isActive
+                                    ? `${sCfg.activeBg} ${sCfg.activeText} shadow-sm`
+                                    : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600',
+                                ].join(' ')}
+                              >
+                                {sCfg.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Timer state — only for present */}
+                        {isSet && status === 'present' && (
+                          <div className="mt-0.5">
+                            {record.timerStatus === 'running' && record.checkInAt && (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="size-1.5 rounded-full bg-green-500 animate-pulse shrink-0" />
+                                  <span className="text-[11px] text-slate-400">На занятии:</span>
+                                  <LiveAttendanceTimer
+                                    checkInAt={record.checkInAt}
+                                    onExpire={() => expireAttendanceTimer(student.id, date)}
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => handleStop(student.id)}
+                                  className="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
+                                >
+                                  Остановить
+                                </button>
+                                <span className="text-[10px] text-slate-400 hidden sm:inline">бонус после остановки</span>
+                              </div>
+                            )}
+
+                            {(record.timerStatus === 'stopped' || record.timerStatus === 'not_started') && (
+                              <div className="flex items-center gap-1.5 text-xs text-emerald-700">
+                                <CheckCircle2 className="size-3 shrink-0" />
+                                {record.completedHours > 0
+                                  ? `${record.completedHours}ч · +${record.bonusPoints} бонус`
+                                  : 'Без бонуса за часы'}
+                              </div>
+                            )}
+
+                            {record.timerStatus === 'expired' && (
+                              <div className="flex items-center gap-1.5 text-xs text-orange-600">
+                                <AlertCircle className="size-3 shrink-0" />
+                                Бонус сгорел — таймер не остановлен
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </td>
 
                     {/* Points */}
                     <td className="px-5 py-3.5 text-right">
-                      <span className={[
-                        'text-sm font-bold tabular-nums transition-colors duration-200',
-                        isSet ? (cfg.points > 0 ? 'text-emerald-600' : 'text-slate-400') : 'text-slate-300',
-                      ].join(' ')}>
-                        {isSet ? (cfg.points > 0 ? `+${cfg.points}` : '0') : '—'}
-                      </span>
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className={[
+                          'text-sm font-bold tabular-nums transition-colors duration-200',
+                          isSet ? (displayPoints > 0 ? 'text-emerald-600' : 'text-slate-400') : 'text-slate-300',
+                        ].join(' ')}>
+                          {isSet ? (displayPoints > 0 ? `+${displayPoints}` : '0') : '—'}
+                        </span>
+                        {isSet && status === 'present' && isRunning && (
+                          <span className="text-[10px] text-slate-400 font-normal">базовые</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

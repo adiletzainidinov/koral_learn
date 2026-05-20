@@ -5,10 +5,15 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { useShallow } from 'zustand/shallow';
 import type { Student, CreateStudentInput, UpdateStudentInput } from '@/entities/student/model/types';
 import type { Assignment, AssignmentStatus, CreateAssignmentInput, CreateAssignmentContent, UpdateAssignmentInput } from '@/entities/assignment/model/types';
-import type { AttendanceRecord, AttendanceStatus } from '@/entities/attendance/model/types';
+import type { AttendanceRecord, AttendanceStatus, TimerStatus } from '@/entities/attendance/model/types';
 import type { PointHistoryItem } from '@/entities/points/model/types';
 import { getAssignmentPoints } from '@/entities/assignment/model/types';
-import { getAttendancePoints } from '@/entities/attendance/model/types';
+import {
+  getAttendancePoints,
+  getCompletedHours,
+  getHoursBonus,
+  ATTENDANCE_STATUS_LABELS,
+} from '@/entities/attendance/model/types';
 import { generateId } from '@/shared/lib/ids';
 import { todayISO } from '@/shared/lib/dates';
 import {
@@ -40,10 +45,45 @@ interface AppState {
   removeAssignment: (id: string) => void;
 
   markAttendance: (studentId: string, date: string, status: AttendanceStatus) => void;
+  stopAttendanceTimer: (studentId: string, date: string) => void;
+  expireAttendanceTimer: (studentId: string, date: string) => void;
 
   awardBonusPoints: (studentId: string, reason: string, points: number) => void;
   updateBonusHistoryItem: (id: string, patch: { reason: string; points: number; comment?: string }) => void;
 }
+
+// ─── point-history helper ─────────────────────────────────────────────────────
+
+function buildPointHistory(
+  pointHistory: PointHistoryItem[],
+  attendanceId: string,
+  studentId: string,
+  newPoints: number,
+  reason: string,
+): PointHistoryItem[] {
+  const idx = pointHistory.findIndex((h) => h.attendanceId === attendanceId);
+  if (idx !== -1) {
+    if (newPoints === 0) return pointHistory.filter((_, i) => i !== idx);
+    return pointHistory.map((h, i) => i === idx ? { ...h, points: newPoints, reason } : h);
+  }
+  if (newPoints > 0) {
+    return [
+      ...pointHistory,
+      {
+        id: generateId(),
+        studentId,
+        source: 'attendance' as const,
+        reason,
+        points: newPoints,
+        createdAt: new Date().toISOString(),
+        attendanceId,
+      },
+    ];
+  }
+  return pointHistory;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -197,67 +237,128 @@ export const useAppStore = create<AppState>()(
           (r) => r.studentId === studentId && r.date === date
         );
 
-        const newPoints = getAttendancePoints(status);
+        // Timer state resolution
+        let checkInAt: string | null = null;
+        let checkOutAt: string | null = null;
+        let timerStatus: TimerStatus = 'not_started';
+        let completedHours = 0;
+        let bonusPoints = 0;
+
+        if (status === 'present') {
+          // Preserve existing timer if already present; restart only when switching from another status
+          if (existing?.status === 'present' && existing.timerStatus !== 'not_started') {
+            checkInAt = existing.checkInAt;
+            checkOutAt = existing.checkOutAt;
+            timerStatus = existing.timerStatus;
+            completedHours = existing.completedHours;
+            bonusPoints = existing.bonusPoints;
+          } else {
+            checkInAt = new Date().toISOString();
+            timerStatus = 'running';
+          }
+        }
+
+        const newPoints = getAttendancePoints(status, timerStatus, completedHours);
         const oldPoints = existing?.pointsAwarded ?? 0;
         const delta = newPoints - oldPoints;
-
-        // Resolve the stable id for this attendance record
         const attendanceId = existing?.id ?? generateId();
 
-        const updatedRecords: AttendanceRecord[] = existing
-          ? attendanceRecords.map((r) =>
-              r.id === attendanceId ? { ...r, status, pointsAwarded: newPoints } : r
-            )
-          : [
-              ...attendanceRecords,
-              { id: attendanceId, studentId, date, status, pointsAwarded: newPoints },
-            ];
+        const newRecord: AttendanceRecord = {
+          id: attendanceId,
+          studentId,
+          date,
+          status,
+          checkInAt,
+          checkOutAt,
+          timerStatus,
+          completedHours,
+          bonusPoints,
+          pointsAwarded: newPoints,
+        };
+
+        const updatedRecords = existing
+          ? attendanceRecords.map((r) => r.id === attendanceId ? newRecord : r)
+          : [...attendanceRecords, newRecord];
 
         const updatedStudents = delta !== 0
           ? students.map((s) =>
-              s.id === studentId
-                ? { ...s, totalPoints: Math.max(0, s.totalPoints + delta) }
-                : s
+              s.id === studentId ? { ...s, totalPoints: Math.max(0, s.totalPoints + delta) } : s
             )
           : students;
 
-        // One history entry per attendance record — update in-place rather than appending
         const dateFormatted = date.split('-').reverse().join('.');
-        const reason = `Посещение ${dateFormatted}`;
-        const existingHistoryIdx = pointHistory.findIndex(
-          (h) => h.attendanceId === attendanceId
-        );
-
-        let updatedHistory: PointHistoryItem[];
-        if (existingHistoryIdx !== -1) {
-          if (newPoints === 0) {
-            // Status changed to one that gives no points — remove the entry
-            updatedHistory = pointHistory.filter((_, i) => i !== existingHistoryIdx);
-          } else {
-            // Update absolute points in the existing entry
-            updatedHistory = pointHistory.map((h, i) =>
-              i === existingHistoryIdx ? { ...h, points: newPoints, reason } : h
-            );
-          }
-        } else if (newPoints > 0) {
-          // First time earning points for this date
-          updatedHistory = [
-            ...pointHistory,
-            {
-              id: generateId(),
-              studentId,
-              source: 'attendance' as const,
-              reason,
-              points: newPoints,
-              createdAt: new Date().toISOString(),
-              attendanceId,
-            },
-          ];
-        } else {
-          updatedHistory = pointHistory;
-        }
+        const reason = `Посещение ${dateFormatted} — ${ATTENDANCE_STATUS_LABELS[status]}`;
+        const updatedHistory = buildPointHistory(pointHistory, attendanceId, studentId, newPoints, reason);
 
         set({ attendanceRecords: updatedRecords, students: updatedStudents, pointHistory: updatedHistory });
+      },
+
+      stopAttendanceTimer: (studentId, date) => {
+        const { attendanceRecords, students, pointHistory } = get();
+        const existing = attendanceRecords.find(
+          (r) => r.studentId === studentId && r.date === date
+        );
+        if (!existing || existing.status !== 'present' || existing.timerStatus !== 'running') return;
+
+        const now = new Date().toISOString();
+        const completedHours = getCompletedHours(existing.checkInAt, now);
+        const bonusPoints = getHoursBonus(completedHours);
+        const newPoints = 5 + bonusPoints;
+        const delta = newPoints - existing.pointsAwarded;
+
+        const updatedRecord: AttendanceRecord = {
+          ...existing,
+          checkOutAt: now,
+          timerStatus: 'stopped',
+          completedHours,
+          bonusPoints,
+          pointsAwarded: newPoints,
+        };
+
+        const updatedRecords = attendanceRecords.map((r) =>
+          r.id === existing.id ? updatedRecord : r
+        );
+
+        const updatedStudents = delta !== 0
+          ? students.map((s) =>
+              s.id === studentId ? { ...s, totalPoints: Math.max(0, s.totalPoints + delta) } : s
+            )
+          : students;
+
+        const dateFormatted = date.split('-').reverse().join('.');
+        const hoursStr = completedHours > 0 ? `, ${completedHours}ч` : '';
+        const reason = `Посещение ${dateFormatted} — Присутствовал${hoursStr}`;
+        const updatedHistory = buildPointHistory(pointHistory, existing.id, studentId, newPoints, reason);
+
+        set({ attendanceRecords: updatedRecords, students: updatedStudents, pointHistory: updatedHistory });
+      },
+
+      expireAttendanceTimer: (studentId, date) => {
+        const { attendanceRecords, pointHistory } = get();
+        const existing = attendanceRecords.find(
+          (r) => r.studentId === studentId && r.date === date
+        );
+        if (!existing || existing.timerStatus !== 'running') return;
+
+        const updatedRecord: AttendanceRecord = {
+          ...existing,
+          checkOutAt: null,
+          timerStatus: 'expired',
+          completedHours: 0,
+          bonusPoints: 0,
+          pointsAwarded: 5,
+        };
+
+        const updatedRecords = attendanceRecords.map((r) =>
+          r.id === existing.id ? updatedRecord : r
+        );
+
+        const dateFormatted = date.split('-').reverse().join('.');
+        const reason = `Посещение ${dateFormatted} — Присутствовал, таймер не остановлен`;
+        // points stay at 5 — no student.totalPoints delta needed
+        const updatedHistory = buildPointHistory(pointHistory, existing.id, studentId, 5, reason);
+
+        set({ attendanceRecords: updatedRecords, pointHistory: updatedHistory });
       },
 
       awardBonusPoints: (studentId, reason, points) => {
