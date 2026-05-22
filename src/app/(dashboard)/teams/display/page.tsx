@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAppStore, useTeams, useActiveSeason, useTeamGoals } from '@/store/app-store';
-import { useShallow } from 'zustand/shallow';
 import { TEAM_COLOR_CLASSES, TEAM_LEVEL_CONFIGS, TEAM_BADGE_META, getTeamLevel, getNextLevelInfo } from '@/entities/team/model/types';
 import { todayISO } from '@/shared/lib/dates';
 
@@ -13,17 +12,23 @@ function useHydrated() {
 }
 
 function useTodayTeamAttendance() {
-  return useAppStore(
-    useShallow((s) => {
-      const today = todayISO();
-      return s.teams.map((t) => {
-        const presentIds = s.attendanceRecords
-          .filter((r) => r.date === today && t.studentIds.includes(r.studentId) && r.status === 'present')
-          .map((r) => r.studentId);
-        return { teamId: t.id, presentCount: presentIds.length, totalCount: t.studentIds.length };
-      });
-    })
-  );
+  // Pull raw stable references — selectors return s.teams / s.attendanceRecords directly,
+  // so references only change when the actual data changes.
+  const teams = useAppStore((s) => s.teams);
+  const attendanceRecords = useAppStore((s) => s.attendanceRecords);
+
+  // Derived mapping is computed in useMemo, not inside the Zustand selector.
+  // This avoids the "getSnapshot result must be cached" infinite-loop warning
+  // that happens when a selector returns new object/array references every call.
+  return useMemo(() => {
+    const today = todayISO();
+    return teams.map((t) => {
+      const presentCount = attendanceRecords.filter(
+        (r) => r.date === today && t.studentIds.includes(r.studentId) && r.status === 'present',
+      ).length;
+      return { teamId: t.id, presentCount, totalCount: t.studentIds.length };
+    });
+  }, [teams, attendanceRecords]);
 }
 
 function daysUntil(dateStr: string): number {
