@@ -6,7 +6,16 @@
       "Bash(curl -s http://localhost:3000 -o /dev/null -w \"%{http_code}\")",
       "Bash(npx next *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Nitro\\\\Documents\\\\QoranLearn\\\\src\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(xargs grep -l \"ATTENDANCE_POINTS\\\\|getAttendancePoints\\\\|markAttendance\")",
+      "Bash(git push *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Nitro\\\\Documents\\\\QoranLearn\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "PowerShell(head *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Nitro\\\\Documents\\\\QoranLearn\\\\src\\\\features\" -Directory | ForEach-Object { \"src/features/\" + $_.Name })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Nitro\\\\Documents\\\\QoranLearn\\\\src\\\\shared\" -Directory | ForEach-Object { \"src/shared/\" + $_.Name })"
     ]
   }
 }

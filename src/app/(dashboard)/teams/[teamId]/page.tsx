@@ -1,5 +1,10 @@
 import { TeamDetail } from '@/widgets/team-detail';
 
-export default function TeamDetailPage({ params }: { params: { teamId: string } }) {
-  return <TeamDetail teamId={params.teamId} />;
+export default async function TeamDetailPage({
+  params,
+}: {
+  params: Promise<{ teamId: string }>;
+}) {
+  const { teamId } = await params;
+  return <TeamDetail teamId={teamId} />;
 }
