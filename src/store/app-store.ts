@@ -7,7 +7,12 @@ import type { Student, CreateStudentInput, UpdateStudentInput } from '@/entities
 import type { Assignment, AssignmentStatus, CreateAssignmentInput, CreateAssignmentContent, UpdateAssignmentInput } from '@/entities/assignment/model/types';
 import type { AttendanceRecord, AttendanceStatus, TimerStatus } from '@/entities/attendance/model/types';
 import type { PointHistoryItem } from '@/entities/points/model/types';
-import type { Team, TeamPointHistory, TeamGame, CreateTeamInput, UpdateTeamInput, CreateTeamGameInput } from '@/entities/team/model/types';
+import type {
+  Team, TeamPointHistory, TeamGame, TeamSeason, RichTeamGoal, TeamBadge,
+  CreateTeamInput, UpdateTeamInput, CreateTeamGameInput, CreateRichTeamGoalInput,
+  TeamBadgeType,
+} from '@/entities/team/model/types';
+import { TEAM_BADGE_META as BADGE_META } from '@/entities/team/model/types';
 import { getAssignmentPoints } from '@/entities/assignment/model/types';
 import {
   getAttendancePoints,
@@ -25,6 +30,8 @@ import {
   mockTeams,
   mockTeamPointHistory,
   mockTeamGames,
+  mockTeamSeasons,
+  mockTeamGoals,
 } from '@/mock';
 
 interface AppState {
@@ -59,18 +66,39 @@ interface AppState {
   teams: Team[];
   teamPointHistory: TeamPointHistory[];
   teamGames: TeamGame[];
+  teamSeasons: TeamSeason[];
+  teamGoals: RichTeamGoal[];
+  activeSeasonId: string | null;
 
   createTeam: (input: CreateTeamInput) => string;
   updateTeam: (id: string, patch: UpdateTeamInput) => void;
   deleteTeam: (id: string) => void;
   addStudentToTeam: (teamId: string, studentId: string) => void;
   removeStudentFromTeam: (teamId: string, studentId: string) => void;
-  awardTeamPoints: (teamId: string, points: number, reason: string, source: TeamPointHistory['source']) => void;
+  moveStudentToTeam: (studentId: string, toTeamId: string) => void;
+  setTeamMemberRole: (teamId: string, studentId: string, role: 'captain' | 'assistant' | 'discipline' | 'revision') => void;
+  awardTeamPoints: (teamId: string, points: number, reason: string, source: TeamPointHistory['source'], opts?: { seasonId?: string | null; relatedGameId?: string | null; relatedGoalId?: string | null }) => void;
   createTeamGoal: (teamId: string, goal: { title: string; targetPoints: number; reward?: string; deadline?: string }) => void;
   updateTeamGoal: (teamId: string, patch: Partial<Omit<Team['goal'], 'id'>>) => void;
   completeTeamGoal: (teamId: string) => void;
   createTeamGame: (input: CreateTeamGameInput) => void;
+  startTeamGame: (gameId: string) => void;
   finishTeamGame: (gameId: string, winnerTeamId: string) => void;
+  deleteTeamGame: (gameId: string) => void;
+  // Seasons
+  createTeamSeason: (input: { title: string; description?: string; startDate: string; endDate?: string }) => string;
+  finishTeamSeason: (seasonId: string) => void;
+  setActiveTeamSeason: (seasonId: string | null) => void;
+  resetSeasonPoints: () => void;
+  // Rich goals
+  createRichTeamGoal: (input: CreateRichTeamGoalInput) => void;
+  updateRichTeamGoal: (id: string, patch: Partial<Pick<RichTeamGoal, 'title' | 'description' | 'targetValue' | 'currentValue' | 'reward' | 'deadline' | 'status' | 'type'>>) => void;
+  completeRichTeamGoal: (id: string) => void;
+  failRichTeamGoal: (id: string) => void;
+  deleteRichTeamGoal: (id: string) => void;
+  // Badges
+  awardTeamBadge: (teamId: string, type: TeamBadgeType) => void;
+  removeTeamBadge: (teamId: string, badgeId: string) => void;
 }
 
 // ─── point-history helper ─────────────────────────────────────────────────────
@@ -117,6 +145,9 @@ export const useAppStore = create<AppState>()(
       teams: [],
       teamPointHistory: [],
       teamGames: [],
+      teamSeasons: [],
+      teamGoals: [],
+      activeSeasonId: null,
 
       _seed: () => {
         const { _seeded } = get();
@@ -130,6 +161,9 @@ export const useAppStore = create<AppState>()(
           teams: mockTeams,
           teamPointHistory: mockTeamPointHistory,
           teamGames: mockTeamGames,
+          teamSeasons: mockTeamSeasons,
+          teamGoals: mockTeamGoals,
+          activeSeasonId: 'season1',
         });
       },
 
@@ -453,6 +487,8 @@ export const useAppStore = create<AppState>()(
           emoji: input.emoji,
           studentIds: input.studentIds,
           points: 0,
+          seasonPoints: 0,
+          badges: [],
           createdAt: new Date().toISOString(),
           goal,
         };
@@ -499,8 +535,8 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      awardTeamPoints: (teamId, points, reason, source) => {
-        const { teams, teamPointHistory } = get();
+      awardTeamPoints: (teamId, points, reason, source, opts) => {
+        const { teams, teamPointHistory, activeSeasonId } = get();
         const team = teams.find((t) => t.id === teamId);
         if (!team) return;
 
@@ -510,7 +546,9 @@ export const useAppStore = create<AppState>()(
             : team.goal;
 
         const updatedTeams = teams.map((t) =>
-          t.id === teamId ? { ...t, points: t.points + points, goal: updatedGoal } : t
+          t.id === teamId
+            ? { ...t, points: t.points + points, seasonPoints: (t.seasonPoints ?? 0) + points, goal: updatedGoal }
+            : t
         );
 
         const entry: TeamPointHistory = {
@@ -520,6 +558,9 @@ export const useAppStore = create<AppState>()(
           reason,
           source,
           createdAt: new Date().toISOString(),
+          seasonId: opts?.seasonId !== undefined ? opts.seasonId : activeSeasonId,
+          relatedGameId: opts?.relatedGameId,
+          relatedGoalId: opts?.relatedGoalId,
         };
 
         set({ teams: updatedTeams, teamPointHistory: [...teamPointHistory, entry] });
@@ -559,16 +600,176 @@ export const useAppStore = create<AppState>()(
         set((state) => ({ teamGames: [...state.teamGames, game] }));
       },
 
+      startTeamGame: (gameId) => {
+        set((state) => ({
+          teamGames: state.teamGames.map((g) =>
+            g.id === gameId ? { ...g, status: 'active' as const } : g
+          ),
+        }));
+      },
+
       finishTeamGame: (gameId, winnerTeamId) => {
         const { teamGames } = get();
         const game = teamGames.find((g) => g.id === gameId);
         if (!game) return;
 
+        const now = new Date().toISOString();
         const updatedGames = teamGames.map((g) =>
-          g.id === gameId ? { ...g, status: 'finished' as const, winnerTeamId } : g
+          g.id === gameId ? { ...g, status: 'finished' as const, winnerTeamId, finishedAt: now } : g
         );
         set({ teamGames: updatedGames });
-        get().awardTeamPoints(winnerTeamId, game.pointsForWinner, `Победа в игре: ${game.title}`, 'game');
+        get().awardTeamPoints(winnerTeamId, game.pointsForWinner, `Победа в игре: ${game.title}`, 'game', { relatedGameId: gameId });
+      },
+
+      deleteTeamGame: (gameId) => {
+        set((state) => ({
+          teamGames: state.teamGames.filter((g) => g.id !== gameId),
+        }));
+      },
+
+      moveStudentToTeam: (studentId, toTeamId) => {
+        set((state) => ({
+          teams: state.teams.map((t) => {
+            if (t.id === toTeamId) {
+              if (t.studentIds.includes(studentId)) return t;
+              return { ...t, studentIds: [...t.studentIds, studentId] };
+            }
+            return { ...t, studentIds: t.studentIds.filter((id) => id !== studentId) };
+          }),
+        }));
+      },
+
+      setTeamMemberRole: (teamId, studentId, role) => {
+        set((state) => ({
+          teams: state.teams.map((t) => {
+            if (t.id !== teamId) return t;
+            const patch: Partial<Team> = {};
+            if (role === 'captain') {
+              patch.captainId = studentId;
+            } else if (role === 'assistant') {
+              patch.assistantCaptainId = studentId;
+            } else if (role === 'discipline') {
+              patch.disciplineResponsibleId = studentId;
+            } else if (role === 'revision') {
+              patch.revisionResponsibleId = studentId;
+            }
+            return { ...t, ...patch };
+          }),
+        }));
+      },
+
+      // ─── Seasons ─────────────────────────────────────────────────────────
+
+      createTeamSeason: (input) => {
+        const id = generateId();
+        const season: TeamSeason = {
+          id,
+          ...input,
+          status: 'active',
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          teamSeasons: [...state.teamSeasons, season],
+          activeSeasonId: id,
+        }));
+        return id;
+      },
+
+      finishTeamSeason: (seasonId) => {
+        const { teams, teamSeasons } = get();
+        const sorted = [...teams].sort((a, b) => (b.seasonPoints ?? 0) - (a.seasonPoints ?? 0));
+        const winnerTeamId = sorted[0]?.id ?? null;
+        set({
+          teamSeasons: teamSeasons.map((s) =>
+            s.id === seasonId ? { ...s, status: 'finished' as const, winnerTeamId, endDate: new Date().toISOString().split('T')[0] } : s
+          ),
+          activeSeasonId: null,
+        });
+      },
+
+      setActiveTeamSeason: (seasonId) => {
+        set({ activeSeasonId: seasonId });
+      },
+
+      resetSeasonPoints: () => {
+        set((state) => ({
+          teams: state.teams.map((t) => ({ ...t, seasonPoints: 0 })),
+        }));
+      },
+
+      // ─── Rich goals ───────────────────────────────────────────────────────
+
+      createRichTeamGoal: (input) => {
+        const goal: RichTeamGoal = {
+          ...input,
+          id: generateId(),
+          currentValue: 0,
+          status: 'active',
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({ teamGoals: [...state.teamGoals, goal] }));
+      },
+
+      updateRichTeamGoal: (id, patch) => {
+        set((state) => ({
+          teamGoals: state.teamGoals.map((g) => (g.id === id ? { ...g, ...patch } : g)),
+        }));
+      },
+
+      completeRichTeamGoal: (id) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          teamGoals: state.teamGoals.map((g) =>
+            g.id === id ? { ...g, status: 'completed' as const, completedAt: now } : g
+          ),
+        }));
+      },
+
+      failRichTeamGoal: (id) => {
+        set((state) => ({
+          teamGoals: state.teamGoals.map((g) =>
+            g.id === id ? { ...g, status: 'failed' as const } : g
+          ),
+        }));
+      },
+
+      deleteRichTeamGoal: (id) => {
+        set((state) => ({
+          teamGoals: state.teamGoals.filter((g) => g.id !== id),
+        }));
+      },
+
+      // ─── Badges ───────────────────────────────────────────────────────────
+
+      awardTeamBadge: (teamId, type) => {
+        const meta = BADGE_META[type];
+        const badge: TeamBadge = {
+          id: generateId(),
+          teamId,
+          type,
+          title: meta.title,
+          icon: meta.icon,
+          description: meta.description,
+          awardedAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          teams: state.teams.map((t) =>
+            t.id === teamId
+              ? { ...t, badges: [...(t.badges ?? []), badge] }
+              : t
+          ),
+        }));
+        get().awardTeamPoints(teamId, 0, `Бейдж: ${meta.title}`, 'badge');
+      },
+
+      removeTeamBadge: (teamId, badgeId) => {
+        set((state) => ({
+          teams: state.teams.map((t) =>
+            t.id === teamId
+              ? { ...t, badges: (t.badges ?? []).filter((b) => b.id !== badgeId) }
+              : t
+          ),
+        }));
       },
     }),
     {
@@ -679,3 +880,18 @@ export const useTeamPointHistory = (teamId: string) =>
 
 export const useStudentTeam = (studentId: string) =>
   useAppStore((s) => s.teams.find((t) => t.studentIds.includes(studentId)));
+
+export const useTeamSeasons = () => useAppStore((s) => s.teamSeasons);
+export const useActiveSeasonId = () => useAppStore((s) => s.activeSeasonId);
+export const useActiveSeason = () =>
+  useAppStore((s) => s.teamSeasons.find((ts) => ts.id === s.activeSeasonId) ?? null);
+
+export const useTeamGoals = () => useAppStore((s) => s.teamGoals);
+export const useTeamGoalsByTeamId = (teamId: string) =>
+  useAppStore(
+    useShallow((s) =>
+      s.teamGoals
+        .filter((g) => g.teamId === teamId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    )
+  );

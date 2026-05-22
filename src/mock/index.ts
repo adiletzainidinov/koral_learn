@@ -2,7 +2,7 @@ import type { Student } from '@/entities/student/model/types';
 import type { Assignment } from '@/entities/assignment/model/types';
 import type { AttendanceRecord } from '@/entities/attendance/model/types';
 import type { PointHistoryItem } from '@/entities/points/model/types';
-import type { Team, TeamPointHistory, TeamGame } from '@/entities/team/model/types';
+import type { Team, TeamPointHistory, TeamGame, TeamSeason, RichTeamGoal } from '@/entities/team/model/types';
 
 export const mockStudents: Student[] = [
   {
@@ -358,7 +358,12 @@ export const mockTeams: Team[] = [
     emoji: '🌿',
     studentIds: ['s1', 's2', 's4', 's7'],
     points: 45,
+    seasonPoints: 45,
+    badges: [
+      { id: 'b1', teamId: 't1', type: 'all_on_time', title: 'Все вовремя', icon: '⏰', awardedAt: '2026-04-18T09:00:00Z' },
+    ],
     createdAt: '2026-04-01T09:00:00Z',
+    captainId: 's1',
     goal: {
       id: 'tg1',
       title: 'Набрать 100 баллов',
@@ -377,7 +382,14 @@ export const mockTeams: Team[] = [
     emoji: '💡',
     studentIds: ['s3', 's5', 's6'],
     points: 82,
+    seasonPoints: 82,
+    badges: [
+      { id: 'b2', teamId: 't2', type: 'best_recitation', title: 'Лучшее чтение', icon: '📖', awardedAt: '2026-04-15T09:00:00Z' },
+      { id: 'b3', teamId: 't2', type: 'team_of_week', title: 'Команда недели', icon: '🏆', awardedAt: '2026-04-20T09:00:00Z' },
+    ],
     createdAt: '2026-04-01T09:00:00Z',
+    captainId: 's5',
+    assistantCaptainId: 's6',
     goal: {
       id: 'tg2',
       title: 'Лидеры месяца',
@@ -395,19 +407,72 @@ export const mockTeams: Team[] = [
     emoji: '✨',
     studentIds: ['s8'],
     points: 38,
+    seasonPoints: 38,
+    badges: [],
     createdAt: '2026-04-01T09:00:00Z',
   },
 ];
 
 export const mockTeamPointHistory: TeamPointHistory[] = [
-  { id: 'th1', teamId: 't1', points: 20, reason: 'Победа в соревновании по чтению', source: 'game', createdAt: '2026-04-15T10:00:00Z' },
-  { id: 'th2', teamId: 't1', points: 15, reason: 'Все участники сдали задание вовремя', source: 'manual', createdAt: '2026-04-18T10:00:00Z' },
-  { id: 'th3', teamId: 't1', points: 10, reason: 'Отличная посещаемость за неделю', source: 'manual', createdAt: '2026-04-20T10:00:00Z' },
-  { id: 'th4', teamId: 't2', points: 32, reason: 'Стартовый бонус команды', source: 'manual', createdAt: '2026-04-01T10:00:00Z' },
-  { id: 'th5', teamId: 't2', points: 20, reason: 'Победа в турнире по таджвиду', source: 'game', createdAt: '2026-04-12T10:00:00Z' },
-  { id: 'th6', teamId: 't2', points: 30, reason: 'Лучшие результаты в заданиях', source: 'manual', createdAt: '2026-04-16T10:00:00Z' },
-  { id: 'th7', teamId: 't3', points: 20, reason: 'Стартовый бонус', source: 'manual', createdAt: '2026-04-01T10:00:00Z' },
-  { id: 'th8', teamId: 't3', points: 18, reason: 'Хорошая неделя', source: 'manual', createdAt: '2026-04-15T10:00:00Z' },
+  { id: 'th1', teamId: 't1', points: 20, reason: 'Победа в соревновании по чтению', source: 'game', createdAt: '2026-04-15T10:00:00Z', seasonId: 'season1' },
+  { id: 'th2', teamId: 't1', points: 15, reason: 'Все участники сдали задание вовремя', source: 'preset', createdAt: '2026-04-18T10:00:00Z', seasonId: 'season1' },
+  { id: 'th3', teamId: 't1', points: 10, reason: 'Отличная посещаемость за неделю', source: 'manual', createdAt: '2026-04-20T10:00:00Z', seasonId: 'season1' },
+  { id: 'th4', teamId: 't2', points: 32, reason: 'Стартовый бонус команды', source: 'manual', createdAt: '2026-04-01T10:00:00Z', seasonId: 'season1' },
+  { id: 'th5', teamId: 't2', points: 20, reason: 'Победа в турнире по таджвиду', source: 'game', createdAt: '2026-04-12T10:00:00Z', seasonId: 'season1' },
+  { id: 'th6', teamId: 't2', points: 30, reason: 'Лучшие результаты в заданиях', source: 'preset', createdAt: '2026-04-16T10:00:00Z', seasonId: 'season1' },
+  { id: 'th7', teamId: 't3', points: 20, reason: 'Стартовый бонус', source: 'manual', createdAt: '2026-04-01T10:00:00Z', seasonId: 'season1' },
+  { id: 'th8', teamId: 't3', points: 18, reason: 'Хорошая неделя', source: 'manual', createdAt: '2026-04-15T10:00:00Z', seasonId: 'season1' },
+];
+
+export const mockTeamSeasons: TeamSeason[] = [
+  {
+    id: 'season1',
+    title: 'Весенний сезон 2026',
+    description: 'Апрель — июнь 2026',
+    startDate: '2026-04-01',
+    endDate: '2026-06-30',
+    status: 'active',
+    createdAt: '2026-04-01T09:00:00Z',
+  },
+];
+
+export const mockTeamGoals: RichTeamGoal[] = [
+  {
+    id: 'rg1',
+    teamId: 't1',
+    seasonId: 'season1',
+    type: 'points',
+    title: 'Набрать 100 баллов за сезон',
+    targetValue: 100,
+    currentValue: 45,
+    reward: 'Мороженое всей команде',
+    deadline: '2026-05-31',
+    status: 'active',
+    createdAt: '2026-04-01T09:00:00Z',
+  },
+  {
+    id: 'rg2',
+    teamId: 't2',
+    seasonId: 'season1',
+    type: 'discipline',
+    title: '5 дней без замечаний',
+    targetValue: 5,
+    currentValue: 3,
+    reward: 'Поход в кино',
+    status: 'active',
+    createdAt: '2026-04-10T09:00:00Z',
+  },
+  {
+    id: 'rg3',
+    teamId: 't1',
+    seasonId: 'season1',
+    type: 'attendance',
+    title: '90% посещаемости',
+    targetValue: 90,
+    currentValue: 75,
+    status: 'active',
+    createdAt: '2026-04-05T09:00:00Z',
+  },
 ];
 
 export const mockTeamGames: TeamGame[] = [

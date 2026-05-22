@@ -1,3 +1,166 @@
+// ─── Team levels ─────────────────────────────────────────────────────────────
+
+export type TeamLevel = 'newbies' | 'trying' | 'strong' | 'huffaz';
+
+export interface TeamLevelConfig {
+  label: string;
+  emoji: string;
+  min: number;
+  max: number;
+}
+
+export const TEAM_LEVEL_CONFIGS: Record<TeamLevel, TeamLevelConfig> = {
+  newbies: { label: 'Новички',         emoji: '🌱', min: 0,   max: 99  },
+  trying:  { label: 'Старающиеся',     emoji: '💪', min: 100, max: 299 },
+  strong:  { label: 'Сильная команда', emoji: '🔥', min: 300, max: 599 },
+  huffaz:  { label: 'Команда хафизов', emoji: '🏆', min: 600, max: Infinity },
+};
+
+export function getTeamLevel(points: number): TeamLevel {
+  if (points >= 600) return 'huffaz';
+  if (points >= 300) return 'strong';
+  if (points >= 100) return 'trying';
+  return 'newbies';
+}
+
+export function getNextLevelInfo(points: number): {
+  currentLevel: TeamLevel;
+  nextLevel: TeamLevel | null;
+  progress: number;
+  pointsToNext: number;
+} {
+  const currentLevel = getTeamLevel(points);
+  const config = TEAM_LEVEL_CONFIGS[currentLevel];
+  const levels: TeamLevel[] = ['newbies', 'trying', 'strong', 'huffaz'];
+  const currentIdx = levels.indexOf(currentLevel);
+  const nextLevel: TeamLevel | null = currentIdx < levels.length - 1 ? levels[currentIdx + 1] : null;
+  if (!nextLevel) return { currentLevel, nextLevel: null, progress: 100, pointsToNext: 0 };
+  const nextConfig = TEAM_LEVEL_CONFIGS[nextLevel];
+  const rangeSize = nextConfig.min - config.min;
+  const pointsInRange = points - config.min;
+  const progress = Math.min(100, Math.round((pointsInRange / rangeSize) * 100));
+  const pointsToNext = nextConfig.min - points;
+  return { currentLevel, nextLevel, progress, pointsToNext };
+}
+
+// ─── Badge types ──────────────────────────────────────────────────────────────
+
+export type TeamBadgeType =
+  | 'most_active_week' | 'best_discipline' | 'best_recitation'
+  | 'all_on_time' | 'helped_younger' | 'tajweed_no_mistakes' | 'team_of_week';
+
+export const TEAM_BADGE_META: Record<TeamBadgeType, { title: string; icon: string; description: string }> = {
+  most_active_week:    { title: 'Самая активная',    icon: '🔥', description: 'Самая активная команда недели' },
+  best_discipline:     { title: 'Лучшая дисциплина', icon: '🕌', description: 'Лучшая дисциплина' },
+  best_recitation:     { title: 'Лучшее чтение',     icon: '📖', description: 'Лучшее чтение Корана' },
+  all_on_time:         { title: 'Все вовремя',        icon: '⏰', description: 'Все пришли вовремя' },
+  helped_younger:      { title: 'Помогли младшим',    icon: '🤝', description: 'Помогли младшим ученикам' },
+  tajweed_no_mistakes: { title: 'Таджвид без ошибок', icon: '🌟', description: 'Без ошибок в таджвиде' },
+  team_of_week:        { title: 'Команда недели',     icon: '🏆', description: 'Команда недели' },
+};
+
+export interface TeamBadge {
+  id: string;
+  teamId: string;
+  type: TeamBadgeType;
+  title: string;
+  description?: string;
+  icon: string;
+  awardedAt: string;
+}
+
+// ─── Season ───────────────────────────────────────────────────────────────────
+
+export interface TeamSeason {
+  id: string;
+  title: string;
+  description?: string;
+  startDate: string;
+  endDate?: string;
+  status: 'active' | 'finished';
+  winnerTeamId?: string | null;
+  createdAt: string;
+}
+
+// ─── Rich goal ────────────────────────────────────────────────────────────────
+
+export type RichTeamGoalType = 'points' | 'attendance' | 'quran' | 'discipline' | 'tajweed';
+
+export const RICH_GOAL_TYPE_LABELS: Record<RichTeamGoalType, string> = {
+  points: 'Баллы', attendance: 'Посещаемость', quran: 'Коран', discipline: 'Дисциплина', tajweed: 'Таджвид',
+};
+
+export const RICH_GOAL_TYPE_ICONS: Record<RichTeamGoalType, string> = {
+  points: '⭐', attendance: '📅', quran: '📖', discipline: '🕌', tajweed: '✨',
+};
+
+export interface RichTeamGoal {
+  id: string;
+  teamId: string;
+  seasonId?: string | null;
+  type: RichTeamGoalType;
+  title: string;
+  description?: string;
+  targetValue: number;
+  currentValue: number;
+  reward?: string;
+  deadline?: string;
+  status: 'active' | 'completed' | 'failed';
+  createdAt: string;
+  completedAt?: string | null;
+}
+
+// ─── Point presets ────────────────────────────────────────────────────────────
+
+export interface TeamPointPreset {
+  id: string;
+  label: string;
+  points: number;
+  source: 'discipline' | 'recitation' | 'homework' | 'game' | 'help' | 'manual' | 'penalty';
+  icon: string;
+}
+
+export const TEAM_POINT_PRESETS: TeamPointPreset[] = [
+  { id: 'pp1',  label: 'Пришли вовремя',      points:  5,  source: 'discipline', icon: '⏰' },
+  { id: 'pp2',  label: 'Хорошая дисциплина',  points: 10,  source: 'discipline', icon: '🕌' },
+  { id: 'pp3',  label: 'Все сделали домашку',  points: 15,  source: 'homework',   icon: '📚' },
+  { id: 'pp4',  label: 'Хорошее чтение',       points: 20,  source: 'recitation', icon: '📖' },
+  { id: 'pp5',  label: 'Помогли младшим',       points: 25,  source: 'help',       icon: '🤝' },
+  { id: 'pp6',  label: 'Активность на уроке',   points: 10,  source: 'manual',     icon: '🌟' },
+  { id: 'pp7',  label: 'Хорошее повторение',    points: 15,  source: 'recitation', icon: '🔄' },
+  { id: 'pp8',  label: 'Таджвид без ошибок',    points: 20,  source: 'recitation', icon: '✨' },
+  { id: 'pp9',  label: 'Шумели',                points: -5,  source: 'penalty',    icon: '🔇' },
+  { id: 'pp10', label: 'Нарушали правила',       points: -10, source: 'penalty',    icon: '⚠️' },
+];
+
+// ─── Reward ───────────────────────────────────────────────────────────────────
+
+export type TeamRewardType =
+  | 'certificate' | 'parent_praise' | 'choose_game' | 'extra_star'
+  | 'sweet_gift' | 'instagram_photo' | 'team_of_week';
+
+export const TEAM_REWARD_LABELS: Record<TeamRewardType, string> = {
+  certificate:     'Сертификат',
+  parent_praise:   'Похвала перед родителями',
+  choose_game:     'Выбор игры',
+  extra_star:      'Дополнительная звёздочка',
+  sweet_gift:      'Сладкий подарок',
+  instagram_photo: 'Фото в Instagram',
+  team_of_week:    'Команда недели',
+};
+
+export interface TeamReward {
+  id: string;
+  teamId?: string | null;
+  goalId?: string | null;
+  title: string;
+  description?: string;
+  type: TeamRewardType;
+  awardedAt?: string | null;
+}
+
+// ─── Core types (updated for backward compat) ─────────────────────────────────
+
 export interface TeamGoal {
   id: string;
   title: string;
@@ -16,17 +179,26 @@ export interface Team {
   emoji?: string;
   studentIds: string[];
   points: number;
+  seasonPoints?: number;
+  badges?: TeamBadge[];
   createdAt: string;
   goal?: TeamGoal;
+  captainId?: string;
+  assistantCaptainId?: string;
+  disciplineResponsibleId?: string;
+  revisionResponsibleId?: string;
 }
 
 export interface TeamPointHistory {
   id: string;
   teamId: string;
+  seasonId?: string | null;
   points: number;
   reason: string;
   createdAt: string;
-  source: 'manual' | 'goal' | 'game' | 'attendance' | 'assignment';
+  source: 'manual' | 'preset' | 'goal' | 'game' | 'badge' | 'attendance' | 'assignment' | 'penalty';
+  relatedGameId?: string | null;
+  relatedGoalId?: string | null;
 }
 
 export interface TeamGame {
@@ -36,9 +208,12 @@ export interface TeamGame {
   teamIds: string[];
   pointsForWinner: number;
   status: 'planned' | 'active' | 'finished';
-  winnerTeamId?: string;
+  winnerTeamId?: string | null;
   createdAt: string;
+  finishedAt?: string | null;
 }
+
+// ─── Colors ───────────────────────────────────────────────────────────────────
 
 export type TeamColor =
   | 'red' | 'blue' | 'green' | 'amber' | 'purple'
@@ -67,19 +242,26 @@ export const TEAM_COLOR_CLASSES: Record<TeamColor, {
   cyan:    { dot: 'bg-cyan-500',    light: 'bg-cyan-50',    text: 'text-cyan-700',    border: 'border-l-cyan-400',    badge: 'bg-cyan-100 text-cyan-700',    header: 'bg-cyan-500',    ring: 'ring-cyan-300' },
 };
 
+// ─── Labels ───────────────────────────────────────────────────────────────────
+
 export const TEAM_SOURCE_LABELS: Record<TeamPointHistory['source'], string> = {
-  manual: 'Вручную',
-  goal: 'Цель',
-  game: 'Игра',
+  manual:     'Вручную',
+  preset:     'Быстрое начисление',
+  goal:       'Цель',
+  game:       'Игра',
+  badge:      'Бейдж',
   attendance: 'Посещаемость',
   assignment: 'Задание',
+  penalty:    'Штраф',
 };
 
 export const TEAM_GAME_STATUS_LABELS: Record<TeamGame['status'], string> = {
-  planned: 'Запланирована',
-  active: 'Идёт',
+  planned:  'Запланирована',
+  active:   'Идёт',
   finished: 'Завершена',
 };
+
+// ─── Input types ──────────────────────────────────────────────────────────────
 
 export type CreateTeamInput = {
   name: string;
@@ -98,4 +280,25 @@ export type CreateTeamGameInput = {
   teamIds: string[];
   pointsForWinner: number;
   status: 'planned' | 'active';
+};
+
+export type CreateRichTeamGoalInput = {
+  teamId: string;
+  seasonId?: string | null;
+  type: RichTeamGoalType;
+  title: string;
+  description?: string;
+  targetValue: number;
+  reward?: string;
+  deadline?: string;
+};
+
+export type TeamMemberRole = 'captain' | 'assistant' | 'discipline' | 'revision' | 'member';
+
+export const TEAM_MEMBER_ROLE_LABELS: Record<TeamMemberRole, string> = {
+  captain:    'Капитан',
+  assistant:  'Пом. капитана',
+  discipline: 'Ответ. за дисциплину',
+  revision:   'Ответ. за повторение',
+  member:     'Участник',
 };
