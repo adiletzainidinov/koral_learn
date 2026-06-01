@@ -4,6 +4,7 @@ import type { AttendanceRecord } from '@/entities/attendance/model/types';
 import type { PointHistoryItem } from '@/entities/points/model/types';
 import type { Team, TeamPointHistory, TeamGame, TeamSeason, RichTeamGoal } from '@/entities/team/model/types';
 import type { Family, FamilyPayment, PaymentHistoryItem } from '@/entities/support/model/types';
+import type { Parent } from '@/entities/parent/model/types';
 
 export const mockStudents: Student[] = [
   {
@@ -18,14 +19,14 @@ export const mockStudents: Student[] = [
       { id: 'c1', relation: 'Мама', phone: '+996 700 111 222', whatsapp: '+996700111222', telegram: '' },
       { id: 'c2', relation: 'Папа', phone: '+996 700 333 111', whatsapp: '', telegram: '@mamativna' },
     ],
-    friendContacts: [
-      { id: 'f1', fullName: 'Эрик Джумабеков', phone: '+996 700 987 654', telegram: '@erik_j', relationNote: 'друг из класса' },
-    ],
+    friendContacts: [],
     notes: 'Прилежный ученик, хорошо запоминает суры. Иногда нужно напоминать про домашнее задание.',
     attachments: [],
     totalPoints: 18,
     createdAt: '2024-09-01T09:00:00Z',
     isActive: true,
+    parentId: 'par1',
+    friendIds: ['s3'],
   },
   {
     id: 's2',
@@ -44,6 +45,8 @@ export const mockStudents: Student[] = [
     totalPoints: 22,
     createdAt: '2024-09-01T09:00:00Z',
     isActive: true,
+    parentId: 'par4',
+    friendIds: [],
   },
   {
     id: 's3',
@@ -55,7 +58,6 @@ export const mockStudents: Student[] = [
     address: 'г. Бишкек, ул. Ахунбаева, д. 102',
     contacts: [
       { id: 'c4', relation: 'Папа', phone: '+996 700 555 666', whatsapp: '+996700555666', telegram: '' },
-      { id: 'c5', relation: 'Сам ученик', phone: '+996 550 123 456', whatsapp: '', telegram: '@damir_j' },
     ],
     friendContacts: [],
     notes: 'Хорошо читает, работает над таджвидом.',
@@ -63,6 +65,10 @@ export const mockStudents: Student[] = [
     totalPoints: 35,
     createdAt: '2024-01-15T09:00:00Z',
     isActive: true,
+    parentId: 'par2',
+    studentPhone: '+996 550 123 456',
+    studentTelegram: '@damir_j',
+    friendIds: ['s5'],
   },
   {
     id: 's4',
@@ -81,6 +87,8 @@ export const mockStudents: Student[] = [
     totalPoints: 14,
     createdAt: '2024-09-01T09:00:00Z',
     isActive: true,
+    parentId: 'par4',
+    friendIds: [],
   },
   {
     id: 's5',
@@ -92,16 +100,17 @@ export const mockStudents: Student[] = [
     address: 'г. Бишкек, мкр. Джал, д. 42, кв. 17',
     contacts: [
       { id: 'c7', relation: 'Мама', phone: '+996 700 999 000', whatsapp: '+996700999000', telegram: '' },
-      { id: 'c8', relation: 'Сам ученик', phone: '+996 550 444 555', whatsapp: '', telegram: '@timur_s' },
     ],
-    friendContacts: [
-      { id: 'f2', fullName: 'Дамир Жумабаев', phone: '+996 550 123 456', telegram: '@damir_j', relationNote: 'одногруппник' },
-    ],
+    friendContacts: [],
     notes: 'Лидер группы B, помогает другим.',
     attachments: [],
     totalPoints: 47,
     createdAt: '2023-09-01T09:00:00Z',
     isActive: true,
+    parentId: 'par2',
+    studentPhone: '+996 550 444 555',
+    studentTelegram: '@timur_s',
+    friendIds: ['s3', 's6'],
   },
   {
     id: 's6',
@@ -120,6 +129,8 @@ export const mockStudents: Student[] = [
     totalPoints: 39,
     createdAt: '2024-01-15T09:00:00Z',
     isActive: true,
+    parentId: 'par3',
+    friendIds: ['s5'],
   },
   {
     id: 's7',
@@ -138,6 +149,8 @@ export const mockStudents: Student[] = [
     totalPoints: 5,
     createdAt: '2025-01-10T09:00:00Z',
     isActive: true,
+    parentId: 'par4',
+    friendIds: [],
   },
   {
     id: 's8',
@@ -149,7 +162,6 @@ export const mockStudents: Student[] = [
     address: 'г. Бишкек, ул. Иссык-Кульская, д. 3, кв. 12',
     contacts: [
       { id: 'c11', relation: 'Мама', phone: '+996 700 778 899', whatsapp: '+996700778899', telegram: '@madinamama' },
-      { id: 'c12', relation: 'Сам ученик', phone: '+996 550 667 788', whatsapp: '+996550667788', telegram: '@madina_t' },
     ],
     friendContacts: [],
     notes: 'Самая опытная ученица, готовится к хатму.',
@@ -157,6 +169,11 @@ export const mockStudents: Student[] = [
     totalPoints: 68,
     createdAt: '2022-09-01T09:00:00Z',
     isActive: true,
+    parentId: 'par5',
+    studentPhone: '+996 550 667 788',
+    studentWhatsapp: '+996550667788',
+    studentTelegram: '@madina_t',
+    friendIds: ['s5', 's6'],
   },
 ];
 
@@ -577,4 +594,79 @@ export const mockPaymentHistory: PaymentHistoryItem[] = [
   { id: 'ph6', familyId: 'fam2', paymentId: 'fp7', amount: 2000, action: 'partial_paid', comment: 'Первая часть', createdAt: '2026-06-05T10:00:00Z' },
   { id: 'ph7', familyId: 'fam3', paymentId: 'fp8', amount: 5000, action: 'paid', comment: '', createdAt: '2026-06-01T10:00:00Z' },
   { id: 'ph8', familyId: 'fam4', paymentId: 'fp9', amount: 0, action: 'created', comment: 'Начислено за июнь 2026', createdAt: '2026-06-01T09:00:00Z' },
+];
+
+// ─── Parents ──────────────────────────────────────────────────────────────────
+
+export const mockParents: Parent[] = [
+  {
+    id: 'par1',
+    fullName: 'Маматова Жылдыз',
+    whatsapp: '+996700111222',
+    phone: '+996 700 111 222',
+    telegram: '',
+    instagram: '',
+    address: 'г. Бишкек, ул. Токтогула, д. 14',
+    relation: 'mother',
+    preferredContact: 'whatsapp',
+    notes: 'Активная мама, всегда на связи.',
+    isActive: true,
+    createdAt: '2024-09-01T09:00:00Z',
+  },
+  {
+    id: 'par2',
+    fullName: 'Жумабаев Кубан',
+    whatsapp: '+996700555666',
+    phone: '+996 700 555 666',
+    telegram: '',
+    instagram: '',
+    address: 'г. Бишкек, ул. Ахунбаева, д. 102',
+    relation: 'father',
+    preferredContact: 'whatsapp',
+    notes: 'Двое сыновей в обучении.',
+    isActive: true,
+    createdAt: '2024-01-15T09:00:00Z',
+  },
+  {
+    id: 'par3',
+    fullName: 'Алиева Айгуль',
+    whatsapp: '+996700112233',
+    phone: '+996 700 112 233',
+    telegram: '@nuriamama',
+    instagram: '',
+    address: 'г. Бишкек, ул. Горького, д. 21',
+    relation: 'mother',
+    preferredContact: 'telegram',
+    notes: '',
+    isActive: true,
+    createdAt: '2024-01-15T09:00:00Z',
+  },
+  {
+    id: 'par4',
+    fullName: 'Касымова Гульнар',
+    whatsapp: '+996700777888',
+    phone: '+996 700 777 888',
+    telegram: '',
+    instagram: '',
+    address: 'г. Бишкек, ул. Московская, д. 55',
+    relation: 'mother',
+    preferredContact: 'whatsapp',
+    notes: 'Трое детей в обучении. Иногда задерживает оплату.',
+    isActive: true,
+    createdAt: '2024-09-01T09:00:00Z',
+  },
+  {
+    id: 'par5',
+    fullName: 'Токтосунова Замира',
+    whatsapp: '+996700778899',
+    phone: '+996 700 778 899',
+    telegram: '@madinamama',
+    instagram: '',
+    address: 'г. Бишкек, ул. Иссык-Кульская, д. 3',
+    relation: 'mother',
+    preferredContact: 'whatsapp',
+    notes: 'Дочь готовится к хатму.',
+    isActive: true,
+    createdAt: '2022-09-01T09:00:00Z',
+  },
 ];

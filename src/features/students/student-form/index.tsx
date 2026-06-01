@@ -5,19 +5,19 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Save,
-  Plus,
-  Trash2,
   User,
-  Users,
   MapPin,
   FileText,
   Paperclip,
   File as FileIcon,
+  Trash2,
   X,
   AlertTriangle,
   Camera,
   UserRound,
   MessageCircle,
+  Phone,
+  Users,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -26,9 +26,10 @@ import { Card } from '@/shared/ui/card';
 import { useAppStore, useParents } from '@/store/app-store';
 import { generateId } from '@/shared/lib/ids';
 import { cn } from '@/shared/lib/cn';
-import type { StudentLevel, StudentContact, FriendContact, StudentAttachment } from '@/entities/student/model/types';
+import type { StudentLevel, StudentContact, StudentAttachment } from '@/entities/student/model/types';
 import type { Parent } from '@/entities/parent/model/types';
 import { formatWhatsappLink } from '@/entities/parent/model/helpers';
+import { StudentFriendsSelector } from '@/features/students/student-friends-selector';
 
 // ─── internal form types ─────────────────────────────────────────────────────
 
@@ -49,7 +50,11 @@ interface FormState {
   level: StudentLevel;
   startedAt: string;
   address: string;
-  friendContacts: (FriendContact & { _key: string })[];
+  studentPhone: string;
+  studentWhatsapp: string;
+  studentTelegram: string;
+  studentInstagram: string;
+  friendIds: string[];
   notes: string;
   attachments: AttachmentEntry[];
   avatar?: string;
@@ -69,19 +74,6 @@ const GROUP_OPTIONS = [
   { value: 'B', label: 'Группа B' },
   { value: 'C', label: 'Группа C' },
 ];
-
-function emptyFriend(): FriendContact & { _key: string } {
-  return {
-    _key: generateId(),
-    id: generateId(),
-    fullName: '',
-    phone: '',
-    whatsapp: '',
-    telegram: '',
-    instagram: '',
-    relationNote: '',
-  };
-}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -127,7 +119,11 @@ const INITIAL_STATE: FormState = {
   level: 'beginner',
   startedAt: new Date().toISOString().slice(0, 10),
   address: '',
-  friendContacts: [],
+  studentPhone: '',
+  studentWhatsapp: '',
+  studentTelegram: '',
+  studentInstagram: '',
+  friendIds: [],
   notes: '',
   attachments: [],
   avatar: undefined,
@@ -171,13 +167,11 @@ function AvatarUploader({
   onRemove: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) onFile(file);
     e.target.value = '';
   }
-
   return (
     <div className="flex items-center gap-5 pb-5 mb-1 border-b border-slate-100">
       <div className="relative group/av shrink-0">
@@ -189,12 +183,8 @@ function AvatarUploader({
             initials || <User className="size-7 text-emerald-400" />
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover/av:opacity-100 transition-opacity flex items-center justify-center"
-          title="Выбрать фото"
-        >
+        <button type="button" onClick={() => inputRef.current?.click()}
+          className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover/av:opacity-100 transition-opacity flex items-center justify-center">
           <Camera className="size-5 text-white" />
         </button>
       </div>
@@ -202,8 +192,7 @@ function AvatarUploader({
         <p className="text-sm font-medium text-slate-700">Фото ученика</p>
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
-            <Camera className="size-3.5" />
-            {avatar ? 'Изменить фото' : 'Загрузить фото'}
+            <Camera className="size-3.5" />{avatar ? 'Изменить фото' : 'Загрузить фото'}
           </Button>
           {avatar && (
             <Button type="button" variant="ghost" size="sm" onClick={onRemove}
@@ -280,15 +269,12 @@ function ParentCombobox({
           )}
         />
         {selectedParent && (
-          <button
-            type="button"
+          <button type="button"
             onClick={() => { onChange(undefined); setSearch(''); setIsOpen(false); }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 size-5 flex items-center justify-center text-slate-400 hover:text-slate-600"
-          >
+            className="absolute right-2 top-1/2 -translate-y-1/2 size-5 flex items-center justify-center text-slate-400 hover:text-slate-600">
             <X className="size-3.5" />
           </button>
         )}
-
         {isOpen && (
           <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-auto max-h-56">
             {filtered.length === 0 ? (
@@ -297,15 +283,8 @@ function ParentCombobox({
               filtered.map((p) => {
                 const initials = p.fullName.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
                 return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      onChange(p.id);
-                      setSearch('');
-                      setIsOpen(false);
-                    }}
+                  <button key={p.id} type="button"
+                    onMouseDown={(e) => { e.preventDefault(); onChange(p.id); setSearch(''); setIsOpen(false); }}
                     className={cn(
                       'w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 transition-colors',
                       parentId === p.id && 'bg-emerald-50'
@@ -325,64 +304,15 @@ function ParentCombobox({
           </div>
         )}
       </div>
-
       {selectedParent && (
         <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg border border-green-100">
           <MessageCircle className="size-3.5 text-green-600 shrink-0" />
           <span className="text-sm text-green-700 flex-1">{selectedParent.whatsapp}</span>
-          <a
-            href={formatWhatsappLink(selectedParent.whatsapp)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-green-600 hover:underline font-medium"
-          >
-            Написать
-          </a>
+          <a href={formatWhatsappLink(selectedParent.whatsapp)} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-green-600 hover:underline font-medium">Написать</a>
         </div>
       )}
-
       {error && <p className="text-xs text-red-500">{error}</p>}
-    </div>
-  );
-}
-
-// ─── friend block ─────────────────────────────────────────────────────────────
-
-function FriendBlock({
-  friend, onChange, onRemove,
-}: {
-  friend: FriendContact & { _key: string };
-  onChange: (updated: FriendContact & { _key: string }) => void;
-  onRemove: () => void;
-}) {
-  const upd = (field: keyof FriendContact, val: string) =>
-    onChange({ ...friend, [field]: val });
-
-  return (
-    <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 relative">
-      <button
-        type="button"
-        onClick={onRemove}
-        className="absolute top-3 right-3 size-6 rounded-md flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-      >
-        <X className="size-3.5" />
-      </button>
-      <div className="grid grid-cols-3 gap-3 mb-3">
-        <Input label="Имя" placeholder="Асел Жумаева" value={friend.fullName}
-          onChange={(e) => upd('fullName', e.target.value)} />
-        <Input label="Телефон" placeholder="+996 700 000 000" value={friend.phone}
-          onChange={(e) => upd('phone', e.target.value)} />
-        <Input label="Связь с учеником" placeholder="друг из класса, сосед..." value={friend.relationNote ?? ''}
-          onChange={(e) => upd('relationNote', e.target.value)} />
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <Input label="WhatsApp" placeholder="+996700000000" value={friend.whatsapp ?? ''}
-          onChange={(e) => upd('whatsapp', e.target.value)} />
-        <Input label="Telegram" placeholder="@username" value={friend.telegram ?? ''}
-          onChange={(e) => upd('telegram', e.target.value)} />
-        <Input label="Instagram" placeholder="@username" value={friend.instagram ?? ''}
-          onChange={(e) => upd('instagram', e.target.value)} />
-      </div>
     </div>
   );
 }
@@ -392,7 +322,6 @@ function FriendBlock({
 function AttachmentItem({ attachment, onRemove }: { attachment: AttachmentEntry; onRemove: () => void }) {
   const isImage = attachment.type.startsWith('image/');
   const preview = attachment.base64 ?? attachment.previewUrl;
-
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white group">
       <div className="size-10 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center shrink-0">
@@ -411,11 +340,8 @@ function AttachmentItem({ attachment, onRemove }: { attachment: AttachmentEntry;
           {isImage && !attachment.base64 && ' · превью временное'}
         </p>
       </div>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-      >
+      <button type="button" onClick={onRemove}
+        className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100">
         <Trash2 className="size-3.5" />
       </button>
     </div>
@@ -450,7 +376,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
   const [studentNotFound, setStudentNotFound] = useState(false);
   const hasLoaded = useRef(false);
 
-  // Preserve existing contacts so edit-mode doesn't clear legacy data
+  // Preserve legacy family contacts so edit-mode doesn't erase old data
   const existingContactsRef = useRef<StudentContact[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -459,19 +385,19 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
   const ageRef = useRef<HTMLInputElement>(null);
   const parentComboboxRef = useRef<HTMLInputElement>(null);
 
+  // Exclude self from friends list in edit mode
+  const otherStudents = useMemo(
+    () => students.filter((s) => s.id !== studentId),
+    [students, studentId]
+  );
+
   // ── avatar ─────────────────────────────────────────────────────────────────
 
   async function handleAvatarFile(file: File) {
     if (file.size > 5 * 1024 * 1024) { alert('Файл слишком большой. Максимальный размер — 5 МБ.'); return; }
-    try {
-      const compressed = await compressAvatar(file);
-      upd('avatar', compressed);
-    } catch {
-      try { upd('avatar', await fileToBase64(file)); } catch { /* ignore */ }
-    }
+    try { upd('avatar', await compressAvatar(file)); }
+    catch { try { upd('avatar', await fileToBase64(file)); } catch { /* ignore */ } }
   }
-
-  function handleAvatarRemove() { upd('avatar', undefined); }
 
   useEffect(() => {
     if (mode !== 'edit' || !studentId || hasLoaded.current) return;
@@ -486,7 +412,11 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       level: student.level,
       startedAt: student.startedAt,
       address: student.address ?? '',
-      friendContacts: student.friendContacts.map((f) => ({ ...f, _key: f.id })),
+      studentPhone: student.studentPhone ?? '',
+      studentWhatsapp: student.studentWhatsapp ?? '',
+      studentTelegram: student.studentTelegram ?? '',
+      studentInstagram: student.studentInstagram ?? '',
+      friendIds: student.friendIds ?? [],
       notes: student.notes ?? '',
       attachments: student.attachments.map((a) => ({
         id: a.id, name: a.name, type: a.type, size: a.size,
@@ -515,11 +445,8 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
   function validate(): boolean {
     const errs: Errors = {};
     if (!form.fullName.trim()) errs.fullName = 'Введите имя ученика';
-    if (!form.age.trim()) {
-      errs.age = 'Введите возраст ученика';
-    } else if (isNaN(Number(form.age)) || Number(form.age) <= 0) {
-      errs.age = 'Введите корректный возраст';
-    }
+    if (!form.age.trim()) errs.age = 'Введите возраст ученика';
+    else if (isNaN(Number(form.age)) || Number(form.age) <= 0) errs.age = 'Введите корректный возраст';
     if (!form.parentId) errs.parentId = 'Выберите родителя ученика';
     setErrors(errs);
     if (errs.fullName) fullNameRef.current?.focus();
@@ -532,18 +459,6 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   }
 
-  // ── friend contacts ───────────────────────────────────────────────────────
-
-  function updateFriend(key: string, updated: FriendContact & { _key: string }) {
-    upd('friendContacts', form.friendContacts.map((f) => (f._key === key ? updated : f)));
-  }
-  function removeFriend(key: string) {
-    upd('friendContacts', form.friendContacts.filter((f) => f._key !== key));
-  }
-  function addFriend() {
-    upd('friendContacts', [...form.friendContacts, emptyFriend()]);
-  }
-
   // ── attachments ───────────────────────────────────────────────────────────
 
   async function processFiles(files: File[]) {
@@ -551,10 +466,8 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
     const newEntries: AttachmentEntry[] = [];
     for (const file of files) {
       const entry: AttachmentEntry = {
-        id: generateId(),
-        name: file.name,
-        type: file.type || 'application/octet-stream',
-        size: file.size,
+        id: generateId(), name: file.name,
+        type: file.type || 'application/octet-stream', size: file.size,
         previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
         createdAt: new Date().toISOString(),
       };
@@ -571,20 +484,14 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
     e.target.value = '';
   }
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    processFiles(Array.from(e.dataTransfer.files));
-  }
+  function handleDrop(e: React.DragEvent) { e.preventDefault(); processFiles(Array.from(e.dataTransfer.files)); }
 
   function handlePaste(e: React.ClipboardEvent) {
     const imageFiles = Array.from(e.clipboardData.items)
       .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
       .map((item) => item.getAsFile())
       .filter((f): f is File => f !== null)
-      .map((f) => {
-        const ext = f.type.split('/')[1] ?? 'png';
-        return new File([f], `screenshot-${Date.now()}.${ext}`, { type: f.type });
-      });
+      .map((f) => new File([f], `screenshot-${Date.now()}.${f.type.split('/')[1] ?? 'png'}`, { type: f.type }));
     if (imageFiles.length > 0) { e.preventDefault(); processFiles(imageFiles); }
   }
 
@@ -605,6 +512,9 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       id: a.id, name: a.name, type: a.type, size: a.size, base64: a.base64, createdAt: a.createdAt,
     }));
 
+    // Deduplicate friendIds and filter out self (safety guard)
+    const cleanFriendIds = [...new Set(form.friendIds)].filter((id) => id !== studentId);
+
     const payload = {
       fullName: form.fullName.trim(),
       age: Number(form.age),
@@ -613,13 +523,17 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       startedAt: form.startedAt,
       isActive: true,
       address: form.address.trim(),
-      // preserve legacy contacts in edit; empty for new students
       contacts: mode === 'edit' ? existingContactsRef.current : [],
-      friendContacts: form.friendContacts.map(({ _key, ...f }) => f),
+      friendContacts: [],
       notes: form.notes.trim(),
       attachments: persistedAttachments,
       avatar: form.avatar,
       parentId: form.parentId || undefined,
+      studentPhone: form.studentPhone.trim() || undefined,
+      studentWhatsapp: form.studentWhatsapp.trim() || undefined,
+      studentTelegram: form.studentTelegram.trim() || undefined,
+      studentInstagram: form.studentInstagram.trim() || undefined,
+      friendIds: cleanFriendIds,
     };
 
     if (mode === 'edit' && studentId) {
@@ -647,7 +561,6 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <AlertTriangle className="size-8 text-red-400" />
         <p className="text-lg font-semibold text-slate-700">Ученик не найден</p>
-        <p className="text-sm text-slate-400">Возможно, он был удалён или ссылка неверна.</p>
         <Button variant="outline" onClick={() => router.push('/students')}>
           <ArrowLeft className="size-4" />Назад к списку
         </Button>
@@ -694,68 +607,39 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       )}
 
       {/* ── section 1: basic info ─────────────────────────────────────────── */}
-      <Section
-        icon={<User className="size-4" />}
-        title="Основная информация"
-        description="Имя, возраст, группа и уровень обучения"
-      >
+      <Section icon={<User className="size-4" />} title="Основная информация"
+        description="Имя, возраст, группа и уровень обучения">
         <div className="flex flex-col gap-4">
           <AvatarUploader
             avatar={form.avatar}
             initials={form.fullName.trim().slice(0, 2).toUpperCase()}
             onFile={handleAvatarFile}
-            onRemove={handleAvatarRemove}
+            onRemove={() => upd('avatar', undefined)}
           />
-          <Input
-            ref={fullNameRef}
-            label="Полное имя *"
-            placeholder="Айбек Маматов"
+          <Input ref={fullNameRef} label="Полное имя *" placeholder="Айбек Маматов"
             value={form.fullName}
             onChange={(e) => { upd('fullName', e.target.value); clearError('fullName'); }}
-            error={errors.fullName}
-          />
+            error={errors.fullName} />
           <div className="grid grid-cols-3 gap-4">
-            <Input
-              ref={ageRef}
-              label="Возраст *"
-              type="number"
-              min={1}
-              max={100}
-              placeholder="12"
+            <Input ref={ageRef} label="Возраст *" type="number" min={1} max={100} placeholder="12"
               value={form.age}
               onChange={(e) => { upd('age', e.target.value); clearError('age'); }}
-              error={errors.age}
-            />
-            <Select
-              label="Группа"
-              options={GROUP_OPTIONS}
-              value={form.group}
-              onChange={(e) => upd('group', e.target.value)}
-            />
-            <Select
-              label="Уровень"
-              options={LEVEL_OPTIONS}
-              value={form.level}
-              onChange={(e) => upd('level', e.target.value as StudentLevel)}
-            />
+              error={errors.age} />
+            <Select label="Группа" options={GROUP_OPTIONS} value={form.group}
+              onChange={(e) => upd('group', e.target.value)} />
+            <Select label="Уровень" options={LEVEL_OPTIONS} value={form.level}
+              onChange={(e) => upd('level', e.target.value as StudentLevel)} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Дата начала обучения"
-              type="date"
-              value={form.startedAt}
-              onChange={(e) => upd('startedAt', e.target.value)}
-            />
+            <Input label="Дата начала обучения" type="date" value={form.startedAt}
+              onChange={(e) => upd('startedAt', e.target.value)} />
           </div>
         </div>
       </Section>
 
       {/* ── section 2: parent ────────────────────────────────────────────── */}
-      <Section
-        icon={<UserRound className="size-4" />}
-        title="Родитель *"
-        description="Основной контакт семьи — источник данных о родителе"
-      >
+      <Section icon={<UserRound className="size-4" />} title="Родитель *"
+        description="Основной контакт семьи — источник данных о родителе">
         <div className="flex flex-col gap-3">
           <ParentCombobox
             parentId={form.parentId}
@@ -767,76 +651,58 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
           {parents.length === 0 && (
             <p className="text-xs text-slate-400">
               В системе пока нет родителей.{' '}
-              <a href="/parents/new" className="text-emerald-600 hover:underline font-medium">
-                Создать родителя
-              </a>
+              <a href="/parents/new" className="text-emerald-600 hover:underline font-medium">Создать родителя</a>
             </p>
           )}
           <div className="flex items-center gap-2 pt-1">
             <span className="text-xs text-slate-400">Нет нужного родителя?</span>
-            <a
-              href="/parents/new"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-emerald-600 hover:underline font-medium"
-            >
+            <a href="/parents/new" target="_blank" rel="noopener noreferrer"
+              className="text-xs text-emerald-600 hover:underline font-medium">
               + Создать родителя
             </a>
           </div>
         </div>
       </Section>
 
-      {/* ── section 3: address ───────────────────────────────────────────── */}
-      <Section
-        icon={<MapPin className="size-4" />}
-        title="Адрес"
-        description="Место проживания ученика"
-      >
-        <Input
-          label="Адрес"
-          placeholder="г. Бишкек, ул. Токтогула, д. 14, кв. 5"
-          value={form.address}
-          onChange={(e) => upd('address', e.target.value)}
-        />
-      </Section>
-
-      {/* ── section 4: friend contacts ───────────────────────────────────── */}
-      <Section
-        icon={<Users className="size-4" />}
-        title="Контакты друзей"
-        description="Через кого можно связаться с учеником, если он не отвечает"
-      >
-        <div className="flex flex-col gap-3">
-          {form.friendContacts.length === 0 ? (
-            <p className="text-sm text-slate-400 py-2">Пока нет контактов друзей.</p>
-          ) : (
-            form.friendContacts.map((f) => (
-              <FriendBlock
-                key={f._key}
-                friend={f}
-                onChange={(updated) => updateFriend(f._key, updated)}
-                onRemove={() => removeFriend(f._key)}
-              />
-            ))
-          )}
-          <Button type="button" variant="outline" size="sm" onClick={addFriend} className="self-start">
-            <Plus className="size-3.5" />Добавить друга
-          </Button>
+      {/* ── section 3: student contacts ──────────────────────────────────── */}
+      <Section icon={<Phone className="size-4" />} title="Контакты ученика"
+        description="Личные контакты ученика, если он сам пользуется телефоном или мессенджерами">
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="Телефон" placeholder="+996 550 000 000" value={form.studentPhone}
+            onChange={(e) => upd('studentPhone', e.target.value)} />
+          <Input label="WhatsApp" placeholder="+996550000000" value={form.studentWhatsapp}
+            onChange={(e) => upd('studentWhatsapp', e.target.value)} />
+          <Input label="Telegram" placeholder="@username" value={form.studentTelegram}
+            onChange={(e) => upd('studentTelegram', e.target.value)} />
+          <Input label="Instagram" placeholder="@username" value={form.studentInstagram}
+            onChange={(e) => upd('studentInstagram', e.target.value)} />
         </div>
       </Section>
 
-      {/* ── section 5: notes + attachments ──────────────────────────────── */}
-      <Section
-        icon={<FileText className="size-4" />}
-        title="Заметки и вложения"
-        description="Пишите важную информацию, прикладывайте скриншоты, фото и документы"
-      >
-        <div
-          ref={attachmentZoneRef}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDrop}
-          className="flex flex-col gap-3"
-        >
+      {/* ── section 4: address ───────────────────────────────────────────── */}
+      <Section icon={<MapPin className="size-4" />} title="Адрес"
+        description="Место проживания ученика">
+        <Input label="Адрес" placeholder="г. Бишкек, ул. Токтогула, д. 14, кв. 5"
+          value={form.address}
+          onChange={(e) => upd('address', e.target.value)} />
+      </Section>
+
+      {/* ── section 5: friends ───────────────────────────────────────────── */}
+      <Section icon={<Users className="size-4" />} title="Друзья и связи"
+        description="Выберите учеников, через которых можно связаться или которые хорошо знают этого ученика">
+        <StudentFriendsSelector
+          value={form.friendIds}
+          onChange={(ids) => upd('friendIds', ids)}
+          allStudents={otherStudents}
+          excludeStudentId={studentId}
+        />
+      </Section>
+
+      {/* ── section 6: notes + attachments ──────────────────────────────── */}
+      <Section icon={<FileText className="size-4" />} title="Заметки и вложения"
+        description="Пишите важную информацию, прикладывайте скриншоты, фото и документы">
+        <div ref={attachmentZoneRef} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}
+          className="flex flex-col gap-3">
           <div className="rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-transparent overflow-hidden transition-all">
             <textarea
               placeholder="Прилежный ученик, хорошо запоминает. Нужна помощь с произношением..."
@@ -847,33 +713,24 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
               className="w-full px-4 pt-3 pb-2 text-sm text-slate-900 placeholder:text-slate-400 bg-transparent resize-none outline-none block"
             />
             <div className="flex items-center gap-1 px-3 py-2 border-t border-slate-100 bg-slate-50/60">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-              >
+              <button type="button" onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors">
                 <Paperclip className="size-3.5" />Прикрепить файл
               </button>
               <span className="text-xs text-slate-400 pl-2">
                 или{' '}
-                <kbd className="px-1 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-500">
-                  Ctrl+V
-                </kbd>{' '}
+                <kbd className="px-1 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-500">Ctrl+V</kbd>{' '}
                 для скриншота
               </span>
               <input ref={fileInputRef} type="file" multiple className="sr-only" onChange={handleFileInput} />
             </div>
           </div>
-
           {hasNonPersistedFiles && (
             <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200">
               <AlertTriangle className="size-4 text-amber-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-700">
-                Файлы (не изображения) не сохраняются в браузере — только метаданные.
-              </p>
+              <p className="text-xs text-amber-700">Файлы (не изображения) не сохраняются в браузере — только метаданные.</p>
             </div>
           )}
-
           {form.attachments.length > 0 && (
             <div className="flex flex-col gap-2">
               {form.attachments.map((att) => (
@@ -887,12 +744,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       {/* ── bottom action bar ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between py-4 border-t border-slate-200 mt-2">
         <div className="flex items-center gap-2 text-xs text-slate-400">
-          {isDirty && (
-            <>
-              <div className="size-1.5 rounded-full bg-amber-400" />
-              Есть несохранённые изменения
-            </>
-          )}
+          {isDirty && (<><div className="size-1.5 rounded-full bg-amber-400" />Есть несохранённые изменения</>)}
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={handleCancel}>Отмена</Button>

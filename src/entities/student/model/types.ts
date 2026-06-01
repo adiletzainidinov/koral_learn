@@ -44,6 +44,15 @@ export interface Student {
   isActive: boolean;
   /** Base64 JPEG, max 256×256px, stored in localStorage with the student record */
   avatar?: string;
+  /** Link to the Parent entity — primary contact source */
+  parentId?: string;
+  /** Personal contacts of the student themselves */
+  studentPhone?: string;
+  studentWhatsapp?: string;
+  studentTelegram?: string;
+  studentInstagram?: string;
+  /** IDs of other students who are friends / emergency contacts */
+  friendIds?: string[];
 }
 
 export type StudentLevel = 'beginner' | 'intermediate' | 'advanced';

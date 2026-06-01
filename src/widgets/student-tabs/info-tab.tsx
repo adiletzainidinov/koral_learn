@@ -7,8 +7,8 @@ import { SectionCard } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Lightbox } from '@/shared/ui/lightbox';
 import { Badge } from '@/shared/ui/badge';
-import { useStudentById, useStudentParent, useStudentsByParentId } from '@/store/app-store';
-import type { StudentContact, FriendContact, StudentAttachment } from '@/entities/student/model/types';
+import { useStudentById, useStudentParent, useStudentsByParentId, useAppStore } from '@/store/app-store';
+import type { StudentContact, StudentAttachment } from '@/entities/student/model/types';
 import { RELATION_LABELS } from '@/entities/parent/model/types';
 import { formatWhatsappLink, formatTelegramLink, formatInstagramLink } from '@/entities/parent/model/helpers';
 
@@ -133,19 +133,28 @@ function ContactChip({ icon, label, children }: { icon: React.ReactNode; label: 
 
 export function InfoTab({ studentId }: Props) {
   const student = useStudentById(studentId);
+  const allStudents = useAppStore((s) => s.students);
 
   if (!student) return null;
 
   const contacts = student.contacts ?? [];
-  const friendContacts = student.friendContacts ?? [];
   const attachments = student.attachments ?? [];
   const address = student.address ?? '';
   const notes = student.notes ?? '';
 
-  const hasContactInfo = contacts.length > 0 || friendContacts.length > 0 || address;
-  const hasExtra = notes || attachments.length > 0;
+  const friendStudents = (student.friendIds ?? [])
+    .map((id) => allStudents.find((s) => s.id === id))
+    .filter((s): s is NonNullable<typeof s> => !!s);
 
-  if (!hasContactInfo && !hasExtra && !student.parentId) {
+  const hasStudentContacts = !!(
+    student.studentPhone || student.studentWhatsapp || student.studentTelegram || student.studentInstagram
+  );
+
+  const hasAnyContent =
+    student.parentId || hasStudentContacts || friendStudents.length > 0 ||
+    contacts.length > 0 || address || notes || attachments.length > 0;
+
+  if (!hasAnyContent) {
     return (
       <EmptyState
         icon={<User className="size-5" />}
@@ -160,62 +169,126 @@ export function InfoTab({ studentId }: Props) {
       {/* parent block */}
       {student.parentId && <ParentBlock studentId={studentId} />}
 
-      {/* contacts + address */}
-      {hasContactInfo && (
+      {/* student personal contacts */}
+      {hasStudentContacts && (
+        <SectionCard title="Контакты ученика" description="Личные контакты — телефон и мессенджеры">
+          <div className="grid grid-cols-2 gap-3">
+            {student.studentPhone && (
+              <ContactChip icon={<Phone className="size-3 text-slate-400" />} label="Телефон">
+                <a href={`tel:${student.studentPhone}`} className="text-sm text-slate-700 hover:text-emerald-600">
+                  {student.studentPhone}
+                </a>
+              </ContactChip>
+            )}
+            {student.studentWhatsapp && (
+              <ContactChip icon={<MessageCircle className="size-3 text-green-500" />} label="WhatsApp">
+                <a href={formatWhatsappLink(student.studentWhatsapp)} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-green-600 hover:underline">{student.studentWhatsapp}</a>
+              </ContactChip>
+            )}
+            {student.studentTelegram && (
+              <ContactChip icon={<Send className="size-3 text-blue-400" />} label="Telegram">
+                <a href={formatTelegramLink(student.studentTelegram)} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-blue-500 hover:underline">{student.studentTelegram}</a>
+              </ContactChip>
+            )}
+            {student.studentInstagram && (
+              <ContactChip icon={<AtSign className="size-3 text-pink-400" />} label="Instagram">
+                <a href={formatInstagramLink(student.studentInstagram)} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-pink-500 hover:underline">{student.studentInstagram}</a>
+              </ContactChip>
+            )}
+          </div>
+        </SectionCard>
+      )}
+
+      {/* friends from friendIds */}
+      <SectionCard title="Друзья и связи"
+        description={friendStudents.length > 0 ? 'Ученики, через которых можно связаться' : undefined}>
+        {friendStudents.length === 0 ? (
+          <p className="text-sm text-slate-400">Друзья не выбраны</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {friendStudents.map((friend) => {
+              const initials = friend.fullName.slice(0, 2).toUpperCase();
+              const contactLine = friend.studentWhatsapp || friend.studentPhone;
+              return (
+                <Link key={friend.id} href={`/students/${friend.id}`}
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors group">
+                  <div className="size-9 rounded-full overflow-hidden bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">
+                    {friend.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={friend.avatar} alt={friend.fullName} className="size-full object-cover" />
+                    ) : initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 group-hover:text-emerald-700 transition-colors">
+                      {friend.fullName}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
+                      <span>Группа {friend.group}</span>
+                      <span>·</span>
+                      <span>{friend.age} лет</span>
+                      {contactLine && (
+                        <>
+                          <span>·</span>
+                          {friend.studentWhatsapp ? (
+                            <a href={formatWhatsappLink(friend.studentWhatsapp)} target="_blank" rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-green-600 hover:underline">WA</a>
+                          ) : (
+                            <span>{contactLine}</span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <Users className="size-3.5 text-slate-300 group-hover:text-emerald-400 transition-colors shrink-0" />
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </SectionCard>
+
+      {/* legacy family contacts (backward compat for older data) */}
+      {contacts.length > 0 && (
         <div className="grid grid-cols-2 gap-6">
-          {/* left: family contacts */}
-          <div>
-            {contacts.length > 0 && (
-              <SectionCard title="Контакты семьи" description="Телефоны и мессенджеры">
-                <div className="flex flex-col gap-3">
-                  {contacts.map((c) => (
-                    <ContactRow key={c.id} icon={<User className="size-3.5 text-slate-400" />}>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{c.relation}</p>
-                      {c.phone && (
-                        <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 text-sm text-slate-700 hover:text-emerald-600 mt-0.5">
-                          <Phone className="size-3 shrink-0" />{c.phone}
-                        </a>
-                      )}
-                      <MessengerLinks whatsapp={c.whatsapp} telegram={c.telegram} instagram={c.instagram} />
-                      {c.notes && <p className="text-xs text-slate-400 mt-1 italic">{c.notes}</p>}
-                    </ContactRow>
-                  ))}
-                </div>
-              </SectionCard>
-            )}
-          </div>
-
-          {/* right: address + friend contacts */}
-          <div className="flex flex-col gap-5">
-            {address && (
-              <SectionCard title="Адрес">
-                <div className="flex items-start gap-2 text-sm text-slate-600">
-                  <MapPin className="size-4 text-slate-400 mt-0.5 shrink-0" />
-                  {address}
-                </div>
-              </SectionCard>
-            )}
-
-            {friendContacts.length > 0 && (
-              <SectionCard title="Контакты друзей" description="Для связи при недоступности ученика">
-                <div className="flex flex-col gap-3">
-                  {friendContacts.map((f) => (
-                    <ContactRow key={f.id} icon={<Users className="size-3.5 text-slate-400" />}>
-                      <p className="text-sm font-medium text-slate-800">{f.fullName}</p>
-                      {f.relationNote && <p className="text-xs text-slate-400">{f.relationNote}</p>}
-                      {f.phone && (
-                        <a href={`tel:${f.phone}`} className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-emerald-600 mt-0.5">
-                          <Phone className="size-3 shrink-0" />{f.phone}
-                        </a>
-                      )}
-                      <MessengerLinks whatsapp={f.whatsapp} telegram={f.telegram} instagram={f.instagram} />
-                    </ContactRow>
-                  ))}
-                </div>
-              </SectionCard>
-            )}
-          </div>
+          <SectionCard title="Контакты семьи" description="Телефоны и мессенджеры">
+            <div className="flex flex-col gap-3">
+              {contacts.map((c) => (
+                <ContactRow key={c.id} icon={<User className="size-3.5 text-slate-400" />}>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{c.relation}</p>
+                  {c.phone && (
+                    <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 text-sm text-slate-700 hover:text-emerald-600 mt-0.5">
+                      <Phone className="size-3 shrink-0" />{c.phone}
+                    </a>
+                  )}
+                  <MessengerLinks whatsapp={c.whatsapp} telegram={c.telegram} instagram={c.instagram} />
+                  {c.notes && <p className="text-xs text-slate-400 mt-1 italic">{c.notes}</p>}
+                </ContactRow>
+              ))}
+            </div>
+          </SectionCard>
+          {address && (
+            <SectionCard title="Адрес">
+              <div className="flex items-start gap-2 text-sm text-slate-600">
+                <MapPin className="size-4 text-slate-400 mt-0.5 shrink-0" />
+                {address}
+              </div>
+            </SectionCard>
+          )}
         </div>
+      )}
+
+      {/* address (when no legacy contacts) */}
+      {address && contacts.length === 0 && (
+        <SectionCard title="Адрес">
+          <div className="flex items-start gap-2 text-sm text-slate-600">
+            <MapPin className="size-4 text-slate-400 mt-0.5 shrink-0" />
+            {address}
+          </div>
+        </SectionCard>
       )}
 
       {/* notes */}
@@ -226,17 +299,11 @@ export function InfoTab({ studentId }: Props) {
       )}
 
       {/* files */}
-      {attachments.length > 0 ? (
+      {attachments.length > 0 && (
         <SectionCard title="Файлы" description="Скриншоты и документы">
           <FilesGrid attachments={attachments} />
         </SectionCard>
-      ) : hasExtra && !notes ? (
-        <EmptyState
-          icon={<Paperclip className="size-5" />}
-          title="Файлов пока нет"
-          description="Вложения добавляются при редактировании ученика"
-        />
-      ) : null}
+      )}
     </div>
   );
 }

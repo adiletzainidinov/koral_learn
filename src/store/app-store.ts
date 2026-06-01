@@ -229,7 +229,13 @@ export const useAppStore = create<AppState>()(
 
       removeStudent: (id) => {
         set((state) => ({
-          students: state.students.filter((s) => s.id !== id),
+          students: state.students
+            .filter((s) => s.id !== id)
+            .map((s) =>
+              s.friendIds?.includes(id)
+                ? { ...s, friendIds: s.friendIds.filter((fid) => fid !== id) }
+                : s
+            ),
           assignments: state.assignments.filter((a) => a.studentId !== id),
           attendanceRecords: state.attendanceRecords.filter((r) => r.studentId !== id),
           pointHistory: state.pointHistory.filter((p) => p.studentId !== id),
