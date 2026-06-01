@@ -851,7 +851,10 @@ export const useAppStore = create<AppState>()(
 
       createFamily: (input) => {
         const id = generateId();
-        const family: Family = { ...input, id, createdAt: new Date().toISOString() };
+        const { parents } = get();
+        const parent = parents.find((p) => p.id === input.parentId);
+        const name = parent ? `Семья ${parent.fullName}` : 'Семья';
+        const family: Family = { ...input, id, name, createdAt: new Date().toISOString() };
         set((state) => ({
           families: [
             ...state.families.map((f) => ({
@@ -1178,3 +1181,10 @@ export const usePaymentHistoryByFamilyId = (familyId: string) =>
 
 export const useStudentFamily = (studentId: string) =>
   useAppStore((s) => s.families.find((f) => f.studentIds.includes(studentId)));
+
+export const useFamilyParent = (familyId: string) =>
+  useAppStore((s) => {
+    const family = s.families.find((f) => f.id === familyId);
+    if (!family?.parentId) return null;
+    return s.parents.find((p) => p.id === family.parentId) ?? null;
+  });

@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Users, Wallet, CheckCircle2, Clock, AlertCircle,
   Plus, Trash2, Phone, Edit2, X, Check, Copy, ChevronRight,
-  Star, MoreVertical,
+  Star, MoreVertical, MessageCircle, UserRound,
 } from 'lucide-react';
 import {
   useAppStore, useFamilyById, useStudents, useFamilyPaymentsByFamilyId,
-  usePaymentHistoryByFamilyId,
+  usePaymentHistoryByFamilyId, useFamilyParent, useParents,
 } from '@/store/app-store';
+import { formatWhatsappLink } from '@/entities/parent/model/helpers';
 import {
   SUPPORT_PLANS, PLAN_COLORS, STATUS_COLORS, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS,
   calculateExpectedPayment, formatAmount, getCurrentMonth, formatMonth,
@@ -131,20 +132,19 @@ function AcceptPaymentModal({
 
 function EditFamilyModal({ familyId, onClose }: { familyId: string; onClose: () => void }) {
   const family = useFamilyById(familyId);
+  const parents = useParents();
   const updateFamily = useAppStore((s) => s.updateFamily);
 
-  const [name, setName] = useState(family?.name ?? '');
-  const [parentName, setParentName] = useState(family?.parentName ?? '');
-  const [phone, setPhone] = useState(family?.parentPhone ?? '');
   const [notes, setNotes] = useState(family?.notes ?? '');
 
   if (!family) return null;
 
   function handleSave() {
-    if (!name.trim()) return;
-    updateFamily(familyId, { name: name.trim(), parentName: parentName.trim() || undefined, parentPhone: phone.trim() || undefined, notes: notes.trim() || undefined });
+    updateFamily(familyId, { notes: notes.trim() || undefined });
     onClose();
   }
+
+  const parent = parents.find((p) => p.id === family.parentId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -154,31 +154,30 @@ function EditFamilyModal({ familyId, onClose }: { familyId: string; onClose: () 
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X className="size-5" /></button>
         </div>
         <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Название семьи *</label>
-            <input value={name} onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Имя родителя</label>
-            <input value={parentName} onChange={(e) => setParentName(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Телефон</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+996 700 000 000"
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-          </div>
+          {parent && (
+            <div className="px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2">
+              <UserRound className="size-4 text-emerald-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-800 truncate">{parent.fullName}</p>
+                <p className="text-xs text-slate-500">{parent.whatsapp}</p>
+              </div>
+              <Link href={`/parents/${parent.id}`}
+                className="ml-auto text-xs text-emerald-600 hover:underline font-medium shrink-0">
+                Открыть
+              </Link>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Заметки</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none" />
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
+              placeholder="Дополнительная информация о поддержке..."
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none placeholder:text-slate-400" />
           </div>
         </div>
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
-          <button onClick={handleSave} disabled={!name.trim()}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">
+          <button onClick={handleSave}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
             Сохранить
           </button>
         </div>
@@ -259,6 +258,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
   const hydrated = useHydrated();
   const router = useRouter();
   const family = useFamilyById(familyId);
+  const parent = useFamilyParent(familyId);
   const students = useStudents();
   const payments = useFamilyPaymentsByFamilyId(familyId);
   const history = usePaymentHistoryByFamilyId(familyId);
@@ -325,12 +325,27 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                 {PAYMENT_STATUS_LABELS[currentStatus]}
               </span>
             </div>
-            {family.parentName && (
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-sm text-slate-600">{family.parentName}</span>
-                {family.parentPhone && (
+            {(parent || family.parentName) && (
+              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                <span className="text-sm text-slate-600">
+                  {parent ? parent.fullName : family.parentName}
+                </span>
+                {(parent?.whatsapp || family.parentPhone) && (
                   <div className="flex items-center gap-1 text-xs text-slate-400">
-                    <Phone className="size-3" />{family.parentPhone}
+                    <Phone className="size-3" />
+                    {parent?.whatsapp ?? family.parentPhone}
+                  </div>
+                )}
+                {parent && (
+                  <div className="flex items-center gap-2">
+                    <a href={formatWhatsappLink(parent.whatsapp)} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-green-50 text-green-700 text-xs font-medium hover:bg-green-100 transition-colors">
+                      <MessageCircle className="size-3" />WA
+                    </a>
+                    <Link href={`/parents/${parent.id}`}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium hover:bg-slate-200 transition-colors">
+                      <UserRound className="size-3" />Открыть
+                    </Link>
                   </div>
                 )}
               </div>

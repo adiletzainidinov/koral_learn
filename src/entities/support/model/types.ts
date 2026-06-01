@@ -17,13 +17,19 @@ export interface SupportPlan {
 
 export interface Family {
   id: string;
+  /** Primary parent entity reference — source of truth for contact data */
+  parentId?: string;
+  /** Display name — derived from parent on creation, or legacy manual entry */
   name: string;
+  /** Legacy: kept for backward compat with old localStorage data */
   parentName?: string;
+  /** Legacy: kept for backward compat with old localStorage data */
   parentPhone?: string;
   notes?: string;
   studentIds: string[];
   supportPlanType: SupportPlanType;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface FamilyPayment {
@@ -51,12 +57,10 @@ export interface PaymentHistoryItem {
 }
 
 export interface CreateFamilyInput {
-  name: string;
-  parentName?: string;
-  parentPhone?: string;
-  notes?: string;
+  parentId: string;
   studentIds: string[];
   supportPlanType: SupportPlanType;
+  notes?: string;
 }
 
 export type UpdateFamilyInput = Partial<Omit<Family, 'id' | 'createdAt'>>;

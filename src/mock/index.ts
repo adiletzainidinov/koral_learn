@@ -487,6 +487,7 @@ export const mockTeamGames: TeamGame[] = [
 export const mockFamilies: Family[] = [
   {
     id: 'fam1',
+    parentId: 'par1',
     name: 'Семья Маматовых',
     parentName: 'Жылдыз Маматова',
     parentPhone: '+996 700 111 222',
@@ -497,6 +498,7 @@ export const mockFamilies: Family[] = [
   },
   {
     id: 'fam2',
+    parentId: 'par2',
     name: 'Семья Жумабаевых',
     parentName: 'Кубан Жумабаев',
     parentPhone: '+996 700 555 666',
@@ -507,6 +509,7 @@ export const mockFamilies: Family[] = [
   },
   {
     id: 'fam3',
+    parentId: 'par3',
     name: 'Семья Алиевых',
     parentName: 'Айгуль Алиева',
     parentPhone: '+996 700 112 233',
@@ -517,6 +520,7 @@ export const mockFamilies: Family[] = [
   },
   {
     id: 'fam4',
+    parentId: 'par4',
     name: 'Семья Касымовых',
     parentName: 'Гульнар Касымова',
     parentPhone: '+996 700 777 888',
@@ -527,6 +531,7 @@ export const mockFamilies: Family[] = [
   },
   {
     id: 'fam5',
+    parentId: 'par5',
     name: 'Семья Токтосуновых',
     parentName: 'Замира Токтосунова',
     parentPhone: '+996 700 778 899',

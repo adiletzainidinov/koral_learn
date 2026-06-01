@@ -8,8 +8,9 @@ import {
   CalendarDays, Check,
 } from 'lucide-react';
 import {
-  useAppStore, useFamilies, useStudents, useFamilyPayments,
+  useAppStore, useFamilies, useStudents, useFamilyPayments, useParents,
 } from '@/store/app-store';
+import type { Parent } from '@/entities/parent/model/types';
 import {
   SUPPORT_PLANS, PLAN_COLORS, STATUS_COLORS, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS,
   calculateExpectedPayment, formatAmount, getCurrentMonth, formatMonth,
@@ -199,9 +200,10 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
 // ─── Family Card ──────────────────────────────────────────────────────────────
 
 function FamilyCard({
-  family, payment, studentNames, month, onAcceptPayment,
+  family, parent, payment, studentNames, month, onAcceptPayment,
 }: {
   family: ReturnType<typeof useFamilies>[number];
+  parent?: Parent;
   payment: ReturnType<typeof useFamilyPayments>[number] | undefined;
   studentNames: string[];
   month: string;
@@ -215,6 +217,9 @@ function FamilyCard({
   const status = payment?.status ?? (expectedAmount === 0 ? 'paid' : 'unpaid');
   const statusColors = STATUS_COLORS[status];
 
+  const displayName = parent ? parent.fullName : (family.parentName ?? family.name);
+  const displayContact = parent ? parent.whatsapp : family.parentPhone;
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
       <div className="p-5">
@@ -226,13 +231,11 @@ function FamilyCard({
                 {plan.emoji} {plan.name}
               </span>
             </div>
-            {family.parentName && (
-              <p className="text-sm text-slate-600">{family.parentName}</p>
-            )}
-            {family.parentPhone && (
+            <p className="text-sm text-slate-600">{displayName}</p>
+            {displayContact && (
               <div className="flex items-center gap-1 text-xs text-slate-400 mt-0.5">
                 <Phone className="size-3" />
-                {family.parentPhone}
+                {displayContact}
               </div>
             )}
           </div>
@@ -302,6 +305,7 @@ export function SupportDashboard() {
   const hydrated = useHydrated();
   const families = useFamilies();
   const students = useStudents();
+  const parents = useParents();
   const familyPayments = useFamilyPayments();
   const createMonthlyPayments = useAppStore((s) => s.createMonthlyPayments);
 
@@ -332,8 +336,18 @@ export function SupportDashboard() {
     .filter((f) => {
       if (search) {
         const q = search.toLowerCase();
+        const parent = parents.find((p) => p.id === f.parentId);
         const studentNamesMatch = students.filter((s) => f.studentIds.includes(s.id)).some((s) => s.fullName.toLowerCase().includes(q));
-        if (!f.name.toLowerCase().includes(q) && !(f.parentName ?? '').toLowerCase().includes(q) && !(f.parentPhone ?? '').includes(q) && !studentNamesMatch) return false;
+        const parentMatch = parent
+          ? parent.fullName.toLowerCase().includes(q) || parent.whatsapp.includes(q) || (parent.phone ?? '').includes(q)
+          : false;
+        if (
+          !f.name.toLowerCase().includes(q) &&
+          !(f.parentName ?? '').toLowerCase().includes(q) &&
+          !(f.parentPhone ?? '').includes(q) &&
+          !parentMatch &&
+          !studentNamesMatch
+        ) return false;
       }
       if (planFilter !== 'all' && f.supportPlanType !== planFilter) return false;
       if (statusFilter !== 'all') {
@@ -476,10 +490,12 @@ export function SupportDashboard() {
           {filtered.map((family) => {
             const payment = monthPayments.find((p) => p.familyId === family.id);
             const familyStudents = students.filter((s) => family.studentIds.includes(s.id));
+            const parent = parents.find((p) => p.id === family.parentId);
             return (
               <FamilyCard
                 key={family.id}
                 family={family}
+                parent={parent}
                 payment={payment}
                 studentNames={familyStudents.map((s) => s.fullName)}
                 month={selectedMonth}
