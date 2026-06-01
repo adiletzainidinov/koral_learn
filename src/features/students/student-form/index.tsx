@@ -26,7 +26,7 @@ import { Card } from '@/shared/ui/card';
 import { useAppStore, useParents } from '@/store/app-store';
 import { generateId } from '@/shared/lib/ids';
 import { cn } from '@/shared/lib/cn';
-import type { StudentLevel, StudentContact, StudentAttachment } from '@/entities/student/model/types';
+import type { StudentLevel, StudentAttachment } from '@/entities/student/model/types';
 import type { Parent } from '@/entities/parent/model/types';
 import { formatWhatsappLink } from '@/entities/parent/model/helpers';
 import { StudentFriendsSelector } from '@/features/students/student-friends-selector';
@@ -376,9 +376,6 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
   const [studentNotFound, setStudentNotFound] = useState(false);
   const hasLoaded = useRef(false);
 
-  // Preserve legacy family contacts so edit-mode doesn't erase old data
-  const existingContactsRef = useRef<StudentContact[]>([]);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentZoneRef = useRef<HTMLDivElement>(null);
   const fullNameRef = useRef<HTMLInputElement>(null);
@@ -404,7 +401,6 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
     const student = students.find((s) => s.id === studentId);
     if (!student) { setStudentNotFound(true); return; }
     hasLoaded.current = true;
-    existingContactsRef.current = student.contacts ?? [];
     setForm({
       fullName: student.fullName,
       age: String(student.age),
@@ -523,8 +519,6 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       startedAt: form.startedAt,
       isActive: true,
       address: form.address.trim(),
-      contacts: mode === 'edit' ? existingContactsRef.current : [],
-      friendContacts: [],
       notes: form.notes.trim(),
       attachments: persistedAttachments,
       avatar: form.avatar,

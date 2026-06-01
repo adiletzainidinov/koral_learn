@@ -1,23 +1,3 @@
-export interface StudentContact {
-  id: string;
-  relation: string;
-  phone: string;
-  whatsapp?: string;
-  telegram?: string;
-  instagram?: string;
-  notes?: string;
-}
-
-export interface FriendContact {
-  id: string;
-  fullName: string;
-  phone: string;
-  whatsapp?: string;
-  telegram?: string;
-  instagram?: string;
-  relationNote?: string;
-}
-
 export interface StudentAttachment {
   id: string;
   name: string;
@@ -35,8 +15,6 @@ export interface Student {
   level: StudentLevel;
   startedAt: string;
   address: string;
-  contacts: StudentContact[];
-  friendContacts: FriendContact[];
   notes: string;
   attachments: StudentAttachment[];
   totalPoints: number;
@@ -62,20 +40,6 @@ export const STUDENT_LEVEL_LABELS: Record<StudentLevel, string> = {
   intermediate: 'Средний',
   advanced: 'Продвинутый',
 };
-
-export const CONTACT_RELATION_OPTIONS = [
-  'Мама',
-  'Папа',
-  'Сам ученик',
-  'Бабушка',
-  'Дедушка',
-  'Брат',
-  'Сестра',
-  'Дядя',
-  'Тётя',
-  'Опекун',
-  'Другой',
-];
 
 export type CreateStudentInput = Omit<Student, 'id' | 'createdAt' | 'totalPoints'>;
 export type UpdateStudentInput = Partial<Omit<Student, 'id' | 'createdAt'>>;

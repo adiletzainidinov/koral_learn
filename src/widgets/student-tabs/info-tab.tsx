@@ -8,7 +8,7 @@ import { EmptyState } from '@/shared/ui/empty-state';
 import { Lightbox } from '@/shared/ui/lightbox';
 import { Badge } from '@/shared/ui/badge';
 import { useStudentById, useStudentParent, useStudentsByParentId, useAppStore } from '@/store/app-store';
-import type { StudentContact, StudentAttachment } from '@/entities/student/model/types';
+import type { StudentAttachment } from '@/entities/student/model/types';
 import { RELATION_LABELS } from '@/entities/parent/model/types';
 import { formatWhatsappLink, formatTelegramLink, formatInstagramLink } from '@/entities/parent/model/helpers';
 
@@ -137,7 +137,6 @@ export function InfoTab({ studentId }: Props) {
 
   if (!student) return null;
 
-  const contacts = student.contacts ?? [];
   const attachments = student.attachments ?? [];
   const address = student.address ?? '';
   const notes = student.notes ?? '';
@@ -152,7 +151,7 @@ export function InfoTab({ studentId }: Props) {
 
   const hasAnyContent =
     student.parentId || hasStudentContacts || friendStudents.length > 0 ||
-    contacts.length > 0 || address || notes || attachments.length > 0;
+    address || notes || attachments.length > 0;
 
   if (!hasAnyContent) {
     return (
@@ -251,38 +250,8 @@ export function InfoTab({ studentId }: Props) {
         )}
       </SectionCard>
 
-      {/* legacy family contacts (backward compat for older data) */}
-      {contacts.length > 0 && (
-        <div className="grid grid-cols-2 gap-6">
-          <SectionCard title="Контакты семьи" description="Телефоны и мессенджеры">
-            <div className="flex flex-col gap-3">
-              {contacts.map((c) => (
-                <ContactRow key={c.id} icon={<User className="size-3.5 text-slate-400" />}>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{c.relation}</p>
-                  {c.phone && (
-                    <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 text-sm text-slate-700 hover:text-emerald-600 mt-0.5">
-                      <Phone className="size-3 shrink-0" />{c.phone}
-                    </a>
-                  )}
-                  <MessengerLinks whatsapp={c.whatsapp} telegram={c.telegram} instagram={c.instagram} />
-                  {c.notes && <p className="text-xs text-slate-400 mt-1 italic">{c.notes}</p>}
-                </ContactRow>
-              ))}
-            </div>
-          </SectionCard>
-          {address && (
-            <SectionCard title="Адрес">
-              <div className="flex items-start gap-2 text-sm text-slate-600">
-                <MapPin className="size-4 text-slate-400 mt-0.5 shrink-0" />
-                {address}
-              </div>
-            </SectionCard>
-          )}
-        </div>
-      )}
-
-      {/* address (when no legacy contacts) */}
-      {address && contacts.length === 0 && (
+      {/* address */}
+      {address && (
         <SectionCard title="Адрес">
           <div className="flex items-start gap-2 text-sm text-slate-600">
             <MapPin className="size-4 text-slate-400 mt-0.5 shrink-0" />
@@ -363,45 +332,3 @@ function FilesGrid({ attachments }: { attachments: StudentAttachment[] }) {
   );
 }
 
-function ContactRow({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="size-7 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
-        {icon}
-      </div>
-      <div className="min-w-0">{children}</div>
-    </div>
-  );
-}
-
-function MessengerLinks({
-  whatsapp, telegram, instagram,
-}: {
-  whatsapp?: string;
-  telegram?: string;
-  instagram?: string;
-}) {
-  if (!whatsapp && !telegram && !instagram) return null;
-  return (
-    <div className="flex items-center gap-3 mt-1">
-      {whatsapp && (
-        <a href={`https://wa.me/${whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-green-600 hover:underline">
-          <MessageCircle className="size-3" />WA
-        </a>
-      )}
-      {telegram && (
-        <a href={`https://t.me/${telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-blue-500 hover:underline">
-          <Send className="size-3" />{telegram}
-        </a>
-      )}
-      {instagram && (
-        <a href={`https://instagram.com/${instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-pink-500 hover:underline">
-          <AtSign className="size-3" />{instagram}
-        </a>
-      )}
-    </div>
-  );
-}
