@@ -32,7 +32,17 @@ import {
   mockTeamGames,
   mockTeamSeasons,
   mockTeamGoals,
+  mockFamilies,
+  mockFamilyPayments,
+  mockPaymentHistory,
 } from '@/mock';
+import type {
+  Family, FamilyPayment, PaymentHistoryItem, CreateFamilyInput, UpdateFamilyInput,
+  SupportPlanType, PaymentMethod,
+} from '@/entities/support/model/types';
+import {
+  calculateExpectedPayment, getPaymentStatus, formatMonth,
+} from '@/entities/support/model/helpers';
 
 interface AppState {
   _seeded: boolean;
@@ -99,6 +109,22 @@ interface AppState {
   // Badges
   awardTeamBadge: (teamId: string, type: TeamBadgeType) => void;
   removeTeamBadge: (teamId: string, badgeId: string) => void;
+
+  // ─── Support / Families ──────────────────────────────────────────────────
+  families: Family[];
+  familyPayments: FamilyPayment[];
+  paymentHistory: PaymentHistoryItem[];
+
+  createFamily: (input: CreateFamilyInput) => string;
+  updateFamily: (id: string, patch: UpdateFamilyInput) => void;
+  deleteFamily: (id: string) => void;
+  assignStudentToFamily: (familyId: string, studentId: string) => void;
+  removeStudentFromFamily: (familyId: string, studentId: string) => void;
+  setFamilySupportPlan: (familyId: string, planType: SupportPlanType) => void;
+  createMonthlyPayments: (month: string) => void;
+  markFamilyPaymentPaid: (familyId: string, month: string, amount: number, method: PaymentMethod, comment?: string) => void;
+  updateFamilyPayment: (paymentId: string, patch: Partial<Pick<FamilyPayment, 'paidAmount' | 'expectedAmount' | 'paymentMethod' | 'comment'>>) => void;
+  deleteFamilyPayment: (paymentId: string) => void;
 }
 
 // ─── point-history helper ─────────────────────────────────────────────────────
@@ -148,6 +174,9 @@ export const useAppStore = create<AppState>()(
       teamSeasons: [],
       teamGoals: [],
       activeSeasonId: null,
+      families: [],
+      familyPayments: [],
+      paymentHistory: [],
 
       _seed: () => {
         const { _seeded } = get();
@@ -164,6 +193,9 @@ export const useAppStore = create<AppState>()(
           teamSeasons: mockTeamSeasons,
           teamGoals: mockTeamGoals,
           activeSeasonId: 'season1',
+          families: mockFamilies,
+          familyPayments: mockFamilyPayments,
+          paymentHistory: mockPaymentHistory,
         });
       },
 
@@ -506,6 +538,7 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           teams: state.teams.filter((t) => t.id !== id),
           teamPointHistory: state.teamPointHistory.filter((h) => h.teamId !== id),
+          teamGoals: state.teamGoals.filter((g) => g.teamId !== id),
           teamGames: state.teamGames.map((g) => ({
             ...g,
             teamIds: g.teamIds.filter((tid) => tid !== id),
@@ -771,6 +804,164 @@ export const useAppStore = create<AppState>()(
           ),
         }));
       },
+
+      // ─── Support / Families ────────────────────────────────────────────────
+
+      createFamily: (input) => {
+        const id = generateId();
+        const family: Family = { ...input, id, createdAt: new Date().toISOString() };
+        set((state) => ({
+          families: [
+            ...state.families.map((f) => ({
+              ...f,
+              studentIds: f.studentIds.filter((sid) => !input.studentIds.includes(sid)),
+            })),
+            family,
+          ],
+        }));
+        return id;
+      },
+
+      updateFamily: (id, patch) => {
+        set((state) => ({
+          families: state.families.map((f) => f.id === id ? { ...f, ...patch } : f),
+        }));
+      },
+
+      deleteFamily: (id) => {
+        set((state) => ({
+          families: state.families.filter((f) => f.id !== id),
+          familyPayments: state.familyPayments.filter((p) => p.familyId !== id),
+          paymentHistory: state.paymentHistory.filter((h) => h.familyId !== id),
+        }));
+      },
+
+      assignStudentToFamily: (familyId, studentId) => {
+        set((state) => ({
+          families: state.families.map((f) => {
+            if (f.id === familyId) {
+              return { ...f, studentIds: [...f.studentIds.filter((s) => s !== studentId), studentId] };
+            }
+            return { ...f, studentIds: f.studentIds.filter((s) => s !== studentId) };
+          }),
+        }));
+      },
+
+      removeStudentFromFamily: (familyId, studentId) => {
+        set((state) => ({
+          families: state.families.map((f) =>
+            f.id === familyId ? { ...f, studentIds: f.studentIds.filter((s) => s !== studentId) } : f
+          ),
+        }));
+      },
+
+      setFamilySupportPlan: (familyId, planType) => {
+        set((state) => ({
+          families: state.families.map((f) =>
+            f.id === familyId ? { ...f, supportPlanType: planType } : f
+          ),
+        }));
+      },
+
+      createMonthlyPayments: (month) => {
+        const { families, familyPayments } = get();
+        const now = new Date().toISOString();
+        const newPayments: FamilyPayment[] = [];
+        const newHistory: PaymentHistoryItem[] = [];
+
+        families.forEach((family) => {
+          if (familyPayments.some((p) => p.familyId === family.id && p.month === month)) return;
+          const expectedAmount = calculateExpectedPayment(family.supportPlanType, family.studentIds.length);
+          const paymentId = generateId();
+          newPayments.push({
+            id: paymentId,
+            familyId: family.id,
+            month,
+            expectedAmount,
+            paidAmount: 0,
+            status: getPaymentStatus(expectedAmount, 0),
+            createdAt: now,
+          });
+          newHistory.push({
+            id: generateId(),
+            familyId: family.id,
+            paymentId,
+            amount: expectedAmount,
+            action: 'created',
+            comment: `Начислено за ${formatMonth(month)}`,
+            createdAt: now,
+          });
+        });
+
+        if (newPayments.length > 0) {
+          set((state) => ({
+            familyPayments: [...state.familyPayments, ...newPayments],
+            paymentHistory: [...state.paymentHistory, ...newHistory],
+          }));
+        }
+      },
+
+      markFamilyPaymentPaid: (familyId, month, amount, method, comment) => {
+        const now = new Date().toISOString();
+        const state = get();
+        const existing = state.familyPayments.find((p) => p.familyId === familyId && p.month === month);
+
+        if (existing) {
+          const newPaid = existing.paidAmount + amount;
+          const newStatus = getPaymentStatus(existing.expectedAmount, newPaid);
+          const histAction = newStatus === 'paid' || newStatus === 'overpaid' ? 'paid' : 'partial_paid';
+          const histItem: PaymentHistoryItem = {
+            id: generateId(), familyId, paymentId: existing.id, amount,
+            action: histAction, comment, createdAt: now,
+          };
+          set((s) => ({
+            familyPayments: s.familyPayments.map((p) =>
+              p.id === existing.id
+                ? { ...p, paidAmount: newPaid, status: newStatus, paidAt: now, paymentMethod: method, comment: comment ?? p.comment, updatedAt: now }
+                : p
+            ),
+            paymentHistory: [...s.paymentHistory, histItem],
+          }));
+        } else {
+          const family = state.families.find((f) => f.id === familyId);
+          const expectedAmount = family
+            ? calculateExpectedPayment(family.supportPlanType, family.studentIds.length)
+            : 0;
+          const newStatus = getPaymentStatus(expectedAmount, amount);
+          const paymentId = generateId();
+          const payment: FamilyPayment = {
+            id: paymentId, familyId, month, expectedAmount, paidAmount: amount,
+            status: newStatus, paidAt: now, paymentMethod: method, comment, createdAt: now, updatedAt: now,
+          };
+          const histItem: PaymentHistoryItem = {
+            id: generateId(), familyId, paymentId, amount,
+            action: newStatus === 'paid' || newStatus === 'overpaid' ? 'paid' : 'partial_paid',
+            comment, createdAt: now,
+          };
+          set((s) => ({
+            familyPayments: [...s.familyPayments, payment],
+            paymentHistory: [...s.paymentHistory, histItem],
+          }));
+        }
+      },
+
+      updateFamilyPayment: (paymentId, patch) => {
+        set((state) => ({
+          familyPayments: state.familyPayments.map((p) => {
+            if (p.id !== paymentId) return p;
+            const updated = { ...p, ...patch, updatedAt: new Date().toISOString() };
+            updated.status = getPaymentStatus(updated.expectedAmount, updated.paidAmount);
+            return updated;
+          }),
+        }));
+      },
+
+      deleteFamilyPayment: (paymentId) => {
+        set((state) => ({
+          familyPayments: state.familyPayments.filter((p) => p.id !== paymentId),
+          paymentHistory: state.paymentHistory.filter((h) => h.paymentId !== paymentId),
+        }));
+      },
     }),
     {
       name: 'quranlearn-v2',
@@ -895,3 +1086,34 @@ export const useTeamGoalsByTeamId = (teamId: string) =>
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     )
   );
+
+
+// ─── Support selectors ────────────────────────────────────────────────────────
+
+export const useFamilies = () => useAppStore((s) => s.families);
+
+export const useFamilyById = (id: string) =>
+  useAppStore((s) => s.families.find((f) => f.id === id));
+
+export const useFamilyPayments = () => useAppStore((s) => s.familyPayments);
+
+export const useFamilyPaymentsByFamilyId = (familyId: string) =>
+  useAppStore(
+    useShallow((s) =>
+      s.familyPayments
+        .filter((p) => p.familyId === familyId)
+        .sort((a, b) => b.month.localeCompare(a.month))
+    )
+  );
+
+export const usePaymentHistoryByFamilyId = (familyId: string) =>
+  useAppStore(
+    useShallow((s) =>
+      s.paymentHistory
+        .filter((h) => h.familyId === familyId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    )
+  );
+
+export const useStudentFamily = (studentId: string) =>
+  useAppStore((s) => s.families.find((f) => f.studentIds.includes(studentId)));

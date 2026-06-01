@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Trophy,
   UsersRound,
+  HeartHandshake,
   Settings,
   BookMarked,
 } from 'lucide-react';
@@ -23,6 +24,7 @@ const navItems = [
   { href: '/attendance', label: 'Посещаемость', icon: CalendarDays },
   { href: '/leaderboard', label: 'Рейтинг', icon: Trophy },
   { href: '/teams', label: 'Команды', icon: UsersRound },
+  { href: '/support', label: 'Поддержка', icon: HeartHandshake },
 ];
 
 const bottomItems = [

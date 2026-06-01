@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Users, Trophy, Target, Zap, ChevronRight, Star,
-  Calendar, Shuffle, Crown, Medal, Monitor, TrendingUp, X,
+  Calendar, Shuffle, Crown, Medal, Monitor, TrendingUp, X, Trash2,
 } from 'lucide-react';
 import {
   useTeams, useAppStore, useStudents, useActiveSeason, useTeamSeasons,
@@ -533,7 +533,7 @@ function SeasonCard({ onNewSeason }: { onNewSeason: () => void }) {
 // ─── Team Card ────────────────────────────────────────────────────────────────
 
 function TeamCard({
-  team, students, rank, useSeasonPoints, onAward, onEdit, onBadge,
+  team, students, rank, useSeasonPoints, onAward, onEdit, onBadge, onDelete,
 }: {
   team: ReturnType<typeof useTeams>[number];
   students: ReturnType<typeof useStudents>;
@@ -542,6 +542,7 @@ function TeamCard({
   onAward: (id: string) => void;
   onEdit: (id: string) => void;
   onBadge: (id: string) => void;
+  onDelete: (id: string) => void;
 }) {
   const router = useRouter();
   const cls = TEAM_COLOR_CLASSES[team.color as TeamColor] ?? TEAM_COLOR_CLASSES.emerald;
@@ -640,6 +641,10 @@ function TeamCard({
         <button onClick={() => onEdit(team.id)}
           className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
           ✏️
+        </button>
+        <button onClick={() => onDelete(team.id)} title="Удалить команду"
+          className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-400 hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-colors">
+          <Trash2 className="size-3.5" />
         </button>
       </div>
     </div>
@@ -804,7 +809,7 @@ export function TeamsList() {
             const rank = sortedForRanking.findIndex((t) => t.id === team.id) + 1;
             return (
               <TeamCard key={team.id} team={team} students={students} rank={rank}
-                useSeasonPoints={useSeasonPoints} onAward={setAwardTeamId} onEdit={setEditTeamId} onBadge={setBadgeTeamId} />
+                useSeasonPoints={useSeasonPoints} onAward={setAwardTeamId} onEdit={setEditTeamId} onBadge={setBadgeTeamId} onDelete={setDeleteConfirm} />
             );
           })}
         </div>
@@ -820,19 +825,46 @@ export function TeamsList() {
       {showSeasonModal && <SeasonModal onClose={() => setShowSeasonModal(false)} />}
       {showAutoModal && <AutoDistributionModal onClose={() => setShowAutoModal(false)} />}
 
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDeleteConfirm(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-slate-900 mb-2">Удалить команду?</h2>
-            <p className="text-sm text-slate-500 mb-5">Ученики останутся в системе.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
-              <button onClick={() => { deleteTeam(deleteConfirm); setDeleteConfirm(null); }}
-                className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600">Удалить</button>
+      {deleteConfirm && (() => {
+        const dt = teams.find((t) => t.id === deleteConfirm);
+        const dtMembers = dt ? students.filter((s) => dt.studentIds.includes(s.id)).length : 0;
+        const dtPts = dt ? (useSeasonPoints ? (dt.seasonPoints ?? 0) : dt.points) : 0;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDeleteConfirm(null)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="size-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                  <Trash2 className="size-5 text-red-500" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Удалить команду?</h2>
+                  <p className="text-sm text-slate-500">Это действие нельзя отменить</p>
+                </div>
+              </div>
+              {dt && (
+                <div className="bg-slate-50 rounded-xl p-3 mb-4 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{dt.emoji ?? '🏆'}</span>
+                    <span className="font-semibold text-slate-800">{dt.name}</span>
+                  </div>
+                  <div className="flex gap-4 text-xs text-slate-500">
+                    <span><Users className="size-3 inline mr-1" />{dtMembers} участник{dtMembers === 1 ? '' : dtMembers < 5 ? 'а' : 'ов'}</span>
+                    <span><Star className="size-3 inline mr-1" />{dtPts} баллов</span>
+                  </div>
+                </div>
+              )}
+              <p className="text-sm text-slate-500 mb-5">Команда будет удалена, но ученики останутся в системе. История этой команды и связанные цели будут удалены.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+                <button onClick={() => { deleteTeam(deleteConfirm); setDeleteConfirm(null); }}
+                  className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 flex items-center justify-center gap-1.5">
+                  <Trash2 className="size-4" /> Удалить команду
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

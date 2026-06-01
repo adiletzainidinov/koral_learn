@@ -3,6 +3,7 @@ import type { Assignment } from '@/entities/assignment/model/types';
 import type { AttendanceRecord } from '@/entities/attendance/model/types';
 import type { PointHistoryItem } from '@/entities/points/model/types';
 import type { Team, TeamPointHistory, TeamGame, TeamSeason, RichTeamGoal } from '@/entities/team/model/types';
+import type { Family, FamilyPayment, PaymentHistoryItem } from '@/entities/support/model/types';
 
 export const mockStudents: Student[] = [
   {
@@ -495,4 +496,85 @@ export const mockTeamGames: TeamGame[] = [
     status: 'planned',
     createdAt: '2026-04-20T09:00:00Z',
   },
+];
+
+// ─── Support: Families ────────────────────────────────────────────────────────
+
+export const mockFamilies: Family[] = [
+  {
+    id: 'fam1',
+    name: 'Семья Маматовых',
+    parentName: 'Жылдыз Маматова',
+    parentPhone: '+996 700 111 222',
+    notes: 'Активная семья, регулярно оплачивает.',
+    studentIds: ['s1'],
+    supportPlanType: 'family_support',
+    createdAt: '2024-09-01T09:00:00Z',
+  },
+  {
+    id: 'fam2',
+    name: 'Семья Жумабаевых',
+    parentName: 'Кубан Жумабаев',
+    parentPhone: '+996 700 555 666',
+    notes: 'Двое братьев, усиленное обучение.',
+    studentIds: ['s3', 's5'],
+    supportPlanType: 'focused_learning',
+    createdAt: '2024-01-15T09:00:00Z',
+  },
+  {
+    id: 'fam3',
+    name: 'Семья Алиевых',
+    parentName: 'Айгуль Алиева',
+    parentPhone: '+996 700 112 233',
+    notes: '',
+    studentIds: ['s6'],
+    supportPlanType: 'private_group',
+    createdAt: '2024-01-15T09:00:00Z',
+  },
+  {
+    id: 'fam4',
+    name: 'Семья Касымовых',
+    parentName: 'Гульнар Касымова',
+    parentPhone: '+996 700 777 888',
+    notes: 'Трое детей, иногда задерживают оплату.',
+    studentIds: ['s2', 's4', 's7'],
+    supportPlanType: 'family_support',
+    createdAt: '2024-09-01T09:00:00Z',
+  },
+  {
+    id: 'fam5',
+    name: 'Семья Токтосуновых',
+    parentName: 'Замира Токтосунова',
+    parentPhone: '+996 700 778 899',
+    notes: 'Открытый формат, посещает регулярно.',
+    studentIds: ['s8'],
+    supportPlanType: 'open_learning',
+    createdAt: '2022-09-01T09:00:00Z',
+  },
+];
+
+export const mockFamilyPayments: FamilyPayment[] = [
+  // Май 2026
+  { id: 'fp1', familyId: 'fam1', month: '2026-05', expectedAmount: 1000, paidAmount: 1000, status: 'paid', paidAt: '2026-05-03T10:00:00Z', paymentMethod: 'cash', comment: '', createdAt: '2026-05-01T09:00:00Z', updatedAt: '2026-05-03T10:00:00Z' },
+  { id: 'fp2', familyId: 'fam2', month: '2026-05', expectedAmount: 4000, paidAmount: 4000, status: 'paid', paidAt: '2026-05-05T10:00:00Z', paymentMethod: 'mbank', comment: '', createdAt: '2026-05-01T09:00:00Z', updatedAt: '2026-05-05T10:00:00Z' },
+  { id: 'fp3', familyId: 'fam3', month: '2026-05', expectedAmount: 5000, paidAmount: 5000, status: 'paid', paidAt: '2026-05-02T10:00:00Z', paymentMethod: 'obank', comment: '', createdAt: '2026-05-01T09:00:00Z', updatedAt: '2026-05-02T10:00:00Z' },
+  { id: 'fp4', familyId: 'fam4', month: '2026-05', expectedAmount: 1800, paidAmount: 1000, status: 'partial', paidAt: '2026-05-10T10:00:00Z', paymentMethod: 'cash', comment: 'Частично', createdAt: '2026-05-01T09:00:00Z', updatedAt: '2026-05-10T10:00:00Z' },
+  { id: 'fp5', familyId: 'fam5', month: '2026-05', expectedAmount: 0, paidAmount: 0, status: 'paid', createdAt: '2026-05-01T09:00:00Z' },
+  // Июнь 2026
+  { id: 'fp6', familyId: 'fam1', month: '2026-06', expectedAmount: 1000, paidAmount: 1000, status: 'paid', paidAt: '2026-06-02T10:00:00Z', paymentMethod: 'cash', comment: '', createdAt: '2026-06-01T09:00:00Z', updatedAt: '2026-06-02T10:00:00Z' },
+  { id: 'fp7', familyId: 'fam2', month: '2026-06', expectedAmount: 4000, paidAmount: 2000, status: 'partial', paidAt: '2026-06-05T10:00:00Z', paymentMethod: 'mbank', comment: 'Первая часть', createdAt: '2026-06-01T09:00:00Z', updatedAt: '2026-06-05T10:00:00Z' },
+  { id: 'fp8', familyId: 'fam3', month: '2026-06', expectedAmount: 5000, paidAmount: 5000, status: 'paid', paidAt: '2026-06-01T10:00:00Z', paymentMethod: 'obank', comment: '', createdAt: '2026-06-01T09:00:00Z', updatedAt: '2026-06-01T10:00:00Z' },
+  { id: 'fp9', familyId: 'fam4', month: '2026-06', expectedAmount: 1800, paidAmount: 0, status: 'unpaid', createdAt: '2026-06-01T09:00:00Z' },
+  { id: 'fp10', familyId: 'fam5', month: '2026-06', expectedAmount: 0, paidAmount: 0, status: 'paid', createdAt: '2026-06-01T09:00:00Z' },
+];
+
+export const mockPaymentHistory: PaymentHistoryItem[] = [
+  { id: 'ph1', familyId: 'fam1', paymentId: 'fp1', amount: 1000, action: 'paid', comment: 'Оплачено полностью', createdAt: '2026-05-03T10:00:00Z' },
+  { id: 'ph2', familyId: 'fam2', paymentId: 'fp2', amount: 4000, action: 'paid', comment: '', createdAt: '2026-05-05T10:00:00Z' },
+  { id: 'ph3', familyId: 'fam3', paymentId: 'fp3', amount: 5000, action: 'paid', comment: '', createdAt: '2026-05-02T10:00:00Z' },
+  { id: 'ph4', familyId: 'fam4', paymentId: 'fp4', amount: 1000, action: 'partial_paid', comment: 'Частично', createdAt: '2026-05-10T10:00:00Z' },
+  { id: 'ph5', familyId: 'fam1', paymentId: 'fp6', amount: 1000, action: 'paid', comment: '', createdAt: '2026-06-02T10:00:00Z' },
+  { id: 'ph6', familyId: 'fam2', paymentId: 'fp7', amount: 2000, action: 'partial_paid', comment: 'Первая часть', createdAt: '2026-06-05T10:00:00Z' },
+  { id: 'ph7', familyId: 'fam3', paymentId: 'fp8', amount: 5000, action: 'paid', comment: '', createdAt: '2026-06-01T10:00:00Z' },
+  { id: 'ph8', familyId: 'fam4', paymentId: 'fp9', amount: 0, action: 'created', comment: 'Начислено за июнь 2026', createdAt: '2026-06-01T09:00:00Z' },
 ];

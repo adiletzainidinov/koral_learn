@@ -1437,12 +1437,32 @@ export function TeamDetail({ teamId }: { teamId: string }) {
       {/* Delete confirm */}
       {deleteConfirm && (
         <Modal onClose={() => setDeleteConfirm(false)}>
-          <h2 className="text-lg font-bold text-slate-900 mb-2">Удалить команду?</h2>
-          <p className="text-sm text-slate-500 mb-5">Ученики останутся в системе. Это действие нельзя отменить.</p>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="size-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+              <Trash2 className="size-5 text-red-500" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Удалить команду?</h2>
+              <p className="text-sm text-slate-500">Это действие нельзя отменить</p>
+            </div>
+          </div>
+          <div className="bg-slate-50 rounded-xl p-3 mb-4 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-base">{team.emoji ?? '🏆'}</span>
+              <span className="font-semibold text-slate-800">{team.name}</span>
+            </div>
+            <div className="flex gap-4 text-xs text-slate-500">
+              <span><Users className="size-3 inline mr-1" />{members.length} участник{members.length === 1 ? '' : members.length < 5 ? 'а' : 'ов'}</span>
+              <span><Star className="size-3 inline mr-1" />{team.points} баллов</span>
+            </div>
+          </div>
+          <p className="text-sm text-slate-500 mb-5">Команда будет удалена, но ученики останутся в системе. История этой команды и связанные цели будут удалены.</p>
           <div className="flex gap-3">
             <button onClick={() => setDeleteConfirm(false)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
             <button onClick={() => { deleteTeam(teamId); router.push('/teams'); }}
-              className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600">Удалить</button>
+              className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 flex items-center justify-center gap-1.5">
+              <Trash2 className="size-4" /> Удалить команду
+            </button>
           </div>
         </Modal>
       )}
