@@ -17,12 +17,13 @@ import {
   X,
   AlertTriangle,
   Camera,
+  UserRound,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Select } from '@/shared/ui/select';
 import { Card } from '@/shared/ui/card';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, useParents } from '@/store/app-store';
 import { generateId } from '@/shared/lib/ids';
 import type { StudentLevel, StudentContact, FriendContact, StudentAttachment } from '@/entities/student/model/types';
 import { CONTACT_RELATION_OPTIONS } from '@/entities/student/model/types';
@@ -51,6 +52,7 @@ interface FormState {
   notes: string;
   attachments: AttachmentEntry[];
   avatar?: string;
+  parentId?: string;
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -143,6 +145,7 @@ const INITIAL_STATE: FormState = {
   notes: '',
   attachments: [],
   avatar: undefined,
+  parentId: undefined,
 };
 
 // ─── section wrapper ─────────────────────────────────────────────────────────
@@ -486,6 +489,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
   const addStudent = useAppStore((s) => s.addStudent);
   const updateStudent = useAppStore((s) => s.updateStudent);
   const students = useAppStore((s) => s.students);
+  const parents = useParents();
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
   const [errors, setErrors] = useState<Errors>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -546,6 +550,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
         createdAt: a.createdAt,
       })),
       avatar: student.avatar,
+      parentId: student.parentId,
     });
     setIsDirty(false);
   }, [mode, studentId, students]);
@@ -701,6 +706,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       notes: form.notes.trim(),
       attachments: persistedAttachments,
       avatar: form.avatar,
+      parentId: form.parentId || undefined,
     };
 
     if (mode === 'edit' && studentId) {
@@ -833,7 +839,38 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
         </div>
       </Section>
 
-      {/* ── section 2: address ───────────────────────────────────────────── */}
+      {/* ── section 2: parent ─────────────────────────────────────────────── */}
+      <Section
+        icon={<UserRound className="size-4" />}
+        title="Родитель"
+        description="Основной контакт — источник данных о семье"
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-700">Родитель / опекун</label>
+            <select
+              value={form.parentId ?? ''}
+              onChange={(e) => upd('parentId', e.target.value || undefined)}
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
+            >
+              <option value="">— не указан —</option>
+              {parents.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.fullName} ({p.whatsapp})
+                </option>
+              ))}
+            </select>
+          </div>
+          {parents.length === 0 && (
+            <p className="text-xs text-slate-400">
+              Нет родителей в системе.{' '}
+              <a href="/parents/new" className="text-emerald-600 hover:underline">Добавить родителя</a>
+            </p>
+          )}
+        </div>
+      </Section>
+
+      {/* ── section 3: address ───────────────────────────────────────────── */}
       <Section
         icon={<MapPin className="size-4" />}
         title="Адрес"
@@ -847,7 +884,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
         />
       </Section>
 
-      {/* ── section 3: contacts ──────────────────────────────────────────── */}
+      {/* ── section 4: contacts ──────────────────────────────────────────── */}
       <Section
         icon={<Phone className="size-4" />}
         title="Контакты ученика и семьи"
@@ -870,7 +907,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
         </div>
       </Section>
 
-      {/* ── section 4: friend contacts ───────────────────────────────────── */}
+      {/* ── section 5: friend contacts ───────────────────────────────────── */}
       <Section
         icon={<Users className="size-4" />}
         title="Контакты друзей"
@@ -898,7 +935,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
         </div>
       </Section>
 
-      {/* ── section 5: notes + attachments ──────────────────────────────── */}
+      {/* ── section 6: notes + attachments ──────────────────────────────── */}
       <Section
         icon={<FileText className="size-4" />}
         title="Заметки и вложения"

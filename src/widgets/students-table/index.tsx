@@ -12,7 +12,7 @@ import { Card } from '@/shared/ui/card';
 import { PageHeader } from '@/shared/ui/page-header';
 import { Modal } from '@/shared/ui/modal';
 import { Select } from '@/shared/ui/select';
-import { useAppStore, useStudents, useAttendanceRecords } from '@/store/app-store';
+import { useAppStore, useStudents, useAttendanceRecords, useParents } from '@/store/app-store';
 import { formatDate } from '@/shared/lib/dates';
 import { getDaysAgoLabel, getDaysCount, getAttendanceVariant } from '@/shared/lib/getDaysAgo';
 import type { AttendanceRecord } from '@/entities/attendance/model/types';
@@ -42,8 +42,15 @@ type SortBy = 'points_desc' | 'points_asc' | 'date_newest' | 'date_oldest';
 export function StudentsTable() {
   const students = useStudents();
   const records = useAttendanceRecords();
+  const parents = useParents();
   const removeStudent = useAppStore((s) => s.removeStudent);
   const router = useRouter();
+
+  const parentMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of parents) map[p.id] = p.fullName;
+    return map;
+  }, [parents]);
 
   const [search, setSearch] = useState('');
   const [filterGroup, setFilterGroup] = useState('');
@@ -86,7 +93,11 @@ export function StudentsTable() {
 
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter((s) => s.fullName.toLowerCase().includes(q));
+      result = result.filter(
+        (s) =>
+          s.fullName.toLowerCase().includes(q) ||
+          (s.parentId && (parentMap[s.parentId] ?? '').toLowerCase().includes(q))
+      );
     }
     if (filterGroup) {
       result = result.filter((s) => s.group === filterGroup);
@@ -117,7 +128,7 @@ export function StudentsTable() {
         default: return 0;
       }
     });
-  }, [students, records, search, filterGroup, filterLevel, filterPresence, sortBy]);
+  }, [students, records, parentMap, search, filterGroup, filterLevel, filterPresence, sortBy]);
 
   const studentToDelete = students.find((s) => s.id === deleteId);
 
@@ -235,6 +246,9 @@ export function StudentsTable() {
                   Уровень
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  Родитель
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
                   Баллы
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
@@ -276,6 +290,19 @@ export function StudentsTable() {
                   </td>
                   <td className="px-4 py-3">
                     <LevelBadge level={student.level} />
+                  </td>
+                  <td className="px-4 py-3">
+                    {student.parentId && parentMap[student.parentId] ? (
+                      <Link
+                        href={`/parents/${student.parentId}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-sm text-slate-600 hover:text-emerald-600 transition-colors"
+                      >
+                        {parentMap[student.parentId]}
+                      </Link>
+                    ) : (
+                      <span className="text-sm text-slate-300">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm font-bold text-slate-900">{student.totalPoints}</span>

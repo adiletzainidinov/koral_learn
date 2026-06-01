@@ -35,7 +35,9 @@ import {
   mockFamilies,
   mockFamilyPayments,
   mockPaymentHistory,
+  mockParents,
 } from '@/mock';
+import type { Parent, CreateParentInput, UpdateParentInput } from '@/entities/parent/model/types';
 import type {
   Family, FamilyPayment, PaymentHistoryItem, CreateFamilyInput, UpdateFamilyInput,
   SupportPlanType, PaymentMethod,
@@ -110,6 +112,12 @@ interface AppState {
   awardTeamBadge: (teamId: string, type: TeamBadgeType) => void;
   removeTeamBadge: (teamId: string, badgeId: string) => void;
 
+  // ─── Parents ─────────────────────────────────────────────────────────────
+  parents: Parent[];
+  createParent: (input: CreateParentInput) => string;
+  updateParent: (id: string, patch: UpdateParentInput) => void;
+  deleteParent: (id: string) => void;
+
   // ─── Support / Families ──────────────────────────────────────────────────
   families: Family[];
   familyPayments: FamilyPayment[];
@@ -174,6 +182,7 @@ export const useAppStore = create<AppState>()(
       teamSeasons: [],
       teamGoals: [],
       activeSeasonId: null,
+      parents: [],
       families: [],
       familyPayments: [],
       paymentHistory: [],
@@ -193,6 +202,7 @@ export const useAppStore = create<AppState>()(
           teamSeasons: mockTeamSeasons,
           teamGoals: mockTeamGoals,
           activeSeasonId: 'season1',
+          parents: mockParents,
           families: mockFamilies,
           familyPayments: mockFamilyPayments,
           paymentHistory: mockPaymentHistory,
@@ -805,6 +815,32 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      // ─── Parents ──────────────────────────────────────────────────────────
+
+      createParent: (input) => {
+        const id = generateId();
+        const parent: Parent = { ...input, id, isActive: true, createdAt: new Date().toISOString() };
+        set((state) => ({ parents: [...state.parents, parent] }));
+        return id;
+      },
+
+      updateParent: (id, patch) => {
+        set((state) => ({
+          parents: state.parents.map((p) =>
+            p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p
+          ),
+        }));
+      },
+
+      deleteParent: (id) => {
+        set((state) => ({
+          parents: state.parents.filter((p) => p.id !== id),
+          students: state.students.map((s) =>
+            s.parentId === id ? { ...s, parentId: undefined } : s
+          ),
+        }));
+      },
+
       // ─── Support / Families ────────────────────────────────────────────────
 
       createFamily: (input) => {
@@ -1087,6 +1123,25 @@ export const useTeamGoalsByTeamId = (teamId: string) =>
     )
   );
 
+
+// ─── Parent selectors ────────────────────────────────────────────────────────
+
+export const useParents = () => useAppStore(useShallow((s) => s.parents));
+
+export const useParentById = (id: string) =>
+  useAppStore((s) => s.parents.find((p) => p.id === id));
+
+export const useStudentsByParentId = (parentId: string) =>
+  useAppStore(
+    useShallow((s) => s.students.filter((st) => st.parentId === parentId))
+  );
+
+export const useStudentParent = (studentId: string) =>
+  useAppStore((s) => {
+    const student = s.students.find((st) => st.id === studentId);
+    if (!student?.parentId) return null;
+    return s.parents.find((p) => p.id === student.parentId) ?? null;
+  });
 
 // ─── Support selectors ────────────────────────────────────────────────────────
 
