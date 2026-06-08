@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Pencil, Trash2, Phone, MessageCircle, Send, AtSign, MapPin,
-  UserRound, Users, FileText,
+  UserRound, Users, FileText, HeartHandshake, ChevronRight, Plus,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
@@ -13,8 +13,12 @@ import { SectionCard } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Modal } from '@/shared/ui/modal';
 import {
-  useAppStore, useParentById, useStudentsByParentId,
+  useAppStore, useParentById, useStudentsByParentId, useFamilyByParentId, useFamilyPaymentsByFamilyId,
 } from '@/store/app-store';
+import {
+  SUPPORT_PLANS, PLAN_COLORS, STATUS_COLORS, PAYMENT_STATUS_LABELS,
+  calculateFamilyExpectedAmount, formatAmount, getCurrentMonth, formatMonth,
+} from '@/entities/support/model/helpers';
 import {
   RELATION_LABELS, PREFERRED_CONTACT_LABELS,
 } from '@/entities/parent/model/types';
@@ -23,7 +27,7 @@ import {
 } from '@/entities/parent/model/helpers';
 import { cn } from '@/shared/lib/cn';
 
-type Tab = 'children' | 'contacts' | 'notes';
+type Tab = 'children' | 'contacts' | 'notes' | 'support';
 
 interface Props {
   parentId: string;
@@ -64,6 +68,7 @@ export function ParentDetail({ parentId }: Props) {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'children', label: `Дети (${children.length})` },
+    { id: 'support', label: 'Поддержка' },
     { id: 'contacts', label: 'Контакты' },
     { id: 'notes', label: 'Заметки' },
   ];
@@ -156,6 +161,9 @@ export function ParentDetail({ parentId }: Props) {
       {/* Tab content */}
       {tab === 'children' && (
         <ChildrenTab children={children} />
+      )}
+      {tab === 'support' && (
+        <SupportTab parentId={parentId} />
       )}
       {tab === 'contacts' && (
         <ContactsTab parent={parent} />
@@ -332,6 +340,107 @@ function NotesTab({ parent }: { parent: ReturnType<typeof useParentById> }) {
         </SectionCard>
       )}
     </div>
+  );
+}
+
+function SupportTab({ parentId }: { parentId: string }) {
+  const family = useFamilyByParentId(parentId);
+  const payments = useFamilyPaymentsByFamilyId(family?.id ?? '');
+  const currentMonth = getCurrentMonth();
+  const currentPayment = family ? payments.find((p) => p.month === currentMonth) : undefined;
+
+  if (!family) {
+    return (
+      <EmptyState
+        icon={<HeartHandshake className="size-5" />}
+        title="Запись поддержки не создана"
+        description="Создайте запись, чтобы отслеживать взносы этой семьи"
+        action={
+          <Link href="/support/families/new">
+            <Button variant="outline">
+              <Plus className="size-3.5" />Создать запись
+            </Button>
+          </Link>
+        }
+      />
+    );
+  }
+
+  const plan = SUPPORT_PLANS[family.supportPlanType];
+  const planColors = PLAN_COLORS[family.supportPlanType];
+  const expectedAmount = currentPayment?.expectedAmount ?? calculateFamilyExpectedAmount(family);
+  const paidAmount = currentPayment?.paidAmount ?? 0;
+  const remaining = Math.max(0, expectedAmount - paidAmount);
+  const status = currentPayment?.status ?? (expectedAmount === 0 ? 'paid' : 'unpaid');
+  const statusColors = STATUS_COLORS[status];
+
+  return (
+    <SectionCard
+      title="Учёт поддержки"
+      description={`Запись семьи · ${formatMonth(currentMonth)}`}
+    >
+      <div className="space-y-4">
+        {/* Plan badge */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium', planColors.badge)}>
+              {plan.emoji} {plan.name}
+            </span>
+            <span className={cn('px-2.5 py-1 rounded-lg text-xs font-medium', statusColors.badge)}>
+              {PAYMENT_STATUS_LABELS[status]}
+            </span>
+          </div>
+          <Link
+            href={`/support/families/${family.id}`}
+            className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:underline"
+          >
+            Открыть запись <ChevronRight className="size-3" />
+          </Link>
+        </div>
+
+        {/* Amount summary */}
+        {expectedAmount > 0 && (
+          <div className="grid grid-cols-3 gap-3">
+            <div className="text-center bg-slate-50 rounded-xl py-2.5">
+              <p className="text-[10px] text-slate-400 mb-0.5">Ожидается</p>
+              <p className="text-sm font-bold text-slate-800">{formatAmount(expectedAmount)}</p>
+            </div>
+            <div className="text-center bg-emerald-50 rounded-xl py-2.5">
+              <p className="text-[10px] text-slate-400 mb-0.5">Оплачено</p>
+              <p className="text-sm font-bold text-emerald-700">{formatAmount(paidAmount)}</p>
+            </div>
+            <div className={cn('text-center rounded-xl py-2.5', remaining > 0 ? 'bg-amber-50' : 'bg-slate-50')}>
+              <p className="text-[10px] text-slate-400 mb-0.5">Остаток</p>
+              <p className={cn('text-sm font-bold', remaining > 0 ? 'text-amber-700' : 'text-slate-400')}>
+                {remaining > 0 ? formatAmount(remaining) : '—'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Lesson selections */}
+        {family.lessonSelections && family.lessonSelections.length > 0 && (
+          <div className="space-y-1.5 pt-1">
+            {family.lessonSelections.filter((ls) => ls.isActive).map((ls) => {
+              const c = PLAN_COLORS[ls.planType];
+              return (
+                <div key={ls.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg bg-slate-50">
+                  <span className={cn('px-1.5 py-0.5 rounded-md font-medium mr-2', c.badge)}>
+                    {SUPPORT_PLANS[ls.planType].emoji}
+                  </span>
+                  <span className="flex-1 text-slate-600 truncate">
+                    Ученик #{ls.studentId.slice(-4)}
+                  </span>
+                  <span className={cn('font-semibold', c.text)}>{formatAmount(ls.monthlyAmount)}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <p className="text-xs text-slate-400">{plan.educationLogic}</p>
+      </div>
+    </SectionCard>
   );
 }
 

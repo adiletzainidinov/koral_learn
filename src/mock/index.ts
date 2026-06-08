@@ -494,6 +494,9 @@ export const mockFamilies: Family[] = [
     notes: 'Активная семья, регулярно оплачивает.',
     studentIds: ['s1'],
     supportPlanType: 'family_support',
+    lessonSelections: [
+      { id: 'ls1', studentId: 's1', lessonType: 'quran_group', planType: 'family_support', monthlyAmount: 1000, isActive: true },
+    ],
     createdAt: '2024-09-01T09:00:00Z',
   },
   {
@@ -505,6 +508,10 @@ export const mockFamilies: Family[] = [
     notes: 'Двое братьев, усиленное обучение.',
     studentIds: ['s3', 's5'],
     supportPlanType: 'focused_learning',
+    lessonSelections: [
+      { id: 'ls2', studentId: 's3', lessonType: 'tajweed', planType: 'focused_learning', monthlyAmount: 2000, isActive: true },
+      { id: 'ls3', studentId: 's5', lessonType: 'hifz', planType: 'focused_learning', monthlyAmount: 2000, isActive: true },
+    ],
     createdAt: '2024-01-15T09:00:00Z',
   },
   {
@@ -516,6 +523,9 @@ export const mockFamilies: Family[] = [
     notes: '',
     studentIds: ['s6'],
     supportPlanType: 'private_group',
+    lessonSelections: [
+      { id: 'ls4', studentId: 's6', lessonType: 'individual', planType: 'private_group', monthlyAmount: 5000, isActive: true },
+    ],
     createdAt: '2024-01-15T09:00:00Z',
   },
   {
@@ -527,6 +537,11 @@ export const mockFamilies: Family[] = [
     notes: 'Трое детей, иногда задерживают оплату.',
     studentIds: ['s2', 's4', 's7'],
     supportPlanType: 'family_support',
+    lessonSelections: [
+      { id: 'ls5', studentId: 's2', lessonType: 'quran_group', planType: 'family_support', monthlyAmount: 1000, isActive: true },
+      { id: 'ls6', studentId: 's4', lessonType: 'quran_group', planType: 'family_support', monthlyAmount: 1000, isActive: true },
+      { id: 'ls7', studentId: 's7', lessonType: 'muallim_sani', planType: 'family_support', monthlyAmount: 1000, isActive: true },
+    ],
     createdAt: '2024-09-01T09:00:00Z',
   },
   {
@@ -538,6 +553,9 @@ export const mockFamilies: Family[] = [
     notes: 'Открытый формат, посещает регулярно.',
     studentIds: ['s8'],
     supportPlanType: 'open_learning',
+    lessonSelections: [
+      { id: 'ls8', studentId: 's8', lessonType: 'quran_group', planType: 'open_learning', monthlyAmount: 0, isActive: true },
+    ],
     createdAt: '2022-09-01T09:00:00Z',
   },
 ];

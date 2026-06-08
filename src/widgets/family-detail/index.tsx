@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Users, Wallet, CheckCircle2, Clock, AlertCircle,
   Plus, Trash2, Phone, Edit2, X, Check, Copy, ChevronRight,
-  Star, MoreVertical, MessageCircle, UserRound,
+  Star, MoreVertical, MessageCircle, UserRound, BookOpen,
 } from 'lucide-react';
 import {
   useAppStore, useFamilyById, useStudents, useFamilyPaymentsByFamilyId,
@@ -15,10 +15,12 @@ import {
 import { formatWhatsappLink } from '@/entities/parent/model/helpers';
 import {
   SUPPORT_PLANS, PLAN_COLORS, STATUS_COLORS, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS,
-  calculateExpectedPayment, formatAmount, getCurrentMonth, formatMonth,
+  LESSON_TYPE_LABELS, calculateFamilyExpectedAmount, getSelectionAmount,
+  formatAmount, getCurrentMonth, formatMonth,
   getReminderMessage, getThankYouMessage,
 } from '@/entities/support/model/helpers';
-import type { SupportPlanType, PaymentMethod } from '@/entities/support/model/types';
+import type { SupportPlanType, PaymentMethod, LessonSelection, LessonType } from '@/entities/support/model/types';
+import { generateId } from '@/shared/lib/ids';
 import { cn } from '@/shared/lib/cn';
 
 function useHydrated() {
@@ -252,6 +254,164 @@ function AddStudentModal({ familyId, currentStudentIds, onClose }: { familyId: s
   );
 }
 
+// ─── Lessons Tab ─────────────────────────────────────────────────────────────
+
+const PLAN_ORDER_DETAIL: SupportPlanType[] = ['open_learning', 'family_support', 'focused_learning', 'private_group', 'custom'];
+
+function LessonsTab({
+  family,
+  familyStudents,
+  onSave,
+}: {
+  family: ReturnType<typeof useFamilyById>;
+  familyStudents: ReturnType<typeof useStudents>;
+  onSave: (selections: LessonSelection[]) => void;
+}) {
+  if (!family) return null;
+
+  const initSelections = (): Map<string, { lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }> => {
+    const m = new Map<string, { lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>();
+    for (const s of familyStudents) {
+      const existing = family.lessonSelections?.find((ls) => ls.studentId === s.id);
+      m.set(s.id, existing
+        ? { lessonType: existing.lessonType, planType: existing.planType, monthlyAmount: existing.monthlyAmount }
+        : { lessonType: 'quran_group', planType: family.supportPlanType, monthlyAmount: getSelectionAmount(family.supportPlanType) }
+      );
+    }
+    return m;
+  };
+
+  const [configs, setConfigs] = useState<Map<string, { lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>>(initSelections);
+  const [saved, setSaved] = useState(false);
+
+  function updateConfig(studentId: string, patch: Partial<{ lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>) {
+    setConfigs((prev) => {
+      const next = new Map(prev);
+      const old = next.get(studentId) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
+      const updated = { ...old, ...patch };
+      if (patch.planType && patch.planType !== 'custom') {
+        updated.monthlyAmount = getSelectionAmount(patch.planType);
+      }
+      next.set(studentId, updated);
+      return next;
+    });
+    setSaved(false);
+  }
+
+  function handleSave() {
+    const selections: LessonSelection[] = familyStudents.map((s) => {
+      const cfg = configs.get(s.id) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
+      return {
+        id: family?.lessonSelections?.find((ls) => ls.studentId === s.id)?.id ?? generateId(),
+        studentId: s.id,
+        lessonType: cfg.lessonType,
+        planType: cfg.planType,
+        monthlyAmount: cfg.planType === 'custom' ? cfg.monthlyAmount : getSelectionAmount(cfg.planType),
+        isActive: true,
+      };
+    });
+    onSave(selections);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  if (familyStudents.length === 0) {
+    return (
+      <div className="text-center py-12 bg-slate-50 rounded-2xl">
+        <BookOpen className="size-8 text-slate-300 mx-auto mb-2" />
+        <p className="text-slate-500 text-sm">Нет учеников — добавьте их во вкладке «Дети»</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {familyStudents.map((s) => {
+        const cfg = configs.get(s.id) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
+        const c = PLAN_COLORS[cfg.planType];
+        const initials = s.fullName.slice(0, 2).toUpperCase();
+        return (
+          <div key={s.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            {/* Student row */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
+              <div className="size-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-xs font-bold shrink-0">
+                {s.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={s.avatar} alt={s.fullName} className="size-full object-cover rounded-full" />
+                ) : initials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <Link href={`/students/${s.id}`} className="text-sm font-medium text-slate-800 hover:text-emerald-700 hover:underline">
+                  {s.fullName}
+                </Link>
+                <p className="text-xs text-slate-400">Группа {s.group} · {s.age} лет</p>
+              </div>
+              <div className={cn('px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0', c.badge)}>
+                {formatAmount(cfg.planType === 'custom' ? cfg.monthlyAmount : getSelectionAmount(cfg.planType))}
+              </div>
+            </div>
+            {/* Config */}
+            <div className="p-3 space-y-2">
+              {/* Plan buttons */}
+              <div className="flex flex-wrap gap-1.5">
+                {PLAN_ORDER_DETAIL.map((pt) => {
+                  const plan = SUPPORT_PLANS[pt];
+                  const pc = PLAN_COLORS[pt];
+                  const isActive = cfg.planType === pt;
+                  return (
+                    <button key={pt} type="button"
+                      onClick={() => updateConfig(s.id, { planType: pt })}
+                      className={cn(
+                        'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
+                        isActive ? `${pc.badge} border-transparent` : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300'
+                      )}>
+                      <span>{plan.emoji}</span><span>{plan.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Lesson type + custom amount */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={cfg.lessonType}
+                  onChange={(e) => updateConfig(s.id, { lessonType: e.target.value as LessonType })}
+                  className="flex-1 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  {(Object.keys(LESSON_TYPE_LABELS) as LessonType[]).map((lt) => (
+                    <option key={lt} value={lt}>{LESSON_TYPE_LABELS[lt]}</option>
+                  ))}
+                </select>
+                {cfg.planType === 'custom' && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number" min="0" step="100"
+                      value={cfg.monthlyAmount}
+                      onChange={(e) => updateConfig(s.id, { monthlyAmount: Number(e.target.value) || 0 })}
+                      className="w-24 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                    <span className="text-xs text-slate-400">сом</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      <button
+        onClick={handleSave}
+        className={cn(
+          'w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors',
+          saved
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            : 'bg-emerald-600 text-white hover:bg-emerald-700'
+        )}>
+        {saved ? <><Check className="size-4" />Сохранено</> : <>Сохранить настройки</>}
+      </button>
+    </div>
+  );
+}
+
 // ─── Main Widget ──────────────────────────────────────────────────────────────
 
 export function FamilyDetail({ familyId }: { familyId: string }) {
@@ -262,9 +422,9 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
   const students = useStudents();
   const payments = useFamilyPaymentsByFamilyId(familyId);
   const history = usePaymentHistoryByFamilyId(familyId);
-  const { deleteFamily, removeStudentFromFamily, deleteFamilyPayment, setFamilySupportPlan } = useAppStore();
+  const { deleteFamily, removeStudentFromFamily, deleteFamilyPayment, updateFamilyLessonSelections } = useAppStore();
 
-  const [tab, setTab] = useState<'children' | 'payments' | 'history'>('children');
+  const [tab, setTab] = useState<'children' | 'lessons' | 'payments' | 'history'>('children');
   const [acceptPaymentMonth, setAcceptPaymentMonth] = useState<string | null>(null);
   const [showDelete, setShowDelete] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -295,7 +455,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
   const familyStudents = students.filter((s) => family.studentIds.includes(s.id));
   const currentMonth = getCurrentMonth();
   const currentPayment = payments.find((p) => p.month === currentMonth);
-  const expectedAmount = currentPayment?.expectedAmount ?? calculateExpectedPayment(family.supportPlanType, family.studentIds.length);
+  const expectedAmount = currentPayment?.expectedAmount ?? calculateFamilyExpectedAmount(family);
   const paidAmount = currentPayment?.paidAmount ?? 0;
   const remaining = Math.max(0, expectedAmount - paidAmount);
   const currentStatus = currentPayment?.status ?? (expectedAmount === 0 ? 'paid' : 'unpaid');
@@ -417,6 +577,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
       <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1 mb-5 w-fit">
         {([
           { key: 'children', label: `Дети (${familyStudents.length})` },
+          { key: 'lessons', label: 'Уроки' },
           { key: 'payments', label: `Оплаты (${payments.length})` },
           { key: 'history', label: `История (${history.length})` },
         ] as const).map(({ key, label }) => (
@@ -466,38 +627,16 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
             ))
           )}
 
-          {/* Plan selector */}
-          <div className="mt-6">
-            <h2 className="font-semibold text-slate-800 mb-3">Формат обучения</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(Object.keys(SUPPORT_PLANS) as SupportPlanType[]).map((type) => {
-                const p = SUPPORT_PLANS[type];
-                const c = PLAN_COLORS[type];
-                const isActive = family.supportPlanType === type;
-                return (
-                  <button key={type} onClick={() => setFamilySupportPlan(familyId, type)}
-                    className={cn('text-left p-4 rounded-2xl border-2 transition-all',
-                      isActive ? `${c.border} ${c.light}` : 'border-transparent bg-white hover:border-slate-200'
-                    )}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span>{p.emoji}</span>
-                      <span className="font-semibold text-sm text-slate-800">{p.name}</span>
-                      {isActive && <Check className={cn('size-4 ml-auto', c.text)} />}
-                    </div>
-                    <p className="text-xs text-slate-500">{p.educationLogic}</p>
-                    {type !== 'open_learning' && (
-                      <p className={cn('text-xs font-semibold mt-1', c.text)}>
-                        {type === 'family_support'
-                          ? `${familyStudents.length} ${familyStudents.length === 1 ? 'ребёнок' : 'детей'} → ${formatAmount(calculateExpectedPayment(type, familyStudents.length))}/мес`
-                          : `${familyStudents.length} × ${formatAmount(p.monthlyBasePrice ?? 0)} = ${formatAmount(calculateExpectedPayment(type, familyStudents.length))}/мес`}
-                      </p>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
+      )}
+
+      {/* Lessons tab */}
+      {tab === 'lessons' && (
+        <LessonsTab
+          family={family}
+          familyStudents={familyStudents}
+          onSave={(selections) => updateFamilyLessonSelections(familyId, selections)}
+        />
       )}
 
       {/* Payments tab */}

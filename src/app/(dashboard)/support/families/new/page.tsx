@@ -7,14 +7,16 @@ import {
   ArrowLeft, Users, Check, AlertTriangle, MessageCircle, Phone, Send,
   AtSign, MapPin, UserRound, X, Search, Star,
 } from 'lucide-react';
-import { useAppStore, useParents, useStudents } from '@/store/app-store';
+import { useAppStore, useParents, useStudents, useFamilyByParentId } from '@/store/app-store';
 import {
-  SUPPORT_PLANS, PLAN_COLORS, calculateExpectedPayment, formatAmount,
+  SUPPORT_PLANS, PLAN_COLORS, LESSON_TYPE_LABELS,
+  calculateMixedAmount, getSelectionAmount, formatAmount, derivePlanType,
 } from '@/entities/support/model/helpers';
-import type { SupportPlanType } from '@/entities/support/model/types';
+import type { SupportPlanType, LessonType, LessonSelection } from '@/entities/support/model/types';
 import type { Parent } from '@/entities/parent/model/types';
 import { formatWhatsappLink, formatTelegramLink, formatInstagramLink } from '@/entities/parent/model/helpers';
 import { STUDENT_LEVEL_LABELS } from '@/entities/student/model/types';
+import { generateId } from '@/shared/lib/ids';
 import { cn } from '@/shared/lib/cn';
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
@@ -230,6 +232,137 @@ function ParentCard({ parent, onClear }: { parent: Parent; onClear: () => void }
   );
 }
 
+// ─── Per-student plan selector ────────────────────────────────────────────────
+
+const PLAN_ORDER: SupportPlanType[] = ['open_learning', 'family_support', 'focused_learning', 'private_group', 'custom'];
+
+interface StudentConfig {
+  planType: SupportPlanType;
+  lessonType: LessonType;
+  monthlyAmount: number;
+}
+
+function defaultConfig(): StudentConfig {
+  return { planType: 'family_support', lessonType: 'quran_group', monthlyAmount: 1000 };
+}
+
+function StudentPlanRow({
+  student,
+  config,
+  onChange,
+}: {
+  student: { id: string; fullName: string; age: number; group: string; level: string; totalPoints: number; avatar?: string; isActive: boolean };
+  config: StudentConfig;
+  onChange: (cfg: StudentConfig) => void;
+}) {
+  const colors = PLAN_COLORS[config.planType];
+  const initials = student.fullName.slice(0, 2).toUpperCase();
+
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 overflow-hidden">
+      {/* Student header */}
+      <div className="flex items-center gap-3 px-3 py-2.5 border-b border-emerald-100">
+        <div className="size-8 rounded-full overflow-hidden bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">
+          {student.avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={student.avatar} alt={student.fullName} className="size-full object-cover" />
+          ) : initials}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-slate-800">{student.fullName}</p>
+          <p className="text-xs text-slate-400">
+            Группа {student.group} · {student.age} лет
+          </p>
+        </div>
+        <div className="flex items-center gap-1 text-xs text-slate-400 shrink-0">
+          <Star className="size-3" />{student.totalPoints}
+        </div>
+      </div>
+
+      {/* Plan + lesson type */}
+      <div className="p-3 space-y-2.5">
+        {/* Plan type chips */}
+        <div className="flex flex-wrap gap-1.5">
+          {PLAN_ORDER.map((pt) => {
+            const plan = SUPPORT_PLANS[pt];
+            const c = PLAN_COLORS[pt];
+            const isActive = config.planType === pt;
+            return (
+              <button
+                key={pt}
+                type="button"
+                onClick={() => {
+                  const amount = getSelectionAmount(pt);
+                  onChange({ ...config, planType: pt, monthlyAmount: amount });
+                }}
+                className={cn(
+                  'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
+                  isActive
+                    ? `${c.badge} border-transparent`
+                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                )}
+              >
+                <span>{plan.emoji}</span>
+                <span>{plan.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Lesson type + amount row */}
+        <div className="flex items-center gap-2">
+          <select
+            value={config.lessonType}
+            onChange={(e) => onChange({ ...config, lessonType: e.target.value as LessonType })}
+            className="flex-1 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          >
+            {(Object.keys(LESSON_TYPE_LABELS) as LessonType[]).map((lt) => (
+              <option key={lt} value={lt}>{LESSON_TYPE_LABELS[lt]}</option>
+            ))}
+          </select>
+
+          {config.planType === 'custom' ? (
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min="0"
+                step="100"
+                value={config.monthlyAmount}
+                onChange={(e) => onChange({ ...config, monthlyAmount: Number(e.target.value) || 0 })}
+                className="w-24 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+              <span className="text-xs text-slate-400">сом</span>
+            </div>
+          ) : (
+            <div className={cn('px-2.5 py-1 rounded-lg text-xs font-semibold', colors.badge)}>
+              {formatAmount(config.monthlyAmount)}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Existing family warning ───────────────────────────────────────────────────
+
+function ExistingFamilyWarning({ familyId }: { familyId: string }) {
+  return (
+    <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
+      <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-amber-800">У этого родителя уже есть запись</p>
+        <p className="text-xs text-amber-700 mt-0.5">
+          Создание дубликата не разрешено.{' '}
+          <Link href={`/support/families/${familyId}`} className="underline font-medium">
+            Открыть существующую запись →
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 interface FormErrors {
@@ -245,7 +378,7 @@ export default function NewFamilyPage() {
 
   const [parentId, setParentId] = useState<string | undefined>();
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
-  const [planType, setPlanType] = useState<SupportPlanType>('family_support');
+  const [studentConfigs, setStudentConfigs] = useState<Map<string, StudentConfig>>(new Map());
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -258,6 +391,8 @@ export default function NewFamilyPage() {
     [parents, parentId]
   );
 
+  const existingFamily = useFamilyByParentId(parentId ?? '');
+
   // Students belonging to the selected parent
   const parentStudents = useMemo(
     () => (parentId ? allStudents.filter((s) => s.parentId === parentId) : []),
@@ -266,12 +401,48 @@ export default function NewFamilyPage() {
 
   // When parent changes, reset student selection to all children of that parent
   useEffect(() => {
-    setSelectedStudentIds(parentStudents.map((s) => s.id));
+    const ids = parentStudents.map((s) => s.id);
+    setSelectedStudentIds(ids);
+    setStudentConfigs((prev) => {
+      const next = new Map(prev);
+      ids.forEach((id) => { if (!next.has(id)) next.set(id, defaultConfig()); });
+      return next;
+    });
   }, [parentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const expectedAmount = calculateExpectedPayment(planType, selectedStudentIds.length);
-  const isPrivateGroup = planType === 'private_group';
-  const warnPrivateGroup = isPrivateGroup && selectedStudentIds.length > 5;
+  function toggleStudent(id: string) {
+    setSelectedStudentIds((prev) => {
+      if (prev.includes(id)) return prev.filter((s) => s !== id);
+      setStudentConfigs((c) => {
+        if (c.has(id)) return c;
+        return new Map(c).set(id, defaultConfig());
+      });
+      return [...prev, id];
+    });
+    if (hasAttempted) setErrors((e) => ({ ...e, studentIds: undefined }));
+  }
+
+  function updateConfig(studentId: string, cfg: StudentConfig) {
+    setStudentConfigs((prev) => new Map(prev).set(studentId, cfg));
+  }
+
+  // Build lessonSelections from current state
+  const lessonSelections: LessonSelection[] = useMemo(() => {
+    return selectedStudentIds.map((sid) => {
+      const cfg = studentConfigs.get(sid) ?? defaultConfig();
+      return {
+        id: generateId(),
+        studentId: sid,
+        lessonType: cfg.lessonType,
+        planType: cfg.planType,
+        monthlyAmount: cfg.planType === 'custom' ? cfg.monthlyAmount : getSelectionAmount(cfg.planType),
+        isActive: true,
+      };
+    });
+  }, [selectedStudentIds, studentConfigs]);
+
+  const totalAmount = useMemo(() => calculateMixedAmount(lessonSelections), [lessonSelections]);
+  const dominantPlan = useMemo(() => derivePlanType(lessonSelections), [lessonSelections]);
 
   function validate(): boolean {
     const errs: FormErrors = {};
@@ -282,21 +453,15 @@ export default function NewFamilyPage() {
     return Object.keys(errs).length === 0;
   }
 
-  function toggleStudent(id: string) {
-    setSelectedStudentIds((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-    );
-    if (hasAttempted) setErrors((e) => ({ ...e, studentIds: undefined }));
-  }
-
   function handleSubmit() {
     setHasAttempted(true);
-    if (!validate() || !parentId || submitting) return;
+    if (!validate() || !parentId || submitting || existingFamily) return;
     setSubmitting(true);
     const id = createFamily({
       parentId,
       studentIds: selectedStudentIds,
-      supportPlanType: planType,
+      lessonSelections,
+      supportPlanType: dominantPlan,
       notes: notes.trim() || undefined,
     });
     router.push(`/support/families/${id}`);
@@ -312,7 +477,7 @@ export default function NewFamilyPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-slate-900">Добавить семью</h1>
-          <p className="text-sm text-slate-500">Выберите родителя и детей для учёта поддержки</p>
+          <p className="text-sm text-slate-500">Выберите родителя, детей и формат обучения для каждого</p>
         </div>
       </div>
 
@@ -334,10 +499,7 @@ export default function NewFamilyPage() {
 
       <div className="space-y-5">
         {/* ── Block 1: Parent ────────────────────────────────────────────────── */}
-        <Section
-          title="Родитель *"
-          description="Источник контактных данных семьи"
-        >
+        <Section title="Родитель *" description="Источник контактных данных семьи">
           {parents.length === 0 ? (
             <div className="flex flex-col items-center py-6 gap-3 text-center">
               <div className="size-12 rounded-2xl bg-slate-100 flex items-center justify-center">
@@ -379,15 +541,21 @@ export default function NewFamilyPage() {
                   </a>
                 </div>
               )}
+
+              {existingFamily && (
+                <div className="mt-4">
+                  <ExistingFamilyWarning familyId={existingFamily.id} />
+                </div>
+              )}
             </>
           )}
         </Section>
 
-        {/* ── Block 2: Children ──────────────────────────────────────────────── */}
-        {parentId && (
+        {/* ── Block 2: Children + per-student plan ───────────────────────────── */}
+        {parentId && !existingFamily && (
           <Section
-            title="Дети родителя"
-            description="Выберите учеников, входящих в эту запись поддержки"
+            title="Дети и формат обучения"
+            description="Настройте план для каждого ребёнка отдельно"
             badge={
               parentStudents.length > 0 ? (
                 <span className="text-xs font-medium text-slate-500">
@@ -415,7 +583,15 @@ export default function NewFamilyPage() {
                 {/* Select all / clear */}
                 <div className="flex items-center gap-2 mb-3">
                   <button type="button"
-                    onClick={() => setSelectedStudentIds(parentStudents.map((s) => s.id))}
+                    onClick={() => {
+                      const ids = parentStudents.map((s) => s.id);
+                      setSelectedStudentIds(ids);
+                      setStudentConfigs((prev) => {
+                        const next = new Map(prev);
+                        ids.forEach((id) => { if (!next.has(id)) next.set(id, defaultConfig()); });
+                        return next;
+                      });
+                    }}
                     className="text-xs font-medium text-emerald-600 hover:underline">
                     Выбрать всех
                   </button>
@@ -427,48 +603,58 @@ export default function NewFamilyPage() {
                   </button>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {parentStudents.map((s) => {
                     const isSelected = selectedStudentIds.includes(s.id);
                     const initials = s.fullName.slice(0, 2).toUpperCase();
                     return (
-                      <label key={s.id}
-                        className={cn(
+                      <div key={s.id}>
+                        {/* Checkbox row */}
+                        <label className={cn(
                           'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none',
                           isSelected
-                            ? 'border-emerald-300 bg-emerald-50'
+                            ? 'border-emerald-300 bg-emerald-50 rounded-b-none border-b-0'
                             : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleStudent(s.id)}
-                          className="accent-emerald-600 size-4 shrink-0"
-                        />
-                        <div className="size-8 rounded-full overflow-hidden bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">
-                          {s.avatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={s.avatar} alt={s.fullName} className="size-full object-cover" />
-                          ) : initials}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800">{s.fullName}</p>
-                          <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
-                            <span>Группа {s.group}</span>
-                            <span>·</span>
-                            <span>{s.age} лет</span>
-                            <span>·</span>
-                            <span>{STUDENT_LEVEL_LABELS[s.level]}</span>
+                        )}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleStudent(s.id)}
+                            className="accent-emerald-600 size-4 shrink-0"
+                          />
+                          <div className="size-8 rounded-full overflow-hidden bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">
+                            {s.avatar ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={s.avatar} alt={s.fullName} className="size-full object-cover" />
+                            ) : initials}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs text-slate-400 shrink-0">
-                          <Star className="size-3" />{s.totalPoints}
-                          {!s.isActive && (
-                            <span className="ml-1 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 text-[10px]">неактивен</span>
-                          )}
-                        </div>
-                      </label>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-800">{s.fullName}</p>
+                            <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
+                              <span>Группа {s.group}</span>
+                              <span>·</span>
+                              <span>{s.age} лет</span>
+                              <span>·</span>
+                              <span>{STUDENT_LEVEL_LABELS[s.level as keyof typeof STUDENT_LEVEL_LABELS]}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-400 shrink-0">
+                            <Star className="size-3" />{s.totalPoints}
+                            {!s.isActive && (
+                              <span className="ml-1 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 text-[10px]">неактивен</span>
+                            )}
+                          </div>
+                        </label>
+
+                        {/* Plan config (expands when selected) */}
+                        {isSelected && (
+                          <StudentPlanRow
+                            student={s}
+                            config={studentConfigs.get(s.id) ?? defaultConfig()}
+                            onChange={(cfg) => updateConfig(s.id, cfg)}
+                          />
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -481,98 +667,72 @@ export default function NewFamilyPage() {
           </Section>
         )}
 
-        {/* ── Block 3: Support plan ──────────────────────────────────────────── */}
-        <Section title="Формат обучения" description="Выберите тип поддержки для этой семьи">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(Object.keys(SUPPORT_PLANS) as SupportPlanType[]).map((type) => {
-              const plan = SUPPORT_PLANS[type];
-              const colors = PLAN_COLORS[type];
-              const isActive = planType === type;
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setPlanType(type)}
-                  className={cn(
-                    'text-left p-4 rounded-2xl border-2 transition-all',
-                    isActive ? `${colors.border} ${colors.light}` : 'border-transparent bg-slate-50 hover:border-slate-200'
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <span>{plan.emoji}</span>
-                      <span className="font-semibold text-sm text-slate-800">{plan.name}</span>
-                    </div>
-                    {isActive && <Check className={cn('size-4', colors.text)} />}
-                  </div>
-                  <p className="text-xs text-slate-500 mb-1.5">{plan.educationLogic}</p>
-                  {type !== 'open_learning' && plan.monthlyBasePrice && (
-                    <p className={cn('text-xs font-semibold', colors.text)}>
-                      от {formatAmount(plan.monthlyBasePrice)}/мес
-                    </p>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </Section>
-
-        {/* ── Block 4: Cost calculation ──────────────────────────────────────── */}
-        {selectedStudentIds.length > 0 && (
-          <div className={cn('rounded-2xl p-5 border', PLAN_COLORS[planType].border, PLAN_COLORS[planType].light)}>
+        {/* ── Block 3: Cost summary ─────────────────────────────────────────── */}
+        {selectedStudentIds.length > 0 && !existingFamily && (
+          <div className={cn('rounded-2xl p-5 border', PLAN_COLORS[dominantPlan].border, PLAN_COLORS[dominantPlan].light)}>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-sm font-semibold text-slate-700">Расчёт суммы</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {SUPPORT_PLANS[planType].emoji} {SUPPORT_PLANS[planType].name}
-                  {' · '}
-                  {selectedStudentIds.length}{' '}
+                <p className="text-sm font-semibold text-slate-700">Итого в месяц</p>
+                <p className="text-xs text-slate-500 mt-0.5">{selectedStudentIds.length}{' '}
                   {selectedStudentIds.length === 1 ? 'ребёнок' : selectedStudentIds.length < 5 ? 'ребёнка' : 'детей'}
                 </p>
               </div>
               <div className="text-right">
-                <p className={cn('text-2xl font-bold', PLAN_COLORS[planType].text)}>
-                  {formatAmount(expectedAmount)}
+                <p className={cn('text-2xl font-bold', PLAN_COLORS[dominantPlan].text)}>
+                  {formatAmount(totalAmount)}
                 </p>
                 <p className="text-xs text-slate-400">в месяц</p>
               </div>
             </div>
-            <p className={cn('text-xs px-3 py-2 rounded-lg', PLAN_COLORS[planType].light, PLAN_COLORS[planType].text)}>
-              {SUPPORT_PLANS[planType].educationLogic}
-            </p>
-            {warnPrivateGroup && (
-              <div className="flex items-center gap-2 mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                <AlertTriangle className="size-4 text-amber-600 shrink-0" />
-                <p className="text-xs text-amber-700">
-                  Для индивидуальной группы рекомендуется до 5 учеников.
-                </p>
-              </div>
-            )}
+
+            {/* Per-student breakdown */}
+            <div className="space-y-1.5 mt-3 pt-3 border-t border-slate-200/60">
+              {lessonSelections.map((sel) => {
+                const student = allStudents.find((s) => s.id === sel.studentId);
+                const c = PLAN_COLORS[sel.planType];
+                return (
+                  <div key={sel.studentId} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <span className={cn('px-1.5 py-0.5 rounded-md font-medium', c.badge)}>
+                        {SUPPORT_PLANS[sel.planType].emoji}
+                      </span>
+                      <span className="truncate">{student?.fullName ?? sel.studentId}</span>
+                      <span className="text-slate-400">{LESSON_TYPE_LABELS[sel.lessonType]}</span>
+                    </div>
+                    <span className={cn('font-semibold shrink-0', c.text)}>
+                      {formatAmount(sel.monthlyAmount)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {/* ── Block 5: Notes ────────────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
-          <h2 className="font-semibold text-slate-800 mb-3">Заметки</h2>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Дополнительная информация о поддержке этой семьи..."
-            rows={3}
-            className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none placeholder:text-slate-400"
-          />
-        </div>
+        {/* ── Block 4: Notes ────────────────────────────────────────────────── */}
+        {!existingFamily && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <h2 className="font-semibold text-slate-800 mb-3">Заметки</h2>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Дополнительная информация о поддержке этой семьи..."
+              rows={3}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none placeholder:text-slate-400"
+            />
+          </div>
+        )}
       </div>
 
       {/* ── Sticky bottom bar ──────────────────────────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 z-10 bg-white/95 backdrop-blur-sm border-t border-slate-200 px-6 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
           <div className="text-xs text-slate-400">
-            {selectedStudentIds.length > 0 && planType !== 'open_learning' && (
+            {selectedStudentIds.length > 0 && totalAmount > 0 && !existingFamily && (
               <span>
                 {selectedStudentIds.length}{' '}
                 {selectedStudentIds.length === 1 ? 'ребёнок' : 'детей'}{' '}
-                · {formatAmount(expectedAmount)}/мес
+                · {formatAmount(totalAmount)}/мес
               </span>
             )}
           </div>
@@ -581,15 +741,25 @@ export default function NewFamilyPage() {
               className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
               Отмена
             </Link>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 transition-colors"
-            >
-              <Users className="size-4" />
-              Создать семью
-            </button>
+            {existingFamily ? (
+              <Link
+                href={`/support/families/${existingFamily.id}`}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors"
+              >
+                <Users className="size-4" />
+                Открыть запись
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+              >
+                <Users className="size-4" />
+                Создать семью
+              </button>
+            )}
           </div>
         </div>
       </div>

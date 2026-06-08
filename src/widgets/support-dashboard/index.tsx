@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Plus, Search, Users, CheckCircle2, Clock, AlertCircle,
-  ChevronRight, Copy, Phone, Star, HeartHandshake, X, Wallet,
-  CalendarDays, Check,
+  ChevronRight, Copy, Phone, HeartHandshake, X, Wallet,
+  CalendarDays, Check, AlertTriangle,
 } from 'lucide-react';
 import {
   useAppStore, useFamilies, useStudents, useFamilyPayments, useParents,
@@ -13,7 +13,7 @@ import {
 import type { Parent } from '@/entities/parent/model/types';
 import {
   SUPPORT_PLANS, PLAN_COLORS, STATUS_COLORS, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS,
-  calculateExpectedPayment, formatAmount, getCurrentMonth, formatMonth,
+  calculateFamilyExpectedAmount, formatAmount, getCurrentMonth, formatMonth,
   getReminderMessage, getThankYouMessage,
 } from '@/entities/support/model/helpers';
 import type { SupportPlanType, PaymentStatus, PaymentMethod } from '@/entities/support/model/types';
@@ -44,7 +44,7 @@ function AcceptPaymentModal({
 
   if (!family) return null;
 
-  const expectedAmount = payment?.expectedAmount ?? calculateExpectedPayment(family.supportPlanType, family.studentIds.length);
+  const expectedAmount = payment?.expectedAmount ?? calculateFamilyExpectedAmount(family);
   const alreadyPaid = payment?.paidAmount ?? 0;
   const remaining = Math.max(0, expectedAmount - alreadyPaid);
   const numAmount = Number(amount);
@@ -211,7 +211,7 @@ function FamilyCard({
 }) {
   const plan = SUPPORT_PLANS[family.supportPlanType];
   const planColors = PLAN_COLORS[family.supportPlanType];
-  const expectedAmount = payment?.expectedAmount ?? calculateExpectedPayment(family.supportPlanType, family.studentIds.length);
+  const expectedAmount = payment?.expectedAmount ?? calculateFamilyExpectedAmount(family);
   const paidAmount = payment?.paidAmount ?? 0;
   const remaining = Math.max(0, expectedAmount - paidAmount);
   const status = payment?.status ?? (expectedAmount === 0 ? 'paid' : 'unpaid');
@@ -308,6 +308,7 @@ export function SupportDashboard() {
   const parents = useParents();
   const familyPayments = useFamilyPayments();
   const createMonthlyPayments = useAppStore((s) => s.createMonthlyPayments);
+  const deduplicateSupportAccounts = useAppStore((s) => s.deduplicateSupportAccounts);
 
   const [search, setSearch] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
@@ -352,7 +353,7 @@ export function SupportDashboard() {
       if (planFilter !== 'all' && f.supportPlanType !== planFilter) return false;
       if (statusFilter !== 'all') {
         const p = monthPayments.find((mp) => mp.familyId === f.id);
-        const status = p?.status ?? (calculateExpectedPayment(f.supportPlanType, f.studentIds.length) === 0 ? 'paid' : 'unpaid');
+        const status = p?.status ?? (calculateFamilyExpectedAmount(f) === 0 ? 'paid' : 'unpaid');
         if (status !== statusFilter) return false;
       }
       return true;
@@ -362,6 +363,17 @@ export function SupportDashboard() {
     acc[f.supportPlanType] = (acc[f.supportPlanType] ?? 0) + 1;
     return acc;
   }, {} as Record<SupportPlanType, number>);
+
+  const duplicateParentCount = useMemo(() => {
+    const seen = new Set<string>();
+    let dups = 0;
+    families.forEach((f) => {
+      if (!f.parentId) return;
+      if (seen.has(f.parentId)) dups++;
+      seen.add(f.parentId);
+    });
+    return dups;
+  }, [families]);
 
   if (!hydrated) return (
     <div className="p-6 max-w-7xl mx-auto animate-pulse space-y-4">
@@ -383,6 +395,27 @@ export function SupportDashboard() {
           <Plus className="size-4" /> Добавить семью
         </Link>
       </div>
+
+      {/* Dedup warning */}
+      {duplicateParentCount > 0 && (
+        <div className="flex items-center gap-3 px-4 py-3 mb-5 rounded-xl bg-amber-50 border border-amber-200">
+          <AlertTriangle className="size-4 text-amber-600 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-800">
+              Обнаружены дублирующиеся записи ({duplicateParentCount})
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Несколько записей поддержки привязаны к одному родителю. Рекомендуем объединить их.
+            </p>
+          </div>
+          <button
+            onClick={deduplicateSupportAccounts}
+            className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-medium hover:bg-amber-700 shrink-0 transition-colors"
+          >
+            Объединить
+          </button>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">

@@ -1,4 +1,6 @@
-import type { SupportPlanType, PaymentStatus, SupportPlan } from './types';
+import type {
+  SupportPlanType, PaymentStatus, SupportPlan, LessonType, LessonSelection, Family,
+} from './types';
 
 const MONTHS = [
   'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
@@ -67,7 +69,31 @@ export const SUPPORT_PLANS: Record<SupportPlanType, SupportPlan> = {
     priorityLevel: 4,
     emoji: '⭐',
   },
+  custom: {
+    id: 'custom',
+    name: 'Особый формат',
+    description: 'Индивидуальные условия, согласованные с устазом.',
+    features: [
+      'Индивидуальный договор',
+      'Гибкие условия оплаты',
+      'Особый формат занятий',
+    ],
+    educationLogic: 'Сумма указывается вручную.',
+    priorityLevel: 5,
+    emoji: '✏️',
+  },
 };
+
+export const LESSON_TYPE_LABELS: Record<LessonType, string> = {
+  quran_group: 'Общая группа Корана',
+  muallim_sani: 'Муаллим сани',
+  tajweed: 'Таджвид',
+  hifz: 'Хифз',
+  individual: 'Индивидуальные',
+  custom: 'Особый',
+};
+
+// ─── Core calculation functions ───────────────────────────────────────────────
 
 export function calculateFamilySupportAmount(studentCount: number): number {
   if (studentCount <= 0) return 0;
@@ -91,8 +117,67 @@ export function calculateExpectedPayment(planType: SupportPlanType, studentCount
     case 'family_support': return calculateFamilySupportAmount(studentCount);
     case 'focused_learning': return calculateFocusedLearningAmount(studentCount);
     case 'private_group': return calculatePrivateGroupAmount(studentCount);
+    case 'custom': return 0;
   }
 }
+
+/** Calculate amount from per-student lessonSelections (mixed plan support) */
+export function calculateMixedAmount(lessonSelections: LessonSelection[]): number {
+  const active = lessonSelections.filter((s) => s.isActive);
+
+  const familySupportCount = active.filter((s) => s.planType === 'family_support').length;
+  const focusedCount = active.filter((s) => s.planType === 'focused_learning').length;
+  const privateCount = active.filter((s) => s.planType === 'private_group').length;
+  const customAmount = active
+    .filter((s) => s.planType === 'custom')
+    .reduce((sum, s) => sum + s.monthlyAmount, 0);
+
+  return (
+    calculateFamilySupportAmount(familySupportCount) +
+    calculateFocusedLearningAmount(focusedCount) +
+    calculatePrivateGroupAmount(privateCount) +
+    customAmount
+  );
+}
+
+/**
+ * Main entry point — uses lessonSelections when available, falls back to
+ * legacy supportPlanType × studentIds.length for old records.
+ */
+export function calculateFamilyExpectedAmount(family: Family): number {
+  if (family.lessonSelections && family.lessonSelections.length > 0) {
+    return calculateMixedAmount(family.lessonSelections);
+  }
+  return calculateExpectedPayment(family.supportPlanType, family.studentIds.length);
+}
+
+/** Auto-calculate monthlyAmount for a single selection (not custom) */
+export function getSelectionAmount(planType: SupportPlanType): number {
+  switch (planType) {
+    case 'family_support': return 1000;   // per-student preview (full calc depends on group size)
+    case 'focused_learning': return 2000;
+    case 'private_group': return 5000;
+    case 'open_learning': return 0;
+    case 'custom': return 0;
+  }
+}
+
+/** Derive the dominant plan type from lesson selections (for display) */
+export function derivePlanType(lessonSelections: LessonSelection[]): SupportPlanType {
+  if (lessonSelections.length === 0) return 'family_support';
+  const counts = new Map<SupportPlanType, number>();
+  for (const sel of lessonSelections) {
+    counts.set(sel.planType, (counts.get(sel.planType) ?? 0) + 1);
+  }
+  let max = 0;
+  let dominant: SupportPlanType = 'family_support';
+  for (const [plan, count] of counts) {
+    if (count > max) { max = count; dominant = plan; }
+  }
+  return dominant;
+}
+
+// ─── Payment helpers ──────────────────────────────────────────────────────────
 
 export function getPaymentStatus(expectedAmount: number, paidAmount: number): PaymentStatus {
   if (expectedAmount === 0) return 'paid';
@@ -118,17 +203,18 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
 };
 
 export const PLAN_COLORS: Record<SupportPlanType, { badge: string; light: string; text: string; border: string }> = {
-  open_learning: { badge: 'bg-slate-100 text-slate-600', light: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200' },
-  family_support: { badge: 'bg-emerald-100 text-emerald-700', light: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-  focused_learning: { badge: 'bg-blue-100 text-blue-700', light: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-  private_group: { badge: 'bg-violet-100 text-violet-700', light: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
+  open_learning:   { badge: 'bg-slate-100 text-slate-600',   light: 'bg-slate-50',   text: 'text-slate-600',   border: 'border-slate-200' },
+  family_support:  { badge: 'bg-emerald-100 text-emerald-700', light: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+  focused_learning:{ badge: 'bg-blue-100 text-blue-700',     light: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200' },
+  private_group:   { badge: 'bg-violet-100 text-violet-700', light: 'bg-violet-50',  text: 'text-violet-700',  border: 'border-violet-200' },
+  custom:          { badge: 'bg-amber-100 text-amber-700',   light: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200' },
 };
 
 export const STATUS_COLORS: Record<PaymentStatus, { badge: string }> = {
-  unpaid: { badge: 'bg-slate-100 text-slate-600' },
+  unpaid:  { badge: 'bg-slate-100 text-slate-600' },
   partial: { badge: 'bg-amber-100 text-amber-700' },
-  paid: { badge: 'bg-emerald-100 text-emerald-700' },
-  overpaid: { badge: 'bg-blue-100 text-blue-700' },
+  paid:    { badge: 'bg-emerald-100 text-emerald-700' },
+  overpaid:{ badge: 'bg-blue-100 text-blue-700' },
 };
 
 export function formatAmount(amount: number): string {
@@ -146,14 +232,14 @@ export function formatMonth(month: string): string {
   return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`;
 }
 
-export function getReminderMessage(familyName: string, remaining: number, month: string): string {
+export function getReminderMessage(parentName: string, remaining: number, month: string): string {
   const [year, m] = month.split('-');
   const monthName = MONTHS[Number(m) - 1] ?? month;
-  return `Ассаламу алейкум! Напоминаем, что за ${monthName} ${year} осталось оплатить ${formatAmount(remaining)} за обучение детей семьи «${familyName}». Спасибо за поддержку обучения Корана.`;
+  return `Ассаламу алейкум! Напоминаем, что за ${monthName} ${year} осталось оплатить ${formatAmount(remaining)} за обучение детей. Спасибо за поддержку обучения Корана.`;
 }
 
-export function getThankYouMessage(familyName: string, month: string): string {
+export function getThankYouMessage(parentName: string, month: string): string {
   const [year, m] = month.split('-');
   const monthName = MONTHS[Number(m) - 1] ?? month;
-  return `Ассаламу алейкум! Оплата за ${monthName} ${year} от семьи «${familyName}» получена. Пусть Аллах даст баракат вашей семье за поддержку обучения Корана. 🌿`;
+  return `Ассаламу алейкум! Оплата за ${monthName} ${year} от ${parentName} получена. Пусть Аллах даст баракат вашей семье за поддержку обучения Корана. 🌿`;
 }

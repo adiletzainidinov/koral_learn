@@ -1,7 +1,31 @@
-export type SupportPlanType = 'open_learning' | 'family_support' | 'focused_learning' | 'private_group';
+export type SupportPlanType =
+  | 'open_learning'
+  | 'family_support'
+  | 'focused_learning'
+  | 'private_group'
+  | 'custom';
+
 export type PaymentStatus = 'unpaid' | 'partial' | 'paid' | 'overpaid';
 export type PaymentMethod = 'cash' | 'mbank' | 'obank' | 'bank_transfer' | 'other';
 export type PaymentAction = 'created' | 'updated' | 'paid' | 'partial_paid' | 'refund';
+
+export type LessonType =
+  | 'quran_group'
+  | 'muallim_sani'
+  | 'tajweed'
+  | 'hifz'
+  | 'individual'
+  | 'custom';
+
+export interface LessonSelection {
+  id: string;
+  studentId: string;
+  lessonType: LessonType;
+  planType: SupportPlanType;
+  /** Auto-calculated from planType, or manual override when planType === 'custom' */
+  monthlyAmount: number;
+  isActive: boolean;
+}
 
 export interface SupportPlan {
   id: SupportPlanType;
@@ -17,19 +41,22 @@ export interface SupportPlan {
 
 export interface Family {
   id: string;
-  /** Primary parent entity reference — source of truth for contact data */
+  /** Primary parent entity reference — source of truth; one parentId = one Family */
   parentId?: string;
   /** Display name — derived from parent on creation, or legacy manual entry */
   name: string;
+  studentIds: string[];
+  /** Per-student lesson configuration. When absent, falls back to supportPlanType */
+  lessonSelections?: LessonSelection[];
+  /** Default/fallback plan type — used when lessonSelections is absent */
+  supportPlanType: SupportPlanType;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
   /** Legacy: kept for backward compat with old localStorage data */
   parentName?: string;
   /** Legacy: kept for backward compat with old localStorage data */
   parentPhone?: string;
-  notes?: string;
-  studentIds: string[];
-  supportPlanType: SupportPlanType;
-  createdAt: string;
-  updatedAt?: string;
 }
 
 export interface FamilyPayment {
@@ -59,6 +86,8 @@ export interface PaymentHistoryItem {
 export interface CreateFamilyInput {
   parentId: string;
   studentIds: string[];
+  lessonSelections: LessonSelection[];
+  /** Derived from lessonSelections — used for display / legacy fallback */
   supportPlanType: SupportPlanType;
   notes?: string;
 }

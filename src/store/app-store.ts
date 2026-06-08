@@ -40,10 +40,10 @@ import {
 import type { Parent, CreateParentInput, UpdateParentInput } from '@/entities/parent/model/types';
 import type {
   Family, FamilyPayment, PaymentHistoryItem, CreateFamilyInput, UpdateFamilyInput,
-  SupportPlanType, PaymentMethod,
+  SupportPlanType, PaymentMethod, LessonSelection,
 } from '@/entities/support/model/types';
 import {
-  calculateExpectedPayment, getPaymentStatus, formatMonth,
+  calculateFamilyExpectedAmount, getPaymentStatus, formatMonth, derivePlanType,
 } from '@/entities/support/model/helpers';
 
 interface AppState {
@@ -129,6 +129,8 @@ interface AppState {
   assignStudentToFamily: (familyId: string, studentId: string) => void;
   removeStudentFromFamily: (familyId: string, studentId: string) => void;
   setFamilySupportPlan: (familyId: string, planType: SupportPlanType) => void;
+  updateFamilyLessonSelections: (familyId: string, lessonSelections: LessonSelection[]) => void;
+  deduplicateSupportAccounts: () => void;
   createMonthlyPayments: (month: string) => void;
   markFamilyPaymentPaid: (familyId: string, month: string, amount: number, method: PaymentMethod, comment?: string) => void;
   updateFamilyPayment: (paymentId: string, patch: Partial<Pick<FamilyPayment, 'paidAmount' | 'expectedAmount' | 'paymentMethod' | 'comment'>>) => void;
@@ -850,8 +852,10 @@ export const useAppStore = create<AppState>()(
       // ─── Support / Families ────────────────────────────────────────────────
 
       createFamily: (input) => {
+        const { families, parents } = get();
+        const existing = families.find((f) => f.parentId && f.parentId === input.parentId);
+        if (existing) return existing.id;
         const id = generateId();
-        const { parents } = get();
         const parent = parents.find((p) => p.id === input.parentId);
         const name = parent ? `Семья ${parent.fullName}` : 'Семья';
         const family: Family = { ...input, id, name, createdAt: new Date().toISOString() };
@@ -908,6 +912,49 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      updateFamilyLessonSelections: (familyId, lessonSelections) => {
+        const dominantPlan = derivePlanType(lessonSelections);
+        set((state) => ({
+          families: state.families.map((f) =>
+            f.id === familyId
+              ? { ...f, lessonSelections, supportPlanType: dominantPlan, updatedAt: new Date().toISOString() }
+              : f
+          ),
+        }));
+      },
+
+      deduplicateSupportAccounts: () => {
+        const { families, familyPayments, paymentHistory } = get();
+        const byParent = new Map<string, Family[]>();
+        for (const f of families) {
+          if (!f.parentId) continue;
+          const group = byParent.get(f.parentId) ?? [];
+          group.push(f);
+          byParent.set(f.parentId, group);
+        }
+
+        const toDelete = new Set<string>();
+        const mergedMap = new Map<string, Family>();
+        let updatedPayments = [...familyPayments];
+        let updatedHistory = [...paymentHistory];
+
+        for (const [, group] of byParent) {
+          if (group.length <= 1) continue;
+          const [keeper, ...duplicates] = [...group].sort((a, b) => b.studentIds.length - a.studentIds.length);
+          const mergedStudentIds = Array.from(new Set([...keeper.studentIds, ...duplicates.flatMap((d) => d.studentIds)]));
+          mergedMap.set(keeper.id, { ...keeper, studentIds: mergedStudentIds });
+          const dupIds = new Set(duplicates.map((d) => d.id));
+          updatedPayments = updatedPayments.map((p) => dupIds.has(p.familyId) ? { ...p, familyId: keeper.id } : p);
+          updatedHistory = updatedHistory.map((h) => dupIds.has(h.familyId) ? { ...h, familyId: keeper.id } : h);
+          duplicates.forEach((d) => toDelete.add(d.id));
+        }
+
+        const finalFamilies = families
+          .filter((f) => !toDelete.has(f.id))
+          .map((f) => mergedMap.get(f.id) ?? f);
+        set({ families: finalFamilies, familyPayments: updatedPayments, paymentHistory: updatedHistory });
+      },
+
       createMonthlyPayments: (month) => {
         const { families, familyPayments } = get();
         const now = new Date().toISOString();
@@ -916,7 +963,7 @@ export const useAppStore = create<AppState>()(
 
         families.forEach((family) => {
           if (familyPayments.some((p) => p.familyId === family.id && p.month === month)) return;
-          const expectedAmount = calculateExpectedPayment(family.supportPlanType, family.studentIds.length);
+          const expectedAmount = calculateFamilyExpectedAmount(family);
           const paymentId = generateId();
           newPayments.push({
             id: paymentId,
@@ -969,9 +1016,7 @@ export const useAppStore = create<AppState>()(
           }));
         } else {
           const family = state.families.find((f) => f.id === familyId);
-          const expectedAmount = family
-            ? calculateExpectedPayment(family.supportPlanType, family.studentIds.length)
-            : 0;
+          const expectedAmount = family ? calculateFamilyExpectedAmount(family) : 0;
           const newStatus = getPaymentStatus(expectedAmount, amount);
           const paymentId = generateId();
           const payment: FamilyPayment = {
@@ -1188,3 +1233,6 @@ export const useFamilyParent = (familyId: string) =>
     if (!family?.parentId) return null;
     return s.parents.find((p) => p.id === family.parentId) ?? null;
   });
+
+export const useFamilyByParentId = (parentId: string) =>
+  useAppStore((s) => s.families.find((f) => f.parentId === parentId));
