@@ -1,6 +1,6 @@
 import type {
   SupportPlanType, PaymentStatus, SupportPlan, LessonType, LessonSelection, Family,
-  SupportPayment, SupportPaymentDistribution,
+  SupportPayment, SupportPaymentDistribution, SupportPaymentAllocation,
 } from './types';
 
 const MONTHS = [
@@ -241,7 +241,7 @@ export function getReminderMessage(parentName: string, remaining: number, month:
 
 // ─── SupportPayment helpers ───────────────────────────────────────────────────
 
-/** Sum of appliedAmount for a given student across the provided payment list. */
+/** Sum of appliedAmount for a given student across the provided payment list (incl. advance_usage allocations). */
 export function getStudentMonthPaid(studentId: string, payments: SupportPayment[]): number {
   let total = 0;
   for (const p of payments) {
@@ -250,6 +250,9 @@ export function getStudentMonthPaid(studentId: string, payments: SupportPayment[
     } else if (!p.studentId && p.distribution) {
       const d = p.distribution.find((x) => x.studentId === studentId);
       if (d) total += d.amount;
+    } else if (!p.studentId && p.allocations) {
+      const a = p.allocations.find((x) => x.studentId === studentId);
+      if (a) total += a.amount;
     }
   }
   return total;
@@ -274,6 +277,21 @@ export function distributeAmongStudents(
     rem -= give;
   }
   return result;
+}
+
+/**
+ * How much of a specific advance-creating payment has been consumed by advance_usage records.
+ * Since advance_usage records are not linked to a specific source payment, we use:
+ *   usedFromThis = max(0, totalUsed − advanceCreatedByOtherPayments)
+ */
+export function calculateUsedAdvanceFromPayment(paymentId: string, allPayments: SupportPayment[]): number {
+  const totalUsed = allPayments
+    .filter((p) => p.kind === 'advance_usage')
+    .reduce((s, p) => s + p.appliedAmount, 0);
+  const otherAdvanceCreated = allPayments
+    .filter((p) => p.overpaymentType === 'advance' && p.id !== paymentId)
+    .reduce((s, p) => s + p.overpaidAmount, 0);
+  return Math.max(0, totalUsed - otherAdvanceCreated);
 }
 
 /**

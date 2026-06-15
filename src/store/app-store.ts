@@ -41,7 +41,7 @@ import type { Parent, CreateParentInput, UpdateParentInput } from '@/entities/pa
 import type {
   Family, FamilyPayment, PaymentHistoryItem, CreateFamilyInput, UpdateFamilyInput,
   SupportPlanType, PaymentMethod, LessonSelection, StudentPaymentRecord,
-  SupportPayment, CreateSupportPaymentInput,
+  SupportPayment, CreateSupportPaymentInput, ApplyAdvanceInput,
 } from '@/entities/support/model/types';
 import {
   calculateFamilyExpectedAmount, getPaymentStatus, formatMonth, derivePlanType,
@@ -145,8 +145,8 @@ interface AppState {
   createSupportPayment: (input: CreateSupportPaymentInput) => string;
   updateSupportPayment: (id: string, patch: Partial<Omit<SupportPayment, 'id' | 'createdAt'>>) => void;
   deleteSupportPayment: (id: string) => void;
-  /** Apply available advance balance to the outstanding debt for the given month. */
-  applyAdvanceToMonth: (familyId: string, month: string) => void;
+  /** Apply available advance balance using the provided allocation plan. */
+  applyAdvanceToMonth: (input: ApplyAdvanceInput) => void;
 }
 
 // ─── point-history helper ─────────────────────────────────────────────────────
@@ -1182,28 +1182,20 @@ export const useAppStore = create<AppState>()(
         set((s) => ({ supportPayments: s.supportPayments.filter((p) => p.id !== id) }));
       },
 
-      applyAdvanceToMonth: (familyId, month) => {
-        const s = get();
-        const family = s.families.find((f) => f.id === familyId);
-        if (!family) return;
-        const payments = s.supportPayments.filter((p) => p.familyId === familyId);
-        const availableAdvance = calculateAvailableAdvance(payments);
-        const expectedAmount = calculateFamilyExpectedAmount(family);
-        const paidAmount = calculatePaidForMonth(payments, month);
-        const remaining = Math.max(0, expectedAmount - paidAmount);
-        if (availableAdvance <= 0 || remaining <= 0) return;
-        const applyAmount = Math.min(availableAdvance, remaining);
+      applyAdvanceToMonth: ({ familyId, month, amount, allocations, note }) => {
+        if (amount <= 0 || allocations.length === 0) return;
         const now = new Date().toISOString();
         set((state) => ({
           supportPayments: [...state.supportPayments, {
             id: generateId(),
             familyId,
             month,
-            amount: applyAmount,
-            appliedAmount: applyAmount,
+            amount,
+            appliedAmount: amount,
             overpaidAmount: 0,
             kind: 'advance_usage' as const,
-            note: `Применён аванс к ${formatMonth(month)}`,
+            allocations,
+            note: note ?? `Применён аванс к ${formatMonth(month)}`,
             paidAt: now,
             createdAt: now,
           }],

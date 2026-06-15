@@ -22,10 +22,11 @@ import {
   getReminderMessage, getThankYouMessage,
   getStudentMonthPaid, distributeAmongStudents,
   calculateAvailableAdvance, calculatePaidForMonth, calculateGiftTotal,
+  calculateUsedAdvanceFromPayment,
 } from '@/entities/support/model/helpers';
 import type {
   SupportPlanType, PaymentMethod, LessonSelection, LessonType,
-  SupportPayment, CreateSupportPaymentInput, OverpaymentType,
+  SupportPayment, CreateSupportPaymentInput, OverpaymentType, ApplyAdvanceInput,
 } from '@/entities/support/model/types';
 import { generateId } from '@/shared/lib/ids';
 import { cn } from '@/shared/lib/cn';
@@ -201,12 +202,25 @@ function PaymentFormModal({
     );
   }, [isStudentTarget, appliedAmount, familyStudents, family, monthPayments]);
 
+  // Minimum required overpaid amount when editing a payment that created advance
+  const minRequiredOverpaid = useMemo(() => {
+    if (!editPayment || editPayment.overpaymentType !== 'advance') return 0;
+    return calculateUsedAdvanceFromPayment(editPayment.id, allSupportPayments);
+  }, [editPayment, allSupportPayments]);
+  const canChangeOverpaymentType = minRequiredOverpaid === 0;
+
   if (!family) return null;
 
   function validate() {
     const errs: typeof errors = {};
     if (numAmount <= 0) errs.amount = 'Введите сумму';
     if (isOverpaid && !overpaymentType) errs.overpayment = 'Выберите, что делать с переплатой';
+    if (editPayment?.overpaymentType === 'advance' && overpaidAmount < minRequiredOverpaid) {
+      errs.amount = `Нельзя уменьшить аванс: уже применено ${formatAmount(minRequiredOverpaid)} сом`;
+    }
+    if (!canChangeOverpaymentType && overpaymentType === 'gift' && editPayment?.overpaymentType === 'advance') {
+      errs.overpayment = `Нельзя сменить тип: уже применено ${formatAmount(minRequiredOverpaid)} сом аванса`;
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -346,6 +360,16 @@ function PaymentFormModal({
             </div>
           )}
 
+          {/* Advance constraint notice */}
+          {editPayment?.overpaymentType === 'advance' && minRequiredOverpaid > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+              <p className="text-xs font-semibold text-blue-800">Ограничение по авансу</p>
+              <p className="text-xs text-blue-700 mt-0.5">
+                Уже применено {formatAmount(minRequiredOverpaid)} сом. Нельзя уменьшить аванс ниже этой суммы.
+              </p>
+            </div>
+          )}
+
           {/* Overpayment */}
           {isOverpaid && (
             <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 space-y-2">
@@ -355,25 +379,30 @@ function PaymentFormModal({
               <p className="text-xs text-amber-700">Что сделать с излишком?</p>
               {errors.overpayment && <p className="text-xs text-red-500">{errors.overpayment}</p>}
               <div className="space-y-1.5">
-                {(Object.entries(OVERPAYMENT_LABELS) as [OverpaymentType, typeof OVERPAYMENT_LABELS[OverpaymentType]][]).map(([key, meta]) => (
-                  <button
-                    key={key}
-                    onClick={() => { setOverpaymentType(key); setErrors((p) => ({ ...p, overpayment: undefined })); }}
-                    className={cn(
-                      'w-full flex items-start gap-2.5 p-2.5 rounded-xl border text-left transition-colors',
-                      overpaymentType === key
-                        ? 'border-emerald-400 bg-white shadow-sm'
-                        : 'border-amber-200 bg-amber-50/50 hover:bg-white'
-                    )}
-                  >
-                    <span className="mt-0.5 shrink-0">{meta.icon}</span>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-800">{meta.label}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">{meta.desc}</p>
-                    </div>
-                    {overpaymentType === key && <Check className="size-4 text-emerald-500 ml-auto shrink-0 mt-0.5" />}
-                  </button>
-                ))}
+                {(Object.entries(OVERPAYMENT_LABELS) as [OverpaymentType, typeof OVERPAYMENT_LABELS[OverpaymentType]][]).map(([key, meta]) => {
+                  const isLocked = key === 'gift' && !canChangeOverpaymentType && editPayment?.overpaymentType === 'advance';
+                  return (
+                    <button
+                      key={key}
+                      disabled={isLocked}
+                      onClick={() => { if (!isLocked) { setOverpaymentType(key); setErrors((p) => ({ ...p, overpayment: undefined })); } }}
+                      className={cn(
+                        'w-full flex items-start gap-2.5 p-2.5 rounded-xl border text-left transition-colors',
+                        isLocked ? 'opacity-40 cursor-not-allowed border-slate-200 bg-slate-50' :
+                        overpaymentType === key
+                          ? 'border-emerald-400 bg-white shadow-sm'
+                          : 'border-amber-200 bg-amber-50/50 hover:bg-white'
+                      )}
+                    >
+                      <span className="mt-0.5 shrink-0">{meta.icon}</span>
+                      <div>
+                        <p className="text-xs font-semibold text-slate-800">{meta.label}</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{isLocked ? 'Недоступно: аванс уже частично применён' : meta.desc}</p>
+                      </div>
+                      {overpaymentType === key && !isLocked && <Check className="size-4 text-emerald-500 ml-auto shrink-0 mt-0.5" />}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -433,42 +462,311 @@ function getPageMonthOptions(currentMonth: string) {
   return options;
 }
 
-// ─── Apply Advance Modal ──────────────────────────────────────────────────────
+// ─── Apply / Edit Advance Modal ───────────────────────────────────────────────
 
 function ApplyAdvanceModal({
-  availableAdvance, remaining, month, onCancel, onConfirm,
+  availableAdvance,
+  family,
+  familyStudents,
+  allSupportPayments,
+  initialMonth,
+  editRecord,
+  onCancel,
+  onConfirm,
 }: {
   availableAdvance: number;
-  remaining: number;
-  month: string;
+  family: NonNullable<ReturnType<typeof useFamilyById>>;
+  familyStudents: ReturnType<typeof useStudents>;
+  allSupportPayments: SupportPayment[];
+  initialMonth: string;
+  editRecord?: SupportPayment;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (input: ApplyAdvanceInput) => void;
 }) {
-  const applyAmount = Math.min(availableAdvance, remaining);
-  const newRemaining = remaining - applyAmount;
+  const isEdit = !!editRecord;
+  // Temporarily return edited record's amount to the pool so user can re-allocate it
+  const editableAvailableAdvance = isEdit
+    ? availableAdvance + (editRecord.appliedAmount ?? 0)
+    : availableAdvance;
+
+  const currentMonth = getCurrentMonth();
+  const monthOptions = useMemo(() => getPageMonthOptions(currentMonth), [currentMonth]);
+
+  const initialTargetMode = useMemo((): 'family' | 'students' => {
+    if (!editRecord?.allocations || editRecord.allocations.length === 0) return 'family';
+    return editRecord.allocations.length < familyStudents.length ? 'students' : 'family';
+  }, [editRecord, familyStudents]);
+
+  const initialSelectedIds = useMemo((): Set<string> => {
+    if (editRecord?.allocations && editRecord.allocations.length > 0) {
+      return new Set(editRecord.allocations.map((a) => a.studentId));
+    }
+    return new Set(familyStudents.map((s) => s.id));
+  }, [editRecord, familyStudents]);
+
+  const [month, setMonth] = useState(editRecord?.month ?? initialMonth);
+  const [targetMode, setTargetMode] = useState<'family' | 'students'>(initialTargetMode);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(initialSelectedIds);
+  const [amountStr, setAmountStr] = useState(isEdit ? String(editRecord.appliedAmount) : '');
+  const [noteStr, setNoteStr] = useState(() => {
+    const s = editRecord?.note ?? '';
+    return s.startsWith('Применён аванс к ') ? '' : s;
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  // Exclude the record being edited so paid amounts don't double-count it
+  const monthPayments = useMemo(
+    () => allSupportPayments.filter((p) => p.month === month && p.id !== editRecord?.id),
+    [allSupportPayments, month, editRecord]
+  );
+
+  const studentInfoMap = useMemo(() => {
+    const map = new Map<string, { expected: number; paid: number; remaining: number }>();
+    for (const s of familyStudents) {
+      const sel = family.lessonSelections?.find((ls) => ls.studentId === s.id);
+      const expected = sel?.monthlyAmount ?? 0;
+      const paid = getStudentMonthPaid(s.id, monthPayments);
+      map.set(s.id, { expected, paid, remaining: Math.max(0, expected - paid) });
+    }
+    return map;
+  }, [familyStudents, family.lessonSelections, monthPayments]);
+
+  const numAmount = Number(amountStr) || 0;
+
+  const targetStudents = useMemo(
+    () => targetMode === 'family'
+      ? familyStudents
+      : familyStudents.filter((s) => selectedStudentIds.has(s.id)),
+    [targetMode, familyStudents, selectedStudentIds]
+  );
+
+  const totalTargetRemaining = useMemo(
+    () => targetStudents.reduce((s, st) => s + (studentInfoMap.get(st.id)?.remaining ?? 0), 0),
+    [targetStudents, studentInfoMap]
+  );
+
+  const allocations = useMemo(
+    () => numAmount <= 0 ? [] : distributeAmongStudents(
+      numAmount,
+      targetStudents.map((s) => {
+        const info = studentInfoMap.get(s.id)!;
+        return { id: s.id, expectedAmount: info.expected, alreadyPaid: info.paid };
+      })
+    ),
+    [numAmount, targetStudents, studentInfoMap]
+  );
+
+  function toggleStudent(id: string) {
+    setSelectedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function handleConfirm() {
+    if (targetMode === 'students' && selectedStudentIds.size === 0) {
+      setError('Выберите хотя бы одного ученика');
+      return;
+    }
+    if (numAmount <= 0) { setError('Введите сумму'); return; }
+    if (numAmount > editableAvailableAdvance) {
+      setError(`Максимум: ${formatAmount(editableAvailableAdvance)}`);
+      return;
+    }
+    if (allocations.length === 0) {
+      setError('Нет долга для покрытия в выбранном месяце');
+      return;
+    }
+    const finalNote = noteStr.trim() || `Применён аванс к ${formatMonth(month)}`;
+    onConfirm({ familyId: family.id, month, amount: numAmount, allocations, note: finalNote });
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-slate-900">Применить аванс?</h2>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
+      <div className="bg-white w-full sm:rounded-2xl sm:max-w-md shadow-xl flex flex-col max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">
+              {isEdit ? 'Редактировать применение аванса' : 'Применить аванс'}
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {isEdit
+                ? `Доступно для редактирования: ${formatAmount(editableAvailableAdvance)}`
+                : `Доступно: ${formatAmount(availableAdvance)}`}
+            </p>
+          </div>
           <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
-            <X className="size-4" />
+            <X className="size-5" />
           </button>
         </div>
-        <p className="text-sm text-slate-600 mb-5 leading-relaxed">
-          Применить <span className="font-medium">{formatAmount(applyAmount)}</span> аванса к оплате за{' '}
-          <span className="font-medium">{formatMonth(month)}</span>?{' '}
-          Остаток уменьшится с <span className="font-medium">{formatAmount(remaining)}</span>{' '}
-          до <span className="font-medium">{formatAmount(newRemaining)}</span>.
-        </p>
-        <div className="flex gap-3">
+
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+          {/* Month */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Месяц</label>
+            <div className="relative">
+              <select value={month} onChange={(e) => { setMonth(e.target.value); setError(null); }}
+                className="w-full h-10 rounded-xl border border-slate-200 px-3 pr-8 text-sm text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                {monthOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}{o.value === currentMonth ? ' (текущий)' : ''}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-3 size-4 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Target */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">За кого</label>
+            <div className="flex gap-1.5 mb-3">
+              <button
+                onClick={() => setTargetMode('family')}
+                className={cn('px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors',
+                  targetMode === 'family' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                )}>
+                Вся семья
+              </button>
+              <button
+                onClick={() => setTargetMode('students')}
+                className={cn('px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors',
+                  targetMode === 'students' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                )}>
+                Конкретные ученики
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {familyStudents.map((s) => {
+                const info = studentInfoMap.get(s.id) ?? { expected: 0, paid: 0, remaining: 0 };
+                const isChecked = targetMode === 'family' || selectedStudentIds.has(s.id);
+                const isDisabled = targetMode === 'family';
+                return (
+                  <label key={s.id}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-xl border transition-colors',
+                      isDisabled ? 'border-slate-100 bg-slate-50/50' : 'cursor-pointer',
+                      !isDisabled && isChecked ? 'border-blue-200 bg-blue-50/40' : !isDisabled ? 'border-slate-200 bg-white hover:bg-slate-50' : ''
+                    )}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      disabled={isDisabled}
+                      onChange={() => !isDisabled && toggleStudent(s.id)}
+                      className="size-4 rounded accent-blue-600"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800">{s.fullName.split(' ')[0]}</p>
+                      {info.expected > 0 && (
+                        <p className="text-xs text-slate-400">
+                          {info.remaining > 0 ? `Остаток: ${formatAmount(info.remaining)}` : 'Оплачено ✓'}
+                        </p>
+                      )}
+                    </div>
+                    {info.remaining > 0 && (
+                      <span className="text-xs font-medium text-amber-600 shrink-0">{formatAmount(info.remaining)}</span>
+                    )}
+                    {info.remaining === 0 && info.expected > 0 && (
+                      <span className="text-xs text-emerald-600 shrink-0">✓</span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Amount */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Сумма (сом)</label>
+            {totalTargetRemaining > 0 && (
+              <button
+                onClick={() => { setAmountStr(String(Math.min(editableAvailableAdvance, totalTargetRemaining))); setError(null); }}
+                className="w-full mb-2 py-1.5 px-3 rounded-xl border border-blue-200 text-xs font-medium text-blue-700 hover:bg-blue-50">
+                Максимум ({formatAmount(Math.min(editableAvailableAdvance, totalTargetRemaining))})
+              </button>
+            )}
+            <input
+              type="number" min="0" max={editableAvailableAdvance} placeholder="0"
+              value={amountStr}
+              onChange={(e) => { setAmountStr(e.target.value); setError(null); }}
+              className={cn(
+                'w-full px-3 py-2.5 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2',
+                error ? 'border-red-300 focus:ring-red-400' : 'border-slate-200 focus:ring-blue-400'
+              )}
+            />
+            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+            <p className="text-xs text-slate-400 mt-1">
+              {isEdit
+                ? `Доступно для редактирования: ${formatAmount(editableAvailableAdvance)}`
+                : `Доступный аванс: ${formatAmount(availableAdvance)}`}
+            </p>
+          </div>
+
+          {/* Allocation preview */}
+          {numAmount > 0 && allocations.length > 0 && (
+            <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
+              <p className="text-xs font-semibold text-blue-700 mb-2">
+                {isEdit ? 'После сохранения будет применено' : 'Распределение по ученикам'}
+              </p>
+              <div className="space-y-1">
+                {familyStudents.map((s) => {
+                  const alloc = allocations.find((a) => a.studentId === s.id);
+                  if (!alloc) return null;
+                  const info = studentInfoMap.get(s.id)!;
+                  const willBePaid = alloc.amount >= info.remaining && info.remaining > 0;
+                  return (
+                    <div key={s.id} className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600">{s.fullName.split(' ')[0]}</span>
+                      <span className={cn('font-medium', willBePaid ? 'text-emerald-600' : 'text-blue-600')}>
+                        {formatAmount(alloc.amount)}{willBePaid ? ' ✓' : ''}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {isEdit && (
+                <div className="mt-2 pt-2 border-t border-blue-100 text-xs flex justify-between text-slate-500">
+                  <span>Доступный аванс станет:</span>
+                  <span className="font-medium text-slate-700">{formatAmount(editableAvailableAdvance - numAmount)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* No debt warning */}
+          {numAmount > 0 && allocations.length === 0 && (
+            <div className="bg-amber-50 rounded-xl p-3 border border-amber-200">
+              <p className="text-xs text-amber-700">
+                За {formatMonth(month)} нет долга. Выберите другой месяц или уменьшите сумму.
+              </p>
+            </div>
+          )}
+
+          {/* Note */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Заметка</label>
+            <input
+              type="text"
+              placeholder={`Применён аванс к ${formatMonth(month)}`}
+              value={noteStr}
+              onChange={(e) => setNoteStr(e.target.value)}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-slate-300"
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-5 py-4 border-t border-slate-100 shrink-0">
           <button onClick={onCancel}
             className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
             Отмена
           </button>
-          <button onClick={onConfirm}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 flex items-center justify-center gap-1.5">
-            <PiggyBank className="size-4" /> Применить
+          <button onClick={handleConfirm}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-1.5">
+            <PiggyBank className="size-4" />
+            {isEdit ? 'Сохранить изменения' : numAmount > 0 ? `Применить ${formatAmount(numAmount)}` : 'Применить'}
           </button>
         </div>
       </div>
@@ -730,6 +1028,11 @@ function LessonsTab({
         const studentExpected = sel?.monthlyAmount ?? cfg.monthlyAmount;
         const studentPaid = getStudentMonthPaid(s.id, monthPayments);
         const isPaid = studentExpected > 0 && studentPaid >= studentExpected;
+        const studentAdvance = monthPayments
+          .filter((p) => p.kind === 'advance_usage')
+          .flatMap((p) => p.allocations ?? [])
+          .filter((a) => a.studentId === s.id)
+          .reduce((sum, a) => sum + a.amount, 0);
         const isPartial = studentPaid > 0 && studentPaid < studentExpected;
         const badgeGiven = sel?.badgeGiven ?? false;
 
@@ -798,6 +1101,11 @@ function LessonsTab({
                 )}
                 {isPaid && (
                   <span className="text-xs text-emerald-600 font-medium">{formatAmount(studentPaid)}</span>
+                )}
+                {studentAdvance > 0 && (
+                  <span className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                    <PiggyBank className="size-3" />Аванс: {formatAmount(studentAdvance)}
+                  </span>
                 )}
               </div>
             )}
@@ -873,6 +1181,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
   const [showApplyAdvance, setShowApplyAdvance] = useState(false);
+  const [editAdvanceUsage, setEditAdvanceUsage] = useState<SupportPayment | null>(null);
   // Payment modal state: null = closed, 'family' = family payment, string = studentId
   const [openPaymentFor, setOpenPaymentFor] = useState<null | 'family' | string>(null);
   const [editPayment, setEditPayment] = useState<SupportPayment | null>(null);
@@ -1127,11 +1436,26 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                       {!isAdvanceUsage && p.appliedAmount !== p.amount && (
                         <span className="text-xs text-emerald-600">Зачислено: {formatAmount(p.appliedAmount)}</span>
                       )}
-                      {p.overpaidAmount > 0 && p.overpaymentType === 'advance' && (
-                        <span className="flex items-center gap-1 text-xs text-blue-600">
-                          <PiggyBank className="size-3" />→ Аванс {formatAmount(p.overpaidAmount)}
-                        </span>
-                      )}
+                      {p.overpaidAmount > 0 && p.overpaymentType === 'advance' && (() => {
+                        const usedFromThis = calculateUsedAdvanceFromPayment(p.id, supportPayments);
+                        const freeFromThis = p.overpaidAmount - usedFromThis;
+                        return (
+                          <>
+                            <span className="flex items-center gap-1 text-xs text-blue-600">
+                              <PiggyBank className="size-3" />Аванс: {formatAmount(p.overpaidAmount)}
+                            </span>
+                            {usedFromThis > 0 && (
+                              <span className="text-xs text-slate-400">Применено: {formatAmount(usedFromThis)}</span>
+                            )}
+                            {freeFromThis > 0 && (
+                              <span className="text-xs text-emerald-600">Свободно: {formatAmount(freeFromThis)}</span>
+                            )}
+                            {freeFromThis === 0 && usedFromThis > 0 && (
+                              <span className="text-xs text-slate-400">Израсходован</span>
+                            )}
+                          </>
+                        );
+                      })()}
                       {p.overpaidAmount > 0 && p.overpaymentType === 'gift' && (
                         <span className="flex items-center gap-1 text-xs text-purple-600">
                           <Gift className="size-3" />→ Хадия {formatAmount(p.overpaidAmount)}
@@ -1142,7 +1466,13 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                     <p className="text-[10px] text-slate-400 mt-1">{fmtDate(p.paidAt)}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {!isAdvanceUsage && (
+                    {isAdvanceUsage ? (
+                      <button onClick={() => setEditAdvanceUsage(p)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                        title="Редактировать применение аванса">
+                        <Edit2 className="size-3.5" />
+                      </button>
+                    ) : (
                       <button onClick={() => { setEditPayment(p); setOpenPaymentFor('edit'); }}
                         className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors">
                         <Edit2 className="size-3.5" />
@@ -1154,7 +1484,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                     </button>
                   </div>
                 </div>
-                {/* Distribution breakdown */}
+                {/* Distribution breakdown (regular family payments) */}
                 {!isStudentPay && !isAdvanceUsage && p.distribution && p.distribution.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1">
                     {p.distribution.map((d) => {
@@ -1162,6 +1492,19 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                       return (
                         <span key={d.studentId} className="text-[10px] text-slate-400">
                           {st?.fullName.split(' ')[0] ?? '?'}: {formatAmount(d.amount)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Allocations breakdown (advance_usage) */}
+                {isAdvanceUsage && p.allocations && p.allocations.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-blue-100 flex flex-wrap gap-x-4 gap-y-1">
+                    {p.allocations.map((a) => {
+                      const st = students.find((s) => s.id === a.studentId);
+                      return (
+                        <span key={a.studentId} className="text-[10px] text-blue-500">
+                          {st?.fullName.split(' ')[0] ?? '?'}: {formatAmount(a.amount)}
                         </span>
                       );
                     })}
@@ -1289,37 +1632,49 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
       )}
 
       {/* Delete payment confirm */}
-      {deletingPaymentId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDeletingPaymentId(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="size-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
-                <Trash2 className="size-5 text-red-500" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Удалить оплату?</h2>
-                <p className="text-sm text-slate-500">После удаления суммы будут пересчитаны</p>
-              </div>
-            </div>
-            {(() => {
-              const p = supportPayments.find((x) => x.id === deletingPaymentId);
-              return p ? (
-                <div className="bg-slate-50 rounded-xl p-3 mb-4">
-                  <p className="font-semibold text-slate-800">{formatAmount(p.amount)}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{formatMonth(p.month)} · {fmtDate(p.paidAt)}</p>
+      {deletingPaymentId && (() => {
+        const deletingPayment = supportPayments.find((x) => x.id === deletingPaymentId);
+        const isAdvanceUsageDel = deletingPayment?.kind === 'advance_usage';
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDeletingPaymentId(null)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className={cn('size-10 rounded-xl flex items-center justify-center shrink-0',
+                  isAdvanceUsageDel ? 'bg-blue-100' : 'bg-red-100'
+                )}>
+                  {isAdvanceUsageDel
+                    ? <PiggyBank className="size-5 text-blue-500" />
+                    : <Trash2 className="size-5 text-red-500" />}
                 </div>
-              ) : null;
-            })()}
-            <div className="flex gap-3">
-              <button onClick={() => setDeletingPaymentId(null)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
-              <button onClick={() => { deleteSupportPayment(deletingPaymentId); setDeletingPaymentId(null); }}
-                className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 flex items-center justify-center gap-1.5">
-                <Trash2 className="size-4" /> Удалить
-              </button>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {isAdvanceUsageDel ? 'Отменить применение аванса?' : 'Удалить оплату?'}
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    {isAdvanceUsageDel ? 'Аванс вернётся на баланс' : 'После удаления суммы будут пересчитаны'}
+                  </p>
+                </div>
+              </div>
+              {deletingPayment && (
+                <div className="bg-slate-50 rounded-xl p-3 mb-4">
+                  <p className="font-semibold text-slate-800">{formatAmount(deletingPayment.amount)}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{formatMonth(deletingPayment.month)} · {fmtDate(deletingPayment.paidAt)}</p>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button onClick={() => setDeletingPaymentId(null)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+                <button onClick={() => { deleteSupportPayment(deletingPaymentId); setDeletingPaymentId(null); }}
+                  className={cn('flex-1 px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center justify-center gap-1.5',
+                    isAdvanceUsageDel ? 'bg-blue-500 hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'
+                  )}>
+                  {isAdvanceUsageDel ? <PiggyBank className="size-4" /> : <Trash2 className="size-4" />}
+                  {isAdvanceUsageDel ? 'Отменить' : 'Удалить'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Modals */}
       {showEdit && <EditFamilyModal familyId={familyId} onClose={() => setShowEdit(false)} />}
@@ -1327,10 +1682,36 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
       {showApplyAdvance && (
         <ApplyAdvanceModal
           availableAdvance={availableAdvance}
-          remaining={remaining}
-          month={selectedMonth}
+          family={family}
+          familyStudents={familyStudents}
+          allSupportPayments={supportPayments}
+          initialMonth={selectedMonth}
           onCancel={() => setShowApplyAdvance(false)}
-          onConfirm={() => { applyAdvanceToMonth(familyId, selectedMonth); setShowApplyAdvance(false); }}
+          onConfirm={(input) => { applyAdvanceToMonth(input); setShowApplyAdvance(false); }}
+        />
+      )}
+
+      {editAdvanceUsage && (
+        <ApplyAdvanceModal
+          availableAdvance={availableAdvance}
+          family={family}
+          familyStudents={familyStudents}
+          allSupportPayments={supportPayments}
+          initialMonth={editAdvanceUsage.month}
+          editRecord={editAdvanceUsage}
+          onCancel={() => setEditAdvanceUsage(null)}
+          onConfirm={(input) => {
+            updateSupportPayment(editAdvanceUsage.id, {
+              month: input.month,
+              amount: input.amount,
+              appliedAmount: input.amount,
+              overpaidAmount: 0,
+              kind: 'advance_usage' as const,
+              allocations: input.allocations,
+              note: input.note,
+            });
+            setEditAdvanceUsage(null);
+          }}
         />
       )}
 

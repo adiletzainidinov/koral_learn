@@ -38,6 +38,20 @@ export interface SupportPaymentDistribution {
   amount: number;
 }
 
+/** Per-student allocation when applying advance to a month */
+export interface SupportPaymentAllocation {
+  studentId: string;
+  amount: number;
+}
+
+export interface ApplyAdvanceInput {
+  familyId: string;
+  month: string;
+  amount: number;
+  allocations: SupportPaymentAllocation[];
+  note?: string;
+}
+
 /**
  * A single payment transaction (new system, replaces FamilyPayment going forward).
  * studentId is undefined for family-level payments; set for per-student payments.
@@ -56,8 +70,10 @@ export interface SupportPayment {
   overpaidAmount: number;
   /** Required when overpaidAmount > 0 */
   overpaymentType?: OverpaymentType;
-  /** How appliedAmount was split across students (family payments only) */
+  /** How appliedAmount was split across students (regular family payments) */
   distribution?: SupportPaymentDistribution[];
+  /** How advance was split across students (advance_usage records) */
+  allocations?: SupportPaymentAllocation[];
   /** defaults to 'payment'; 'advance_usage' means this record applies a previously-created advance */
   kind?: SupportPaymentKind;
   method?: PaymentMethod;
