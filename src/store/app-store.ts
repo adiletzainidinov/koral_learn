@@ -40,7 +40,7 @@ import {
 import type { Parent, CreateParentInput, UpdateParentInput } from '@/entities/parent/model/types';
 import type {
   Family, FamilyPayment, PaymentHistoryItem, CreateFamilyInput, UpdateFamilyInput,
-  SupportPlanType, PaymentMethod, LessonSelection,
+  SupportPlanType, PaymentMethod, LessonSelection, StudentPaymentRecord,
 } from '@/entities/support/model/types';
 import {
   calculateFamilyExpectedAmount, getPaymentStatus, formatMonth, derivePlanType,
@@ -133,6 +133,8 @@ interface AppState {
   deduplicateSupportAccounts: () => void;
   createMonthlyPayments: (month: string) => void;
   markFamilyPaymentPaid: (familyId: string, month: string, amount: number, method: PaymentMethod, comment?: string) => void;
+  markStudentPaymentPaid: (familyId: string, studentId: string, month: string, amount: number, method: PaymentMethod, comment?: string) => void;
+  toggleStudentBadge: (familyId: string, studentId: string) => void;
   updateFamilyPayment: (paymentId: string, patch: Partial<Pick<FamilyPayment, 'paidAmount' | 'expectedAmount' | 'paymentMethod' | 'comment'>>) => void;
   deleteFamilyPayment: (paymentId: string) => void;
 }
@@ -1033,6 +1035,88 @@ export const useAppStore = create<AppState>()(
             paymentHistory: [...s.paymentHistory, histItem],
           }));
         }
+      },
+
+      markStudentPaymentPaid: (familyId, studentId, month, amount, method, comment) => {
+        const now = new Date().toISOString();
+        const state = get();
+        const family = state.families.find((f) => f.id === familyId);
+        if (!family) return;
+
+        const sel = family.lessonSelections?.find((ls) => ls.studentId === studentId);
+        const studentExpected = sel ? sel.monthlyAmount : 0;
+
+        const existing = state.familyPayments.find((p) => p.familyId === familyId && p.month === month);
+
+        if (existing) {
+          const prev = existing.studentPayments ?? [];
+          const prevRec = prev.find((sp) => sp.studentId === studentId);
+          const newStudentPaid = (prevRec?.paidAmount ?? 0) + amount;
+          const newStudentStatus = getPaymentStatus(studentExpected, newStudentPaid);
+          const updatedStudentPayments: StudentPaymentRecord[] = prevRec
+            ? prev.map((sp) => sp.studentId === studentId
+                ? { ...sp, paidAmount: newStudentPaid, status: newStudentStatus, paidAt: now }
+                : sp)
+            : [...prev, { studentId, expectedAmount: studentExpected, paidAmount: amount, status: newStudentStatus, paidAt: now }];
+
+          const newFamilyPaid = updatedStudentPayments.reduce((s, sp) => s + sp.paidAmount, 0);
+          const newFamilyStatus = getPaymentStatus(existing.expectedAmount, newFamilyPaid);
+          const histAction = newStudentStatus === 'paid' || newStudentStatus === 'overpaid' ? 'paid' : 'partial_paid';
+          const histItem: PaymentHistoryItem = {
+            id: generateId(), familyId, paymentId: existing.id, amount,
+            action: histAction, comment: comment ?? `Оплата за ученика`, createdAt: now,
+          };
+          set((s) => ({
+            familyPayments: s.familyPayments.map((p) =>
+              p.id === existing.id
+                ? { ...p, paidAmount: newFamilyPaid, status: newFamilyStatus, paidAt: now, paymentMethod: method, updatedAt: now, studentPayments: updatedStudentPayments }
+                : p
+            ),
+            paymentHistory: [...s.paymentHistory, histItem],
+          }));
+        } else {
+          const familyExpected = calculateFamilyExpectedAmount(family);
+          const newStudentStatus = getPaymentStatus(studentExpected, amount);
+          const studentPayments: StudentPaymentRecord[] = [
+            { studentId, expectedAmount: studentExpected, paidAmount: amount, status: newStudentStatus, paidAt: now },
+          ];
+          const newFamilyStatus = getPaymentStatus(familyExpected, amount);
+          const paymentId = generateId();
+          const payment: FamilyPayment = {
+            id: paymentId, familyId, month, expectedAmount: familyExpected,
+            paidAmount: amount, status: newFamilyStatus,
+            paidAt: now, paymentMethod: method, comment, createdAt: now, updatedAt: now,
+            studentPayments,
+          };
+          const histItem: PaymentHistoryItem = {
+            id: generateId(), familyId, paymentId, amount,
+            action: newFamilyStatus === 'paid' || newFamilyStatus === 'overpaid' ? 'paid' : 'partial_paid',
+            comment: comment ?? `Оплата за ученика`, createdAt: now,
+          };
+          set((s) => ({
+            familyPayments: [...s.familyPayments, payment],
+            paymentHistory: [...s.paymentHistory, histItem],
+          }));
+        }
+      },
+
+      toggleStudentBadge: (familyId, studentId) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          families: state.families.map((f) => {
+            if (f.id !== familyId) return f;
+            const sels = f.lessonSelections ?? [];
+            return {
+              ...f,
+              lessonSelections: sels.map((ls) =>
+                ls.studentId === studentId
+                  ? { ...ls, badgeGiven: !ls.badgeGiven, badgeGivenAt: !ls.badgeGiven ? now : undefined }
+                  : ls
+              ),
+              updatedAt: now,
+            };
+          }),
+        }));
       },
 
       updateFamilyPayment: (paymentId, patch) => {

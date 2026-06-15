@@ -25,6 +25,16 @@ export interface LessonSelection {
   /** Auto-calculated from planType, or manual override when planType === 'custom' */
   monthlyAmount: number;
   isActive: boolean;
+  badgeGiven?: boolean;
+  badgeGivenAt?: string;
+}
+
+export interface StudentPaymentRecord {
+  studentId: string;
+  expectedAmount: number;
+  paidAmount: number;
+  status: PaymentStatus;
+  paidAt?: string | null;
 }
 
 export interface SupportPlan {
@@ -71,6 +81,8 @@ export interface FamilyPayment {
   comment?: string;
   createdAt: string;
   updatedAt?: string;
+  /** Per-student payment breakdown — populated when payments are accepted per-student */
+  studentPayments?: StudentPaymentRecord[];
 }
 
 export interface PaymentHistoryItem {

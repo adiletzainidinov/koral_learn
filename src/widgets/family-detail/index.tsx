@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Users, Wallet, CheckCircle2, Clock, AlertCircle,
   Trash2, Phone, Edit2, X, Check, Copy,
-  MoreVertical, MessageCircle, UserRound, BookOpen,
+  MoreVertical, MessageCircle, UserRound, BookOpen, Award,
 } from 'lucide-react';
 import {
   useAppStore, useFamilyById, useStudents, useFamilyPaymentsByFamilyId,
@@ -19,7 +19,7 @@ import {
   formatAmount, getCurrentMonth, formatMonth,
   getReminderMessage, getThankYouMessage,
 } from '@/entities/support/model/helpers';
-import type { SupportPlanType, PaymentMethod, LessonSelection, LessonType } from '@/entities/support/model/types';
+import type { SupportPlanType, PaymentMethod, LessonSelection, LessonType, FamilyPayment } from '@/entities/support/model/types';
 import { generateId } from '@/shared/lib/ids';
 import { cn } from '@/shared/lib/cn';
 
@@ -203,6 +203,107 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
   );
 }
 
+// ─── Accept Student Payment Modal ────────────────────────────────────────────
+
+function AcceptStudentPaymentModal({
+  studentName,
+  expectedAmount,
+  paidAmount,
+  onAccept,
+  onClose,
+}: {
+  studentName: string;
+  expectedAmount: number;
+  paidAmount: number;
+  onAccept: (amount: number, method: PaymentMethod, comment?: string) => void;
+  onClose: () => void;
+}) {
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState<PaymentMethod>('cash');
+  const [comment, setComment] = useState('');
+  const remaining = Math.max(0, expectedAmount - paidAmount);
+  const numAmount = Number(amount);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Принять оплату</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{studentName}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {expectedAmount > 0 && (
+          <div className="bg-slate-50 rounded-xl p-3 mb-3 flex gap-4 text-xs">
+            <div><p className="text-slate-400">Ожидается</p><p className="font-semibold text-slate-800 mt-0.5">{formatAmount(expectedAmount)}</p></div>
+            <div><p className="text-slate-400">Оплачено</p><p className="font-semibold text-emerald-600 mt-0.5">{formatAmount(paidAmount)}</p></div>
+            {remaining > 0 && <div><p className="text-slate-400">Остаток</p><p className="font-semibold text-amber-600 mt-0.5">{formatAmount(remaining)}</p></div>}
+          </div>
+        )}
+
+        {expectedAmount > 0 && remaining > 0 && (
+          <div className="flex gap-2 mb-3">
+            <button onClick={() => setAmount(String(remaining))}
+              className="flex-1 py-1.5 px-3 rounded-xl border border-emerald-200 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+              Полная сумма ({formatAmount(remaining)})
+            </button>
+            <button onClick={() => setAmount(String(Math.ceil(remaining / 2)))}
+              className="flex-1 py-1.5 px-3 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
+              Половина
+            </button>
+          </div>
+        )}
+
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-slate-600 mb-1">Сумма (сом)</label>
+          <input type="number" min="0" placeholder="0" value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 font-medium" />
+        </div>
+
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">Способ оплаты</label>
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => (
+              <button key={m} onClick={() => setMethod(m)}
+                className={cn('px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors',
+                  method === m ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                )}>
+                {PAYMENT_METHOD_LABELS[m]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-slate-600 mb-1">Комментарий</label>
+          <input type="text" placeholder="Примечание..." value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            Отмена
+          </button>
+          <button
+            onClick={() => { if (numAmount > 0) { onAccept(numAmount, method, comment || undefined); onClose(); } }}
+            disabled={numAmount <= 0}
+            className="flex-1 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 flex items-center justify-center gap-1.5">
+            <Check className="size-4" />
+            {numAmount > 0 ? formatAmount(numAmount) : 'Принять'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Lessons Tab ─────────────────────────────────────────────────────────────
 
 const PLAN_ORDER_DETAIL: SupportPlanType[] = ['open_learning', 'family_support', 'focused_learning', 'private_group', 'custom'];
@@ -210,11 +311,19 @@ const PLAN_ORDER_DETAIL: SupportPlanType[] = ['open_learning', 'family_support',
 function LessonsTab({
   family,
   familyStudents,
+  currentPayment,
+  currentMonth,
   onSave,
+  onAcceptStudentPayment,
+  onToggleBadge,
 }: {
   family: ReturnType<typeof useFamilyById>;
   familyStudents: ReturnType<typeof useStudents>;
+  currentPayment: FamilyPayment | undefined;
+  currentMonth: string;
   onSave: (selections: LessonSelection[]) => void;
+  onAcceptStudentPayment: (studentId: string, amount: number, method: PaymentMethod, comment?: string) => void;
+  onToggleBadge: (studentId: string) => void;
 }) {
   if (!family) return null;
 
@@ -232,6 +341,7 @@ function LessonsTab({
 
   const [configs, setConfigs] = useState<Map<string, { lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>>(initSelections);
   const [saved, setSaved] = useState(false);
+  const [payingStudentId, setPayingStudentId] = useState<string | null>(null);
 
   function updateConfig(studentId: string, patch: Partial<{ lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>) {
     setConfigs((prev) => {
@@ -250,13 +360,16 @@ function LessonsTab({
   function handleSave() {
     const selections: LessonSelection[] = familyStudents.map((s) => {
       const cfg = configs.get(s.id) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
+      const existing = family?.lessonSelections?.find((ls) => ls.studentId === s.id);
       return {
-        id: family?.lessonSelections?.find((ls) => ls.studentId === s.id)?.id ?? generateId(),
+        id: existing?.id ?? generateId(),
         studentId: s.id,
         lessonType: cfg.lessonType,
         planType: cfg.planType,
         monthlyAmount: cfg.planType === 'custom' ? cfg.monthlyAmount : getSelectionAmount(cfg.planType),
         isActive: true,
+        badgeGiven: existing?.badgeGiven,
+        badgeGivenAt: existing?.badgeGivenAt,
       };
     });
     onSave(selections);
@@ -273,80 +386,158 @@ function LessonsTab({
     );
   }
 
+  const payingStudent = payingStudentId ? familyStudents.find((s) => s.id === payingStudentId) : null;
+  const payingStudentSel = payingStudentId ? family.lessonSelections?.find((ls) => ls.studentId === payingStudentId) : null;
+  const payingStudentRecord = payingStudentId ? currentPayment?.studentPayments?.find((sp) => sp.studentId === payingStudentId) : null;
+  const payingExpected = payingStudentSel?.monthlyAmount ?? configs.get(payingStudentId ?? '')?.monthlyAmount ?? 0;
+  const payingPaid = payingStudentRecord?.paidAmount ?? 0;
+
   return (
-    <div className="space-y-3">
-      {familyStudents.map((s) => {
-        const cfg = configs.get(s.id) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
-        const c = PLAN_COLORS[cfg.planType];
-        const initials = s.fullName.slice(0, 2).toUpperCase();
-        return (
-          <div key={s.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            {/* Student row */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
-              <div className="size-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-xs font-bold shrink-0">
-                {s.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={s.avatar} alt={s.fullName} className="size-full object-cover rounded-full" />
-                ) : initials}
+    <>
+      <div className="space-y-3">
+        {familyStudents.map((s) => {
+          const cfg = configs.get(s.id) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
+          const c = PLAN_COLORS[cfg.planType];
+          const initials = s.fullName.slice(0, 2).toUpperCase();
+          const sel = family.lessonSelections?.find((ls) => ls.studentId === s.id);
+          const studentRecord = currentPayment?.studentPayments?.find((sp) => sp.studentId === s.id);
+          const studentExpected = sel?.monthlyAmount ?? cfg.monthlyAmount;
+          const studentPaid = studentRecord?.paidAmount ?? 0;
+          const studentStatus = studentRecord?.status ?? (studentExpected === 0 ? 'paid' : 'unpaid');
+          const isPaid = studentStatus === 'paid' || studentStatus === 'overpaid';
+          const badgeGiven = sel?.badgeGiven ?? false;
+          const sc = STATUS_COLORS[studentStatus];
+
+          return (
+            <div key={s.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              {/* Student header */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
+                <div className="size-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-xs font-bold shrink-0">
+                  {s.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={s.avatar} alt={s.fullName} className="size-full object-cover rounded-full" />
+                  ) : initials}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <Link href={`/students/${s.id}`} className="text-sm font-medium text-slate-800 hover:text-emerald-700 hover:underline">
+                    {s.fullName}
+                  </Link>
+                  <p className="text-xs text-slate-400">Группа {s.group} · {s.age} лет</p>
+                </div>
+                <div className={cn('px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0', c.badge)}>
+                  {formatAmount(cfg.planType === 'custom' ? cfg.monthlyAmount : getSelectionAmount(cfg.planType))}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <Link href={`/students/${s.id}`} className="text-sm font-medium text-slate-800 hover:text-emerald-700 hover:underline">
-                  {s.fullName}
-                </Link>
-                <p className="text-xs text-slate-400">Группа {s.group} · {s.age} лет</p>
+
+              {/* Plan config */}
+              <div className="px-3 pt-3 pb-2 space-y-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {PLAN_ORDER_DETAIL.map((pt) => {
+                    const plan = SUPPORT_PLANS[pt];
+                    const pc = PLAN_COLORS[pt];
+                    const isActive = cfg.planType === pt;
+                    return (
+                      <button key={pt} type="button"
+                        onClick={() => updateConfig(s.id, { planType: pt })}
+                        className={cn(
+                          'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
+                          isActive ? `${pc.badge} border-transparent` : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300'
+                        )}>
+                        <span>{plan.emoji}</span><span>{plan.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {cfg.planType === 'custom' && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number" min="0" step="100"
+                      value={cfg.monthlyAmount}
+                      onChange={(e) => updateConfig(s.id, { monthlyAmount: Number(e.target.value) || 0 })}
+                      className="w-24 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                    <span className="text-xs text-slate-400">сом/мес</span>
+                  </div>
+                )}
               </div>
-              <div className={cn('px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0', c.badge)}>
-                {formatAmount(cfg.planType === 'custom' ? cfg.monthlyAmount : getSelectionAmount(cfg.planType))}
+
+              {/* Payment row */}
+              <div className="flex items-center justify-between px-3 py-2.5 border-t border-slate-100 bg-slate-50/60">
+                <div className="flex items-center gap-2">
+                  <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', sc.badge)}>
+                    {PAYMENT_STATUS_LABELS[studentStatus]}
+                  </span>
+                  {studentStatus === 'partial' && (
+                    <span className="text-xs text-slate-400">
+                      {formatAmount(studentPaid)} / {formatAmount(studentExpected)}
+                    </span>
+                  )}
+                </div>
+                {!isPaid && studentExpected > 0 && (
+                  <button
+                    onClick={() => setPayingStudentId(s.id)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors">
+                    <Wallet className="size-3" /> Принять оплату
+                  </button>
+                )}
+                {isPaid && studentExpected > 0 && (
+                  <span className="text-xs text-emerald-600 font-medium">{formatAmount(studentPaid)}</span>
+                )}
               </div>
-            </div>
-            {/* Config */}
-            <div className="p-3 space-y-2">
-              {/* Plan buttons */}
-              <div className="flex flex-wrap gap-1.5">
-                {PLAN_ORDER_DETAIL.map((pt) => {
-                  const plan = SUPPORT_PLANS[pt];
-                  const pc = PLAN_COLORS[pt];
-                  const isActive = cfg.planType === pt;
-                  return (
-                    <button key={pt} type="button"
-                      onClick={() => updateConfig(s.id, { planType: pt })}
-                      className={cn(
-                        'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
-                        isActive ? `${pc.badge} border-transparent` : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300'
-                      )}>
-                      <span>{plan.emoji}</span><span>{plan.name}</span>
+
+              {/* Badge row — only when paid */}
+              {isPaid && studentExpected > 0 && (
+                <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100">
+                  <span className="text-xs text-slate-500 flex items-center gap-1.5">
+                    <Award className="size-3.5 text-amber-400" /> Бейджик
+                  </span>
+                  {badgeGiven ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <Check className="size-3" /> Выдан
+                      </span>
+                      <button
+                        onClick={() => onToggleBadge(s.id)}
+                        title="Отменить"
+                        className="size-5 flex items-center justify-center rounded-full text-slate-400 hover:text-red-400 hover:bg-red-50 transition-colors text-xs">
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => onToggleBadge(s.id)}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium hover:bg-amber-100 transition-colors">
+                      🏅 Дать бейджик
                     </button>
-                  );
-                })}
-              </div>
-              {/* Custom amount for Особый формат */}
-              {cfg.planType === 'custom' && (
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number" min="0" step="100"
-                    value={cfg.monthlyAmount}
-                    onChange={(e) => updateConfig(s.id, { monthlyAmount: Number(e.target.value) || 0 })}
-                    className="w-24 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                  <span className="text-xs text-slate-400">сом/мес</span>
+                  )}
                 </div>
               )}
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
 
-      <button
-        onClick={handleSave}
-        className={cn(
-          'w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors',
-          saved
-            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-            : 'bg-emerald-600 text-white hover:bg-emerald-700'
-        )}>
-        {saved ? <><Check className="size-4" />Сохранено</> : <>Сохранить настройки</>}
-      </button>
-    </div>
+        <button
+          onClick={handleSave}
+          className={cn(
+            'w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors',
+            saved
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              : 'bg-emerald-600 text-white hover:bg-emerald-700'
+          )}>
+          {saved ? <><Check className="size-4" />Сохранено</> : <>Сохранить настройки</>}
+        </button>
+      </div>
+
+      {payingStudent && (
+        <AcceptStudentPaymentModal
+          studentName={payingStudent.fullName}
+          expectedAmount={payingExpected}
+          paidAmount={payingPaid}
+          onAccept={(amount, method, comment) => onAcceptStudentPayment(payingStudent.id, amount, method, comment)}
+          onClose={() => setPayingStudentId(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -360,7 +551,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
   const students = useStudents();
   const payments = useFamilyPaymentsByFamilyId(familyId);
   const history = usePaymentHistoryByFamilyId(familyId);
-  const { deleteFamily, deleteFamilyPayment, updateFamilyLessonSelections } = useAppStore();
+  const { deleteFamily, deleteFamilyPayment, updateFamilyLessonSelections, markStudentPaymentPaid, toggleStudentBadge } = useAppStore();
 
   const [tab, setTab] = useState<'lessons' | 'payments' | 'history'>('lessons');
   const [acceptPaymentMonth, setAcceptPaymentMonth] = useState<string | null>(null);
@@ -387,8 +578,6 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
     );
   }
 
-  const plan = SUPPORT_PLANS[family.supportPlanType];
-  const planColors = PLAN_COLORS[family.supportPlanType];
   const familyStudents = students.filter((s) => family.studentIds.includes(s.id));
   const currentMonth = getCurrentMonth();
   const currentPayment = payments.find((p) => p.month === currentMonth);
@@ -396,7 +585,6 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
   const paidAmount = currentPayment?.paidAmount ?? 0;
   const remaining = Math.max(0, expectedAmount - paidAmount);
   const currentStatus = currentPayment?.status ?? (expectedAmount === 0 ? 'paid' : 'unpaid');
-  const statusColors = STATUS_COLORS[currentStatus];
 
   const acceptingPayment = acceptPaymentMonth
     ? payments.find((p) => p.month === acceptPaymentMonth)
@@ -415,12 +603,6 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold text-slate-900">{family.name}</h1>
-              <span className={cn('text-xs font-medium px-2.5 py-1 rounded-full', planColors.badge)}>
-                {plan.emoji} {plan.name}
-              </span>
-              <span className={cn('text-xs font-medium px-2.5 py-1 rounded-full', statusColors.badge)}>
-                {PAYMENT_STATUS_LABELS[currentStatus]}
-              </span>
             </div>
             {(parent || family.parentName) && (
               <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -450,12 +632,6 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {expectedAmount > 0 && currentStatus !== 'paid' && currentStatus !== 'overpaid' && (
-            <button onClick={() => setAcceptPaymentMonth(currentMonth)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-              <Wallet className="size-4" /> Принять оплату
-            </button>
-          )}
           <div className="relative">
             <button onClick={() => setShowDropdown((v) => !v)}
               className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50">
@@ -531,7 +707,13 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
         <LessonsTab
           family={family}
           familyStudents={familyStudents}
+          currentPayment={currentPayment}
+          currentMonth={currentMonth}
           onSave={(selections) => updateFamilyLessonSelections(familyId, selections)}
+          onAcceptStudentPayment={(studentId, amount, method, comment) =>
+            markStudentPaymentPaid(familyId, studentId, currentMonth, amount, method, comment)
+          }
+          onToggleBadge={(studentId) => toggleStudentBadge(familyId, studentId)}
         />
       )}
 
