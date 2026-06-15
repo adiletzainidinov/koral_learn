@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Users, Wallet, CheckCircle2, Clock, AlertCircle,
-  Plus, Trash2, Phone, Edit2, X, Check, Copy, ChevronRight,
-  Star, MoreVertical, MessageCircle, UserRound, BookOpen,
+  Trash2, Phone, Edit2, X, Check, Copy,
+  MoreVertical, MessageCircle, UserRound, BookOpen,
 } from 'lucide-react';
 import {
   useAppStore, useFamilyById, useStudents, useFamilyPaymentsByFamilyId,
@@ -203,57 +203,6 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
   );
 }
 
-// ─── Add Student Modal ────────────────────────────────────────────────────────
-
-function AddStudentModal({ familyId, currentStudentIds, onClose }: { familyId: string; currentStudentIds: string[]; onClose: () => void }) {
-  const students = useStudents();
-  const families = useAppStore((s) => s.families);
-  const assignStudent = useAppStore((s) => s.assignStudentToFamily);
-
-  const available = students.filter((s) => {
-    const inThisFamily = currentStudentIds.includes(s.id);
-    if (inThisFamily) return false;
-    return true;
-  });
-
-  function handleAdd(studentId: string) {
-    assignStudent(familyId, studentId);
-    onClose();
-  }
-
-  const otherFamily = (studentId: string) => families.find((f) => f.id !== familyId && f.studentIds.includes(studentId));
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-900">Добавить ученика</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X className="size-5" /></button>
-        </div>
-        {available.length === 0 ? (
-          <p className="text-sm text-slate-500 text-center py-4">Все ученики уже добавлены</p>
-        ) : (
-          <div className="space-y-2 max-h-72 overflow-y-auto">
-            {available.map((s) => {
-              const of = otherFamily(s.id);
-              return (
-                <button key={s.id} onClick={() => handleAdd(s.id)}
-                  className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 text-left transition-colors">
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">{s.fullName}</p>
-                    {of && <p className="text-xs text-amber-600 mt-0.5">Будет перенесён из «{of.name}»</p>}
-                  </div>
-                  <ChevronRight className="size-4 text-slate-400" />
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── Lessons Tab ─────────────────────────────────────────────────────────────
 
 const PLAN_ORDER_DETAIL: SupportPlanType[] = ['open_learning', 'family_support', 'focused_learning', 'private_group', 'custom'];
@@ -319,7 +268,7 @@ function LessonsTab({
     return (
       <div className="text-center py-12 bg-slate-50 rounded-2xl">
         <BookOpen className="size-8 text-slate-300 mx-auto mb-2" />
-        <p className="text-slate-500 text-sm">Нет учеников — добавьте их во вкладке «Дети»</p>
+        <p className="text-slate-500 text-sm">Нет учеников в этой семье</p>
       </div>
     );
   }
@@ -411,13 +360,12 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
   const students = useStudents();
   const payments = useFamilyPaymentsByFamilyId(familyId);
   const history = usePaymentHistoryByFamilyId(familyId);
-  const { deleteFamily, removeStudentFromFamily, deleteFamilyPayment, updateFamilyLessonSelections } = useAppStore();
+  const { deleteFamily, deleteFamilyPayment, updateFamilyLessonSelections } = useAppStore();
 
-  const [tab, setTab] = useState<'children' | 'lessons' | 'payments' | 'history'>('children');
+  const [tab, setTab] = useState<'lessons' | 'payments' | 'history'>('lessons');
   const [acceptPaymentMonth, setAcceptPaymentMonth] = useState<string | null>(null);
   const [showDelete, setShowDelete] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const [showAddStudent, setShowAddStudent] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
   if (!hydrated) return (
@@ -565,7 +513,6 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
       {/* Tabs */}
       <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1 mb-5 w-fit">
         {([
-          { key: 'children', label: `Дети (${familyStudents.length})` },
           { key: 'lessons', label: 'Уроки' },
           { key: 'payments', label: `Оплаты (${payments.length})` },
           { key: 'history', label: `История (${history.length})` },
@@ -578,46 +525,6 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
           </button>
         ))}
       </div>
-
-      {/* Children tab */}
-      {tab === 'children' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-semibold text-slate-800">Ученики семьи</h2>
-            <button onClick={() => setShowAddStudent(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-              <Plus className="size-4" /> Добавить
-            </button>
-          </div>
-          {familyStudents.length === 0 ? (
-            <div className="text-center py-10 bg-slate-50 rounded-2xl">
-              <p className="text-slate-500 text-sm">Нет учеников</p>
-              <button onClick={() => setShowAddStudent(true)} className="mt-3 text-sm text-emerald-600 hover:underline">Добавить ученика</button>
-            </div>
-          ) : (
-            familyStudents.map((s) => (
-              <div key={s.id} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-200">
-                <div>
-                  <Link href={`/students/${s.id}`} className="font-medium text-slate-900 hover:text-emerald-700 hover:underline">{s.fullName}</Link>
-                  <div className="flex gap-2 mt-0.5">
-                    <span className="text-xs text-slate-400">Группа {s.group}</span>
-                    <span className="text-xs text-slate-300">·</span>
-                    <span className="text-xs text-slate-400">{s.level}</span>
-                    <span className="text-xs text-slate-300">·</span>
-                    <span className="text-xs text-slate-400 flex items-center gap-0.5"><Star className="size-2.5" />{s.totalPoints}</span>
-                  </div>
-                </div>
-                <button onClick={() => removeStudentFromFamily(familyId, s.id)}
-                  title="Убрать из семьи"
-                  className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors">
-                  <X className="size-4" />
-                </button>
-              </div>
-            ))
-          )}
-
-        </div>
-      )}
 
       {/* Lessons tab */}
       {tab === 'lessons' && (
@@ -758,7 +665,6 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
         />
       )}
       {showEdit && <EditFamilyModal familyId={familyId} onClose={() => setShowEdit(false)} />}
-      {showAddStudent && <AddStudentModal familyId={familyId} currentStudentIds={family.studentIds} onClose={() => setShowAddStudent(false)} />}
     </div>
   );
 }
