@@ -11,6 +11,7 @@ export interface Parent {
   /** Free-text relation label. Legacy stored values: 'mother' | 'father' | 'guardian' | 'relative' | 'other' */
   relation?: string;
   preferredContact?: PreferredContact;
+  /** @deprecated use notes instead */
   description?: string;
   notes?: string;
   isActive?: boolean;
@@ -27,7 +28,6 @@ export interface CreateParentInput {
   address?: string;
   relation?: string;
   preferredContact?: PreferredContact;
-  description?: string;
   notes?: string;
 }
 

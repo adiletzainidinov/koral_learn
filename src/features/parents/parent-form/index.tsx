@@ -20,7 +20,6 @@ interface FormState {
   address: string;
   relation: string;
   preferredContact: PreferredContact | '';
-  description: string;
   notes: string;
 }
 
@@ -33,7 +32,6 @@ const INITIAL: FormState = {
   address: '',
   relation: '',
   preferredContact: '',
-  description: '',
   notes: '',
 };
 
@@ -101,8 +99,7 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
       address: parent.address ?? '',
       relation: parent.relation ?? '',
       preferredContact: parent.preferredContact ?? '',
-      description: parent.description ?? '',
-      notes: parent.notes ?? '',
+      notes: parent.notes ?? parent.description ?? '',
     });
     setIsDirty(false);
   }, [mode, parentId, parents]);
@@ -147,7 +144,6 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
       address: form.address.trim() || undefined,
       relation: form.relation.trim() || undefined,
       preferredContact: (form.preferredContact || undefined) as PreferredContact | undefined,
-      description: form.description.trim() || undefined,
       notes: form.notes.trim() || undefined,
     };
 
@@ -298,29 +294,14 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
       </Section>
 
       {/* Section 4: Notes */}
-      <Section icon={<FileText className="size-4" />} title="Заметки" description="Описание и дополнительная информация">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">Описание</label>
-            <textarea
-              placeholder="Активно интересуется успехами ребёнка, всегда на связи..."
-              value={form.description}
-              onChange={(e) => upd('description', e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 resize-none outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">Внутренние заметки</label>
-            <textarea
-              placeholder="Заметки только для внутреннего пользования..."
-              value={form.notes}
-              onChange={(e) => upd('notes', e.target.value)}
-              rows={2}
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 resize-none outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-            />
-          </div>
-        </div>
+      <Section icon={<FileText className="size-4" />} title="Заметки" description="Дополнительная информация о родителе">
+        <textarea
+          placeholder="Например: всегда на связи, предпочитает WhatsApp, важные особенности общения..."
+          value={form.notes}
+          onChange={(e) => upd('notes', e.target.value)}
+          rows={3}
+          className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 resize-none outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+        />
       </Section>
 
       {/* bottom bar */}

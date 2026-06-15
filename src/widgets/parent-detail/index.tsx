@@ -321,29 +321,22 @@ function ContactsTab({ parent }: { parent: ReturnType<typeof useParentById> }) {
 function NotesTab({ parent }: { parent: ReturnType<typeof useParentById> }) {
   if (!parent) return null;
 
-  if (!parent.description && !parent.notes) {
+  const notes = parent.notes ?? parent.description;
+
+  if (!notes) {
     return (
       <EmptyState
         icon={<FileText className="size-5" />}
         title="Заметок пока нет"
-        description="Добавьте описание при редактировании родителя"
+        description="Добавьте заметки при редактировании родителя"
       />
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {parent.description && (
-        <SectionCard title="Описание">
-          <p className="text-sm text-slate-600 whitespace-pre-wrap">{parent.description}</p>
-        </SectionCard>
-      )}
-      {parent.notes && (
-        <SectionCard title="Внутренние заметки">
-          <p className="text-sm text-slate-600 whitespace-pre-wrap">{parent.notes}</p>
-        </SectionCard>
-      )}
-    </div>
+    <SectionCard title="Заметки">
+      <p className="text-sm text-slate-600 whitespace-pre-wrap">{notes}</p>
+    </SectionCard>
   );
 }
 
