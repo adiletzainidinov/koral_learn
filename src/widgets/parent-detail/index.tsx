@@ -20,7 +20,7 @@ import {
   calculateFamilyExpectedAmount, formatAmount, getCurrentMonth, formatMonth,
 } from '@/entities/support/model/helpers';
 import {
-  RELATION_LABELS, PREFERRED_CONTACT_LABELS,
+  PREFERRED_CONTACT_LABELS, normalizeParentRelation,
 } from '@/entities/parent/model/types';
 import {
   formatWhatsappLink, formatTelegramLink, formatInstagramLink,
@@ -88,7 +88,7 @@ export function ParentDetail({ parentId }: Props) {
             <div>
               <h1 className="text-xl font-bold text-slate-900">{parent.fullName}</h1>
               <p className="text-sm text-slate-500">
-                {parent.relation ? RELATION_LABELS[parent.relation] : 'Родитель'}
+                {parent.relation ? normalizeParentRelation(parent.relation) : 'Родитель'}
                 {children.length > 0 && ` · ${children.length} ${children.length === 1 ? 'ученик' : 'ученика'}`}
               </p>
             </div>
@@ -120,7 +120,7 @@ export function ParentDetail({ parentId }: Props) {
           <h2 className="text-lg font-bold text-slate-900">{parent.fullName}</h2>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             {parent.relation && (
-              <Badge variant="emerald">{RELATION_LABELS[parent.relation]}</Badge>
+              <Badge variant="emerald">{normalizeParentRelation(parent.relation)}</Badge>
             )}
             {parent.preferredContact && (
               <Badge variant="slate">
@@ -251,6 +251,10 @@ function ContactsTab({ parent }: { parent: ReturnType<typeof useParentById> }) {
     <div className="grid grid-cols-2 gap-6">
       <SectionCard title="Контакты" description="Все способы связи">
         <div className="flex flex-col gap-3">
+          <ContactRow icon={<UserRound className="size-3.5 text-slate-400" />}>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Кем приходится</p>
+            <p className="text-sm text-slate-700">{normalizeParentRelation(parent.relation)}</p>
+          </ContactRow>
           <ContactRow icon={<MessageCircle className="size-3.5 text-green-500" />}>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">WhatsApp</p>
             <a

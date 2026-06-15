@@ -9,7 +9,7 @@ import { Lightbox } from '@/shared/ui/lightbox';
 import { Badge } from '@/shared/ui/badge';
 import { useStudentById, useStudentParent, useStudentsByParentId, useAppStore } from '@/store/app-store';
 import type { StudentAttachment } from '@/entities/student/model/types';
-import { RELATION_LABELS } from '@/entities/parent/model/types';
+import { normalizeParentRelation } from '@/entities/parent/model/types';
 import { formatWhatsappLink, formatTelegramLink, formatInstagramLink } from '@/entities/parent/model/helpers';
 
 interface Props {
@@ -35,7 +35,7 @@ function ParentBlock({ studentId }: { studentId: string }) {
           <div className="flex-1 min-w-0">
             <p className="text-base font-semibold text-slate-900">{parent.fullName}</p>
             {parent.relation && (
-              <Badge variant="slate" className="text-[10px] mt-1">{RELATION_LABELS[parent.relation]}</Badge>
+              <Badge variant="slate" className="text-[10px] mt-1">{normalizeParentRelation(parent.relation)}</Badge>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">

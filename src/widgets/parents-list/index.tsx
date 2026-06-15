@@ -12,7 +12,7 @@ import { Card } from '@/shared/ui/card';
 import { PageHeader } from '@/shared/ui/page-header';
 import { Modal } from '@/shared/ui/modal';
 import { useAppStore, useParents } from '@/store/app-store';
-import { RELATION_LABELS } from '@/entities/parent/model/types';
+import { normalizeParentRelation } from '@/entities/parent/model/types';
 import { formatWhatsappLink } from '@/entities/parent/model/helpers';
 import type { Parent } from '@/entities/parent/model/types';
 
@@ -54,7 +54,7 @@ function ParentCard({
           </span>
           {parent.relation && (
             <Badge variant="slate" className="text-[10px]">
-              {RELATION_LABELS[parent.relation]}
+              {normalizeParentRelation(parent.relation)}
             </Badge>
           )}
         </div>
@@ -133,7 +133,8 @@ export function ParentsList() {
       (p) =>
         p.fullName.toLowerCase().includes(q) ||
         p.whatsapp.includes(q) ||
-        (p.phone ?? '').includes(q)
+        (p.phone ?? '').includes(q) ||
+        normalizeParentRelation(p.relation).toLowerCase().includes(q)
     );
   }, [parents, search]);
 

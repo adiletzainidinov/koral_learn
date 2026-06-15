@@ -8,8 +8,8 @@ import { Input } from '@/shared/ui/input';
 import { Select } from '@/shared/ui/select';
 import { Card } from '@/shared/ui/card';
 import { useAppStore } from '@/store/app-store';
-import type { ParentRelation, PreferredContact } from '@/entities/parent/model/types';
-import { RELATION_LABELS, PREFERRED_CONTACT_LABELS } from '@/entities/parent/model/types';
+import type { PreferredContact } from '@/entities/parent/model/types';
+import { PREFERRED_CONTACT_LABELS, PARENT_RELATION_OPTIONS } from '@/entities/parent/model/types';
 
 interface FormState {
   fullName: string;
@@ -18,7 +18,7 @@ interface FormState {
   telegram: string;
   instagram: string;
   address: string;
-  relation: ParentRelation | '';
+  relation: string;
   preferredContact: PreferredContact | '';
   description: string;
   notes: string;
@@ -41,11 +41,6 @@ interface Errors {
   fullName?: string;
   whatsapp?: string;
 }
-
-const RELATION_OPTIONS = [
-  { value: '', label: 'Не указано' },
-  ...Object.entries(RELATION_LABELS).map(([value, label]) => ({ value, label })),
-];
 
 const PREFERRED_CONTACT_OPTIONS = [
   { value: '', label: 'Не указано' },
@@ -150,7 +145,7 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
       telegram: form.telegram.trim() || undefined,
       instagram: form.instagram.trim() || undefined,
       address: form.address.trim() || undefined,
-      relation: (form.relation || undefined) as ParentRelation | undefined,
+      relation: form.relation.trim() || undefined,
       preferredContact: (form.preferredContact || undefined) as PreferredContact | undefined,
       description: form.description.trim() || undefined,
       notes: form.notes.trim() || undefined,
@@ -234,12 +229,22 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
             error={errors.fullName}
           />
           <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Кем приходится"
-              options={RELATION_OPTIONS}
-              value={form.relation}
-              onChange={(e) => upd('relation', e.target.value as ParentRelation | '')}
-            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-slate-700">Кем приходится</label>
+              <input
+                list="parent-relation-datalist"
+                value={form.relation}
+                onChange={(e) => upd('relation', e.target.value)}
+                placeholder="Мама, Папа, Бабушка или свой вариант"
+                className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+              />
+              <datalist id="parent-relation-datalist">
+                {PARENT_RELATION_OPTIONS.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
+              <p className="text-[11px] text-slate-400">Выберите из списка или напишите свой вариант</p>
+            </div>
             <Select
               label="Предпочтительный контакт"
               options={PREFERRED_CONTACT_OPTIONS}
