@@ -15,7 +15,7 @@ import {
 import { formatWhatsappLink } from '@/entities/parent/model/helpers';
 import {
   SUPPORT_PLANS, PLAN_COLORS, STATUS_COLORS, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS,
-  LESSON_TYPE_LABELS, calculateFamilyExpectedAmount, getSelectionAmount,
+  calculateFamilyExpectedAmount, getSelectionAmount,
   formatAmount, getCurrentMonth, formatMonth,
   getReminderMessage, getThankYouMessage,
 } from '@/entities/support/model/helpers';
@@ -370,29 +370,18 @@ function LessonsTab({
                   );
                 })}
               </div>
-              {/* Lesson type + custom amount */}
-              <div className="flex items-center gap-2">
-                <select
-                  value={cfg.lessonType}
-                  onChange={(e) => updateConfig(s.id, { lessonType: e.target.value as LessonType })}
-                  className="flex-1 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                >
-                  {(Object.keys(LESSON_TYPE_LABELS) as LessonType[]).map((lt) => (
-                    <option key={lt} value={lt}>{LESSON_TYPE_LABELS[lt]}</option>
-                  ))}
-                </select>
-                {cfg.planType === 'custom' && (
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number" min="0" step="100"
-                      value={cfg.monthlyAmount}
-                      onChange={(e) => updateConfig(s.id, { monthlyAmount: Number(e.target.value) || 0 })}
-                      className="w-24 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                    <span className="text-xs text-slate-400">сом</span>
-                  </div>
-                )}
-              </div>
+              {/* Custom amount for Особый формат */}
+              {cfg.planType === 'custom' && (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number" min="0" step="100"
+                    value={cfg.monthlyAmount}
+                    onChange={(e) => updateConfig(s.id, { monthlyAmount: Number(e.target.value) || 0 })}
+                    className="w-24 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                  <span className="text-xs text-slate-400">сом/мес</span>
+                </div>
+              )}
             </div>
           </div>
         );
