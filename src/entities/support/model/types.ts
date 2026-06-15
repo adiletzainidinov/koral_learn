@@ -9,6 +9,8 @@ export type PaymentStatus = 'unpaid' | 'partial' | 'paid' | 'overpaid';
 export type PaymentMethod = 'cash' | 'mbank' | 'obank' | 'bank_transfer' | 'other';
 export type PaymentAction = 'created' | 'updated' | 'paid' | 'partial_paid' | 'refund';
 export type OverpaymentType = 'advance' | 'gift';
+/** 'payment' = regular payment; 'advance_usage' = applying previously-created advance to a month */
+export type SupportPaymentKind = 'payment' | 'advance_usage';
 
 export type LessonType =
   | 'quran_group'
@@ -56,6 +58,8 @@ export interface SupportPayment {
   overpaymentType?: OverpaymentType;
   /** How appliedAmount was split across students (family payments only) */
   distribution?: SupportPaymentDistribution[];
+  /** defaults to 'payment'; 'advance_usage' means this record applies a previously-created advance */
+  kind?: SupportPaymentKind;
   method?: PaymentMethod;
   note?: string;
   paidAt: string;

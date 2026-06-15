@@ -276,6 +276,34 @@ export function distributeAmongStudents(
   return result;
 }
 
+/**
+ * Available advance = sum of all advance overpayments created
+ *                   − sum of all advance_usage appliedAmounts.
+ */
+export function calculateAvailableAdvance(payments: SupportPayment[]): number {
+  const created = payments
+    .filter((p) => p.overpaymentType === 'advance')
+    .reduce((s, p) => s + p.overpaidAmount, 0);
+  const used = payments
+    .filter((p) => p.kind === 'advance_usage')
+    .reduce((s, p) => s + p.appliedAmount, 0);
+  return Math.max(0, created - used);
+}
+
+/** Sum of appliedAmount for all payments (including advance_usage) for the given month. */
+export function calculatePaidForMonth(payments: SupportPayment[], month: string): number {
+  return payments
+    .filter((p) => p.month === month)
+    .reduce((s, p) => s + p.appliedAmount, 0);
+}
+
+/** Cumulative gift / hadia amount across all time. */
+export function calculateGiftTotal(payments: SupportPayment[]): number {
+  return payments
+    .filter((p) => p.overpaymentType === 'gift')
+    .reduce((s, p) => s + p.overpaidAmount, 0);
+}
+
 export function getThankYouMessage(parentName: string, month: string): string {
   const [year, m] = month.split('-');
   const monthName = MONTHS[Number(m) - 1] ?? month;

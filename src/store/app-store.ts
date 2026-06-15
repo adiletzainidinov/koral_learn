@@ -45,6 +45,7 @@ import type {
 } from '@/entities/support/model/types';
 import {
   calculateFamilyExpectedAmount, getPaymentStatus, formatMonth, derivePlanType,
+  calculateAvailableAdvance, calculatePaidForMonth,
 } from '@/entities/support/model/helpers';
 
 interface AppState {
@@ -144,6 +145,8 @@ interface AppState {
   createSupportPayment: (input: CreateSupportPaymentInput) => string;
   updateSupportPayment: (id: string, patch: Partial<Omit<SupportPayment, 'id' | 'createdAt'>>) => void;
   deleteSupportPayment: (id: string) => void;
+  /** Apply available advance balance to the outstanding debt for the given month. */
+  applyAdvanceToMonth: (familyId: string, month: string) => void;
 }
 
 // ─── point-history helper ─────────────────────────────────────────────────────
@@ -1177,6 +1180,34 @@ export const useAppStore = create<AppState>()(
 
       deleteSupportPayment: (id) => {
         set((s) => ({ supportPayments: s.supportPayments.filter((p) => p.id !== id) }));
+      },
+
+      applyAdvanceToMonth: (familyId, month) => {
+        const s = get();
+        const family = s.families.find((f) => f.id === familyId);
+        if (!family) return;
+        const payments = s.supportPayments.filter((p) => p.familyId === familyId);
+        const availableAdvance = calculateAvailableAdvance(payments);
+        const expectedAmount = calculateFamilyExpectedAmount(family);
+        const paidAmount = calculatePaidForMonth(payments, month);
+        const remaining = Math.max(0, expectedAmount - paidAmount);
+        if (availableAdvance <= 0 || remaining <= 0) return;
+        const applyAmount = Math.min(availableAdvance, remaining);
+        const now = new Date().toISOString();
+        set((state) => ({
+          supportPayments: [...state.supportPayments, {
+            id: generateId(),
+            familyId,
+            month,
+            amount: applyAmount,
+            appliedAmount: applyAmount,
+            overpaidAmount: 0,
+            kind: 'advance_usage' as const,
+            note: `Применён аванс к ${formatMonth(month)}`,
+            paidAt: now,
+            createdAt: now,
+          }],
+        }));
       },
     }),
     {
