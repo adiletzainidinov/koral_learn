@@ -8,6 +8,7 @@ export type SupportPlanType =
 export type PaymentStatus = 'unpaid' | 'partial' | 'paid' | 'overpaid';
 export type PaymentMethod = 'cash' | 'mbank' | 'obank' | 'bank_transfer' | 'other';
 export type PaymentAction = 'created' | 'updated' | 'paid' | 'partial_paid' | 'refund';
+export type OverpaymentType = 'advance' | 'gift';
 
 export type LessonType =
   | 'quran_group'
@@ -29,12 +30,87 @@ export interface LessonSelection {
   badgeGivenAt?: string;
 }
 
+/** Per-student share of a family-level payment */
+export interface SupportPaymentDistribution {
+  studentId: string;
+  amount: number;
+}
+
+/**
+ * A single payment transaction (new system, replaces FamilyPayment going forward).
+ * studentId is undefined for family-level payments; set for per-student payments.
+ */
+export interface SupportPayment {
+  id: string;
+  familyId: string;
+  month: string; // YYYY-MM
+  /** undefined = whole-family payment; defined = per-student payment */
+  studentId?: string;
+  /** Raw amount received from parent */
+  amount: number;
+  /** Portion applied to outstanding debt (≤ amount) */
+  appliedAmount: number;
+  /** Excess beyond the debt (amount − appliedAmount) */
+  overpaidAmount: number;
+  /** Required when overpaidAmount > 0 */
+  overpaymentType?: OverpaymentType;
+  /** How appliedAmount was split across students (family payments only) */
+  distribution?: SupportPaymentDistribution[];
+  method?: PaymentMethod;
+  note?: string;
+  paidAt: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateSupportPaymentInput {
+  familyId: string;
+  month: string;
+  studentId?: string;
+  amount: number;
+  appliedAmount: number;
+  overpaidAmount: number;
+  overpaymentType?: OverpaymentType;
+  distribution?: SupportPaymentDistribution[];
+  method?: PaymentMethod;
+  note?: string;
+}
+
+// ─── Legacy types (kept for backward compat with old localStorage data) ────────
+
+/** @deprecated Kept for existing localStorage data only. New payments use SupportPayment. */
 export interface StudentPaymentRecord {
   studentId: string;
   expectedAmount: number;
   paidAmount: number;
   status: PaymentStatus;
   paidAt?: string | null;
+}
+
+/** @deprecated Kept for existing localStorage data only. New payments use SupportPayment. */
+export interface FamilyPayment {
+  id: string;
+  familyId: string;
+  month: string;
+  expectedAmount: number;
+  paidAmount: number;
+  status: PaymentStatus;
+  paidAt?: string | null;
+  paymentMethod?: PaymentMethod;
+  comment?: string;
+  createdAt: string;
+  updatedAt?: string;
+  studentPayments?: StudentPaymentRecord[];
+}
+
+export interface PaymentHistoryItem {
+  id: string;
+  familyId: string;
+  paymentId: string;
+  amount: number;
+  action: PaymentAction;
+  comment?: string;
+  createdAt: string;
 }
 
 export interface SupportPlan {
@@ -51,55 +127,22 @@ export interface SupportPlan {
 
 export interface Family {
   id: string;
-  /** Primary parent entity reference — source of truth; one parentId = one Family */
   parentId?: string;
-  /** Display name — derived from parent on creation, or legacy manual entry */
   name: string;
   studentIds: string[];
-  /** Per-student lesson configuration. When absent, falls back to supportPlanType */
   lessonSelections?: LessonSelection[];
-  /** Default/fallback plan type — used when lessonSelections is absent */
   supportPlanType: SupportPlanType;
   notes?: string;
   createdAt: string;
   updatedAt?: string;
-  /** Legacy: kept for backward compat with old localStorage data */
   parentName?: string;
-  /** Legacy: kept for backward compat with old localStorage data */
   parentPhone?: string;
-}
-
-export interface FamilyPayment {
-  id: string;
-  familyId: string;
-  month: string; // YYYY-MM
-  expectedAmount: number;
-  paidAmount: number;
-  status: PaymentStatus;
-  paidAt?: string | null;
-  paymentMethod?: PaymentMethod;
-  comment?: string;
-  createdAt: string;
-  updatedAt?: string;
-  /** Per-student payment breakdown — populated when payments are accepted per-student */
-  studentPayments?: StudentPaymentRecord[];
-}
-
-export interface PaymentHistoryItem {
-  id: string;
-  familyId: string;
-  paymentId: string;
-  amount: number;
-  action: PaymentAction;
-  comment?: string;
-  createdAt: string;
 }
 
 export interface CreateFamilyInput {
   parentId: string;
   studentIds: string[];
   lessonSelections: LessonSelection[];
-  /** Derived from lessonSelections — used for display / legacy fallback */
   supportPlanType: SupportPlanType;
   notes?: string;
 }

@@ -41,6 +41,7 @@ import type { Parent, CreateParentInput, UpdateParentInput } from '@/entities/pa
 import type {
   Family, FamilyPayment, PaymentHistoryItem, CreateFamilyInput, UpdateFamilyInput,
   SupportPlanType, PaymentMethod, LessonSelection, StudentPaymentRecord,
+  SupportPayment, CreateSupportPaymentInput,
 } from '@/entities/support/model/types';
 import {
   calculateFamilyExpectedAmount, getPaymentStatus, formatMonth, derivePlanType,
@@ -137,6 +138,12 @@ interface AppState {
   toggleStudentBadge: (familyId: string, studentId: string) => void;
   updateFamilyPayment: (paymentId: string, patch: Partial<Pick<FamilyPayment, 'paidAmount' | 'expectedAmount' | 'paymentMethod' | 'comment'>>) => void;
   deleteFamilyPayment: (paymentId: string) => void;
+
+  // ─── New transaction-based payment system ──────────────────────────────────
+  supportPayments: SupportPayment[];
+  createSupportPayment: (input: CreateSupportPaymentInput) => string;
+  updateSupportPayment: (id: string, patch: Partial<Omit<SupportPayment, 'id' | 'createdAt'>>) => void;
+  deleteSupportPayment: (id: string) => void;
 }
 
 // ─── point-history helper ─────────────────────────────────────────────────────
@@ -190,6 +197,7 @@ export const useAppStore = create<AppState>()(
       families: [],
       familyPayments: [],
       paymentHistory: [],
+      supportPayments: [],
 
       _seed: () => {
         const { _seeded } = get();
@@ -1136,6 +1144,40 @@ export const useAppStore = create<AppState>()(
           paymentHistory: state.paymentHistory.filter((h) => h.paymentId !== paymentId),
         }));
       },
+
+      createSupportPayment: (input) => {
+        const now = new Date().toISOString();
+        const id = generateId();
+        const payment: SupportPayment = {
+          id,
+          familyId: input.familyId,
+          month: input.month,
+          studentId: input.studentId,
+          amount: input.amount,
+          appliedAmount: input.appliedAmount,
+          overpaidAmount: input.overpaidAmount,
+          overpaymentType: input.overpaymentType,
+          distribution: input.distribution,
+          method: input.method,
+          note: input.note,
+          paidAt: now,
+          createdAt: now,
+        };
+        set((s) => ({ supportPayments: [...s.supportPayments, payment] }));
+        return id;
+      },
+
+      updateSupportPayment: (id, patch) => {
+        set((s) => ({
+          supportPayments: s.supportPayments.map((p) =>
+            p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p
+          ),
+        }));
+      },
+
+      deleteSupportPayment: (id) => {
+        set((s) => ({ supportPayments: s.supportPayments.filter((p) => p.id !== id) }));
+      },
     }),
     {
       name: 'quranlearn-v2',
@@ -1320,3 +1362,12 @@ export const useFamilyParent = (familyId: string) =>
 
 export const useFamilyByParentId = (parentId: string) =>
   useAppStore((s) => s.families.find((f) => f.parentId === parentId));
+
+export const useSupportPaymentsByFamilyId = (familyId: string) =>
+  useAppStore(
+    useShallow((s) =>
+      s.supportPayments
+        .filter((p) => p.familyId === familyId)
+        .sort((a, b) => b.paidAt.localeCompare(a.paidAt))
+    )
+  );

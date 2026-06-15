@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Users, Wallet, CheckCircle2, Clock, AlertCircle,
   Trash2, Phone, Edit2, X, Check, Copy,
-  MoreVertical, MessageCircle, UserRound, BookOpen, Award,
+  MoreVertical, MessageCircle, UserRound, BookOpen, Award, Gift,
+  PiggyBank, ChevronDown,
 } from 'lucide-react';
 import {
   useAppStore, useFamilyById, useStudents, useFamilyPaymentsByFamilyId,
   usePaymentHistoryByFamilyId, useFamilyParent, useParents,
+  useSupportPaymentsByFamilyId,
 } from '@/store/app-store';
 import { formatWhatsappLink } from '@/entities/parent/model/helpers';
 import {
@@ -18,8 +20,12 @@ import {
   calculateFamilyExpectedAmount, getSelectionAmount,
   formatAmount, getCurrentMonth, formatMonth,
   getReminderMessage, getThankYouMessage,
+  getStudentMonthPaid, distributeAmongStudents,
 } from '@/entities/support/model/helpers';
-import type { SupportPlanType, PaymentMethod, LessonSelection, LessonType, FamilyPayment } from '@/entities/support/model/types';
+import type {
+  SupportPlanType, PaymentMethod, LessonSelection, LessonType,
+  SupportPayment, CreateSupportPaymentInput, OverpaymentType,
+} from '@/entities/support/model/types';
 import { generateId } from '@/shared/lib/ids';
 import { cn } from '@/shared/lib/cn';
 
@@ -33,101 +39,18 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// ─── Accept Payment Modal ─────────────────────────────────────────────────────
-
-function AcceptPaymentModal({
-  familyId, month, expectedAmount, paidAmount, onClose,
-}: {
-  familyId: string;
-  month: string;
-  expectedAmount: number;
-  paidAmount: number;
-  onClose: () => void;
-}) {
-  const markPaid = useAppStore((s) => s.markFamilyPaymentPaid);
-  const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState<PaymentMethod>('cash');
-  const [comment, setComment] = useState('');
-
-  const remaining = Math.max(0, expectedAmount - paidAmount);
-  const numAmount = Number(amount);
-
-  function handleSubmit() {
-    if (numAmount <= 0) return;
-    markPaid(familyId, month, numAmount, method, comment || undefined);
-    onClose();
+function getMonthOptions(currentMonth: string) {
+  const [y, m] = currentMonth.split('-').map(Number);
+  const options: { value: string; label: string }[] = [];
+  for (let i = -2; i <= 1; i++) {
+    let mo = m + i;
+    let yr = y;
+    if (mo < 1) { mo += 12; yr--; }
+    if (mo > 12) { mo -= 12; yr++; }
+    const val = `${yr}-${String(mo).padStart(2, '0')}`;
+    options.push({ value: val, label: formatMonth(val) });
   }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">Принять оплату</h2>
-            <p className="text-sm text-slate-500">{formatMonth(month)}</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X className="size-5" /></button>
-        </div>
-
-        {expectedAmount > 0 && (
-          <div className="bg-slate-50 rounded-xl p-3 mb-4 flex gap-4 text-sm">
-            <div><p className="text-xs text-slate-400">Ожидается</p><p className="font-semibold">{formatAmount(expectedAmount)}</p></div>
-            <div><p className="text-xs text-slate-400">Оплачено</p><p className="font-semibold text-emerald-600">{formatAmount(paidAmount)}</p></div>
-            {remaining > 0 && <div><p className="text-xs text-slate-400">Остаток</p><p className="font-semibold text-amber-600">{formatAmount(remaining)}</p></div>}
-          </div>
-        )}
-
-        {expectedAmount > 0 && (
-          <div className="flex gap-2 mb-4">
-            {remaining > 0 && (
-              <button onClick={() => setAmount(String(remaining))}
-                className="flex-1 py-2 px-3 rounded-xl border border-emerald-200 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
-                Полная сумма ({formatAmount(remaining)})
-              </button>
-            )}
-            <button onClick={() => setAmount(String(Math.ceil(expectedAmount / 2)))}
-              className="flex-1 py-2 px-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-              Половина
-            </button>
-          </div>
-        )}
-
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Сумма (сом)</label>
-          <input type="number" min="0" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)}
-            className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 font-medium" />
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Способ оплаты</label>
-          <div className="flex flex-wrap gap-2">
-            {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => (
-              <button key={m} onClick={() => setMethod(m)}
-                className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-                  method === m ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                )}>
-                {PAYMENT_METHOD_LABELS[m]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mb-5">
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Комментарий</label>
-          <input type="text" placeholder="Примечание..." value={comment} onChange={(e) => setComment(e.target.value)}
-            className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-        </div>
-
-        <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
-          <button onClick={handleSubmit} disabled={numAmount <= 0}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 flex items-center justify-center gap-1.5">
-            <Check className="size-4" /> Принять {numAmount > 0 ? formatAmount(numAmount) : ''}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  return options;
 }
 
 // ─── Edit Family Modal ────────────────────────────────────────────────────────
@@ -136,18 +59,9 @@ function EditFamilyModal({ familyId, onClose }: { familyId: string; onClose: () 
   const family = useFamilyById(familyId);
   const parents = useParents();
   const updateFamily = useAppStore((s) => s.updateFamily);
-
   const [notes, setNotes] = useState(family?.notes ?? '');
-
   if (!family) return null;
-
-  function handleSave() {
-    updateFamily(familyId, { notes: notes.trim() || undefined });
-    onClose();
-  }
-
   const parent = parents.find((p) => p.id === family.parentId);
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
@@ -163,22 +77,19 @@ function EditFamilyModal({ familyId, onClose }: { familyId: string; onClose: () 
                 <p className="text-sm font-medium text-slate-800 truncate">{parent.fullName}</p>
                 <p className="text-xs text-slate-500">{parent.whatsapp}</p>
               </div>
-              <Link href={`/parents/${parent.id}`}
-                className="ml-auto text-xs text-emerald-600 hover:underline font-medium shrink-0">
-                Открыть
-              </Link>
+              <Link href={`/parents/${parent.id}`} className="ml-auto text-xs text-emerald-600 hover:underline font-medium shrink-0">Открыть</Link>
             </div>
           )}
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Заметки</label>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
-              placeholder="Дополнительная информация о поддержке..."
+              placeholder="Дополнительная информация..."
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none placeholder:text-slate-400" />
           </div>
         </div>
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
-          <button onClick={handleSave}
+          <button onClick={() => { updateFamily(familyId, { notes: notes.trim() || undefined }); onClose(); }}
             className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
             Сохранить
           </button>
@@ -203,100 +114,303 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
   );
 }
 
-// ─── Accept Student Payment Modal ────────────────────────────────────────────
+// ─── Payment Form Modal ───────────────────────────────────────────────────────
 
-function AcceptStudentPaymentModal({
-  studentName,
-  expectedAmount,
-  paidAmount,
-  onAccept,
-  onClose,
-}: {
-  studentName: string;
-  expectedAmount: number;
-  paidAmount: number;
-  onAccept: (amount: number, method: PaymentMethod, comment?: string) => void;
+const OVERPAYMENT_LABELS: Record<OverpaymentType, { label: string; desc: string; icon: React.ReactNode }> = {
+  advance: {
+    label: 'Аванс на следующий месяц',
+    desc: 'Переплата зачтётся в счёт следующего платежа',
+    icon: <PiggyBank className="size-4 text-blue-500" />,
+  },
+  gift: {
+    label: 'Хадия / пожертвование',
+    desc: 'Лишняя сумма принимается как дополнительный вклад',
+    icon: <Gift className="size-4 text-purple-500" />,
+  },
+};
+
+interface PaymentFormModalProps {
+  family: ReturnType<typeof useFamilyById>;
+  familyStudents: ReturnType<typeof useStudents>;
+  allSupportPayments: SupportPayment[];
+  currentMonth: string;
+  preselectedStudentId?: string;
+  editPayment?: SupportPayment;
   onClose: () => void;
-}) {
-  const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState<PaymentMethod>('cash');
-  const [comment, setComment] = useState('');
-  const remaining = Math.max(0, expectedAmount - paidAmount);
-  const numAmount = Number(amount);
+  onCreate: (input: CreateSupportPaymentInput) => void;
+  onUpdate: (id: string, patch: Partial<SupportPayment>) => void;
+}
+
+function PaymentFormModal({
+  family, familyStudents, allSupportPayments,
+  currentMonth, preselectedStudentId, editPayment,
+  onClose, onCreate, onUpdate,
+}: PaymentFormModalProps) {
+  const [month, setMonth] = useState(editPayment?.month ?? currentMonth);
+  const [amountStr, setAmountStr] = useState(editPayment ? String(editPayment.amount) : '');
+  const [method, setMethod] = useState<PaymentMethod>(editPayment?.method ?? 'cash');
+  const [note, setNote] = useState(editPayment?.note ?? '');
+  const [targetStudentId, setTargetStudentId] = useState<string | undefined>(
+    editPayment?.studentId ?? preselectedStudentId
+  );
+  const [overpaymentType, setOverpaymentType] = useState<OverpaymentType | ''>(
+    editPayment?.overpaymentType ?? ''
+  );
+  const [errors, setErrors] = useState<{ amount?: string; overpayment?: string }>({});
+
+  const monthOptions = useMemo(() => getMonthOptions(currentMonth), [currentMonth]);
+  const isStudentTarget = !!targetStudentId;
+
+  const monthPayments = useMemo(
+    () => allSupportPayments.filter((p) => p.familyId === family?.id && p.month === month && p.id !== editPayment?.id),
+    [allSupportPayments, family?.id, month, editPayment]
+  );
+
+  const numAmount = Number(amountStr) || 0;
+
+  const { expected, alreadyPaid } = useMemo(() => {
+    if (!family) return { expected: 0, alreadyPaid: 0 };
+    if (isStudentTarget) {
+      const sel = family.lessonSelections?.find((ls) => ls.studentId === targetStudentId);
+      return {
+        expected: sel?.monthlyAmount ?? 0,
+        alreadyPaid: getStudentMonthPaid(targetStudentId!, monthPayments),
+      };
+    }
+    return {
+      expected: calculateFamilyExpectedAmount(family),
+      alreadyPaid: monthPayments.reduce((s, p) => s + p.appliedAmount, 0),
+    };
+  }, [isStudentTarget, targetStudentId, family, monthPayments]);
+
+  const remaining = Math.max(0, expected - alreadyPaid);
+  const appliedAmount = Math.min(numAmount, remaining);
+  const overpaidAmount = Math.max(0, numAmount - remaining);
+  const isOverpaid = overpaidAmount > 0;
+
+  const distribution = useMemo(() => {
+    if (!family || isStudentTarget || appliedAmount <= 0) return [];
+    return distributeAmongStudents(
+      appliedAmount,
+      familyStudents.map((s) => ({
+        id: s.id,
+        expectedAmount: family.lessonSelections?.find((ls) => ls.studentId === s.id)?.monthlyAmount ?? 0,
+        alreadyPaid: getStudentMonthPaid(s.id, monthPayments),
+      }))
+    );
+  }, [isStudentTarget, appliedAmount, familyStudents, family, monthPayments]);
+
+  if (!family) return null;
+
+  function validate() {
+    const errs: typeof errors = {};
+    if (numAmount <= 0) errs.amount = 'Введите сумму';
+    if (isOverpaid && !overpaymentType) errs.overpayment = 'Выберите, что делать с переплатой';
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+
+  function handleSubmit() {
+    if (!validate()) return;
+    const input: CreateSupportPaymentInput = {
+      familyId: family!.id,
+      month,
+      studentId: targetStudentId,
+      amount: numAmount,
+      appliedAmount,
+      overpaidAmount,
+      overpaymentType: isOverpaid ? (overpaymentType as OverpaymentType) : undefined,
+      distribution: !isStudentTarget && distribution.length > 0 ? distribution : undefined,
+      method,
+      note: note.trim() || undefined,
+    };
+    if (editPayment) {
+      onUpdate(editPayment.id, input);
+    } else {
+      onCreate(input);
+    }
+    onClose();
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4" onClick={onClose}>
+      <div
+        className="bg-white w-full sm:rounded-2xl sm:max-w-lg shadow-xl flex flex-col max-h-[90vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100 shrink-0">
           <div>
-            <h2 className="text-base font-bold text-slate-900">Принять оплату</h2>
-            <p className="text-xs text-slate-500 mt-0.5">{studentName}</p>
+            <h2 className="text-base font-bold text-slate-900">
+              {editPayment ? 'Редактировать оплату' : 'Внести оплату'}
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">{family.name}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
-            <X className="size-4" />
+            <X className="size-5" />
           </button>
         </div>
 
-        {expectedAmount > 0 && (
-          <div className="bg-slate-50 rounded-xl p-3 mb-3 flex gap-4 text-xs">
-            <div><p className="text-slate-400">Ожидается</p><p className="font-semibold text-slate-800 mt-0.5">{formatAmount(expectedAmount)}</p></div>
-            <div><p className="text-slate-400">Оплачено</p><p className="font-semibold text-emerald-600 mt-0.5">{formatAmount(paidAmount)}</p></div>
-            {remaining > 0 && <div><p className="text-slate-400">Остаток</p><p className="font-semibold text-amber-600 mt-0.5">{formatAmount(remaining)}</p></div>}
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+          {/* Month */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Месяц</label>
+            <div className="relative">
+              <select value={month} onChange={(e) => setMonth(e.target.value)}
+                className="w-full h-10 rounded-xl border border-slate-200 px-3 pr-8 text-sm text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                {monthOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-3 size-4 text-slate-400 pointer-events-none" />
+            </div>
           </div>
-        )}
 
-        {expectedAmount > 0 && remaining > 0 && (
-          <div className="flex gap-2 mb-3">
-            <button onClick={() => setAmount(String(remaining))}
-              className="flex-1 py-1.5 px-3 rounded-xl border border-emerald-200 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
-              Полная сумма ({formatAmount(remaining)})
-            </button>
-            <button onClick={() => setAmount(String(Math.ceil(remaining / 2)))}
-              className="flex-1 py-1.5 px-3 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
-              Половина
-            </button>
-          </div>
-        )}
-
-        <div className="mb-3">
-          <label className="block text-xs font-medium text-slate-600 mb-1">Сумма (сом)</label>
-          <input type="number" min="0" placeholder="0" value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 font-medium" />
-        </div>
-
-        <div className="mb-3">
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Способ оплаты</label>
-          <div className="flex flex-wrap gap-1.5">
-            {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => (
-              <button key={m} onClick={() => setMethod(m)}
-                className={cn('px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors',
-                  method === m ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+          {/* Za kogo */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">За кого</label>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setTargetStudentId(undefined)}
+                className={cn('px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors',
+                  !isStudentTarget ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 )}>
-                {PAYMENT_METHOD_LABELS[m]}
+                Вся семья
               </button>
-            ))}
+              {familyStudents.map((s) => (
+                <button key={s.id}
+                  onClick={() => setTargetStudentId(s.id)}
+                  className={cn('px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors',
+                    targetStudentId === s.id ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  )}>
+                  {s.fullName.split(' ')[0]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Summary chip */}
+          {expected > 0 && (
+            <div className="bg-slate-50 rounded-xl p-3 flex gap-4 text-xs">
+              <div><p className="text-slate-400">Ожидается</p><p className="font-semibold text-slate-800 mt-0.5">{formatAmount(expected)}</p></div>
+              <div><p className="text-slate-400">Уже оплачено</p><p className="font-semibold text-emerald-600 mt-0.5">{formatAmount(alreadyPaid)}</p></div>
+              {remaining > 0 && <div><p className="text-slate-400">Остаток</p><p className="font-semibold text-amber-600 mt-0.5">{formatAmount(remaining)}</p></div>}
+              {remaining === 0 && <div><p className="text-slate-400">Статус</p><p className="font-semibold text-emerald-600 mt-0.5">Оплачено ✓</p></div>}
+            </div>
+          )}
+
+          {/* Amount */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Сумма (сом)</label>
+            {remaining > 0 && (
+              <div className="flex gap-2 mb-2">
+                <button onClick={() => setAmountStr(String(remaining))}
+                  className="flex-1 py-1.5 px-3 rounded-xl border border-emerald-200 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+                  Полный остаток ({formatAmount(remaining)})
+                </button>
+                <button onClick={() => setAmountStr(String(Math.ceil(remaining / 2)))}
+                  className="flex-1 py-1.5 px-3 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                  Половина
+                </button>
+              </div>
+            )}
+            <input
+              type="number" min="0" placeholder="0" value={amountStr}
+              onChange={(e) => { setAmountStr(e.target.value); setErrors((p) => ({ ...p, amount: undefined })); }}
+              className={cn('w-full px-3 py-2.5 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2',
+                errors.amount ? 'border-red-300 focus:ring-red-400' : 'border-slate-200 focus:ring-emerald-400'
+              )}
+            />
+            {errors.amount && <p className="text-xs text-red-500 mt-1">{errors.amount}</p>}
+          </div>
+
+          {/* Distribution preview (family payments) */}
+          {!isStudentTarget && numAmount > 0 && distribution.length > 0 && (
+            <div className="bg-slate-50 rounded-xl p-3">
+              <p className="text-xs font-semibold text-slate-500 mb-2">Распределение по детям</p>
+              <div className="space-y-1">
+                {familyStudents.map((s) => {
+                  const d = distribution.find((x) => x.studentId === s.id);
+                  const expected = family.lessonSelections?.find((ls) => ls.studentId === s.id)?.monthlyAmount ?? 0;
+                  const covered = d?.amount ?? 0;
+                  const isPaid = covered >= expected && expected > 0;
+                  return (
+                    <div key={s.id} className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600">{s.fullName.split(' ')[0]}</span>
+                      <span className={cn('font-medium', isPaid ? 'text-emerald-600' : covered > 0 ? 'text-amber-600' : 'text-slate-400')}>
+                        {covered > 0 ? formatAmount(covered) : '—'}{isPaid ? ' ✓' : covered > 0 ? ` / ${formatAmount(expected)}` : ''}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Overpayment */}
+          {isOverpaid && (
+            <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 space-y-2">
+              <p className="text-xs font-semibold text-amber-800">
+                Переплата: {formatAmount(overpaidAmount)}
+              </p>
+              <p className="text-xs text-amber-700">Что сделать с излишком?</p>
+              {errors.overpayment && <p className="text-xs text-red-500">{errors.overpayment}</p>}
+              <div className="space-y-1.5">
+                {(Object.entries(OVERPAYMENT_LABELS) as [OverpaymentType, typeof OVERPAYMENT_LABELS[OverpaymentType]][]).map(([key, meta]) => (
+                  <button
+                    key={key}
+                    onClick={() => { setOverpaymentType(key); setErrors((p) => ({ ...p, overpayment: undefined })); }}
+                    className={cn(
+                      'w-full flex items-start gap-2.5 p-2.5 rounded-xl border text-left transition-colors',
+                      overpaymentType === key
+                        ? 'border-emerald-400 bg-white shadow-sm'
+                        : 'border-amber-200 bg-amber-50/50 hover:bg-white'
+                    )}
+                  >
+                    <span className="mt-0.5 shrink-0">{meta.icon}</span>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">{meta.label}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">{meta.desc}</p>
+                    </div>
+                    {overpaymentType === key && <Check className="size-4 text-emerald-500 ml-auto shrink-0 mt-0.5" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Method */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Способ оплаты</label>
+            <div className="flex flex-wrap gap-1.5">
+              {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => (
+                <button key={m} onClick={() => setMethod(m)}
+                  className={cn('px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors',
+                    method === m ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  )}>
+                  {PAYMENT_METHOD_LABELS[m]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Note */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Заметка</label>
+            <input type="text" placeholder="Примечание..." value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:text-slate-400" />
           </div>
         </div>
 
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-slate-600 mb-1">Комментарий</label>
-          <input type="text" placeholder="Примечание..." value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-        </div>
-
-        <div className="flex gap-2">
+        {/* Footer */}
+        <div className="flex gap-3 px-5 py-4 border-t border-slate-100 shrink-0">
           <button onClick={onClose}
-            className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
             Отмена
           </button>
-          <button
-            onClick={() => { if (numAmount > 0) { onAccept(numAmount, method, comment || undefined); onClose(); } }}
-            disabled={numAmount <= 0}
-            className="flex-1 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 flex items-center justify-center gap-1.5">
+          <button onClick={handleSubmit}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 flex items-center justify-center gap-1.5">
             <Check className="size-4" />
-            {numAmount > 0 ? formatAmount(numAmount) : 'Принять'}
+            {editPayment ? 'Сохранить' : numAmount > 0 ? `Принять ${formatAmount(numAmount)}` : 'Сохранить'}
           </button>
         </div>
       </div>
@@ -311,19 +425,17 @@ const PLAN_ORDER_DETAIL: SupportPlanType[] = ['open_learning', 'family_support',
 function LessonsTab({
   family,
   familyStudents,
-  currentPayment,
-  currentMonth,
+  monthPayments,
   onSave,
-  onAcceptStudentPayment,
   onToggleBadge,
+  onAcceptStudentPayment,
 }: {
   family: ReturnType<typeof useFamilyById>;
   familyStudents: ReturnType<typeof useStudents>;
-  currentPayment: FamilyPayment | undefined;
-  currentMonth: string;
+  monthPayments: SupportPayment[];
   onSave: (selections: LessonSelection[]) => void;
-  onAcceptStudentPayment: (studentId: string, amount: number, method: PaymentMethod, comment?: string) => void;
   onToggleBadge: (studentId: string) => void;
+  onAcceptStudentPayment: (studentId: string) => void;
 }) {
   if (!family) return null;
 
@@ -341,16 +453,13 @@ function LessonsTab({
 
   const [configs, setConfigs] = useState<Map<string, { lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>>(initSelections);
   const [saved, setSaved] = useState(false);
-  const [payingStudentId, setPayingStudentId] = useState<string | null>(null);
 
   function updateConfig(studentId: string, patch: Partial<{ lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>) {
     setConfigs((prev) => {
       const next = new Map(prev);
       const old = next.get(studentId) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
       const updated = { ...old, ...patch };
-      if (patch.planType && patch.planType !== 'custom') {
-        updated.monthlyAmount = getSelectionAmount(patch.planType);
-      }
+      if (patch.planType && patch.planType !== 'custom') updated.monthlyAmount = getSelectionAmount(patch.planType);
       next.set(studentId, updated);
       return next;
     });
@@ -386,158 +495,141 @@ function LessonsTab({
     );
   }
 
-  const payingStudent = payingStudentId ? familyStudents.find((s) => s.id === payingStudentId) : null;
-  const payingStudentSel = payingStudentId ? family.lessonSelections?.find((ls) => ls.studentId === payingStudentId) : null;
-  const payingStudentRecord = payingStudentId ? currentPayment?.studentPayments?.find((sp) => sp.studentId === payingStudentId) : null;
-  const payingExpected = payingStudentSel?.monthlyAmount ?? configs.get(payingStudentId ?? '')?.monthlyAmount ?? 0;
-  const payingPaid = payingStudentRecord?.paidAmount ?? 0;
-
   return (
-    <>
-      <div className="space-y-3">
-        {familyStudents.map((s) => {
-          const cfg = configs.get(s.id) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
-          const c = PLAN_COLORS[cfg.planType];
-          const initials = s.fullName.slice(0, 2).toUpperCase();
-          const sel = family.lessonSelections?.find((ls) => ls.studentId === s.id);
-          const studentRecord = currentPayment?.studentPayments?.find((sp) => sp.studentId === s.id);
-          const studentExpected = sel?.monthlyAmount ?? cfg.monthlyAmount;
-          const studentPaid = studentRecord?.paidAmount ?? 0;
-          const studentStatus = studentRecord?.status ?? (studentExpected === 0 ? 'paid' : 'unpaid');
-          const isPaid = studentStatus === 'paid' || studentStatus === 'overpaid';
-          const badgeGiven = sel?.badgeGiven ?? false;
-          const sc = STATUS_COLORS[studentStatus];
+    <div className="space-y-3">
+      {familyStudents.map((s) => {
+        const cfg = configs.get(s.id) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
+        const c = PLAN_COLORS[cfg.planType];
+        const initials = s.fullName.slice(0, 2).toUpperCase();
+        const sel = family.lessonSelections?.find((ls) => ls.studentId === s.id);
+        const studentExpected = sel?.monthlyAmount ?? cfg.monthlyAmount;
+        const studentPaid = getStudentMonthPaid(s.id, monthPayments);
+        const studentRemaining = Math.max(0, studentExpected - studentPaid);
+        const isPaid = studentExpected > 0 && studentPaid >= studentExpected;
+        const isPartial = studentPaid > 0 && studentPaid < studentExpected;
+        const badgeGiven = sel?.badgeGiven ?? false;
 
-          return (
-            <div key={s.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-              {/* Student header */}
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
-                <div className="size-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-xs font-bold shrink-0">
-                  {s.avatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={s.avatar} alt={s.fullName} className="size-full object-cover rounded-full" />
-                  ) : initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <Link href={`/students/${s.id}`} className="text-sm font-medium text-slate-800 hover:text-emerald-700 hover:underline">
-                    {s.fullName}
-                  </Link>
-                  <p className="text-xs text-slate-400">Группа {s.group} · {s.age} лет</p>
-                </div>
-                <div className={cn('px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0', c.badge)}>
-                  {formatAmount(cfg.planType === 'custom' ? cfg.monthlyAmount : getSelectionAmount(cfg.planType))}
-                </div>
+        const statusLabel = studentExpected === 0 ? 'Открытый доступ'
+          : isPaid ? 'Оплачено'
+          : isPartial ? 'Частично'
+          : 'Не оплачено';
+        const statusClass = studentExpected === 0 ? 'bg-slate-100 text-slate-500'
+          : isPaid ? 'bg-emerald-100 text-emerald-700'
+          : isPartial ? 'bg-amber-100 text-amber-700'
+          : 'bg-slate-100 text-slate-600';
+
+        return (
+          <div key={s.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            {/* Student header */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
+              <div className="size-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-xs font-bold shrink-0">
+                {s.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={s.avatar} alt={s.fullName} className="size-full object-cover rounded-full" />
+                ) : initials}
               </div>
-
-              {/* Plan config */}
-              <div className="px-3 pt-3 pb-2 space-y-2">
-                <div className="flex flex-wrap gap-1.5">
-                  {PLAN_ORDER_DETAIL.map((pt) => {
-                    const plan = SUPPORT_PLANS[pt];
-                    const pc = PLAN_COLORS[pt];
-                    const isActive = cfg.planType === pt;
-                    return (
-                      <button key={pt} type="button"
-                        onClick={() => updateConfig(s.id, { planType: pt })}
-                        className={cn(
-                          'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
-                          isActive ? `${pc.badge} border-transparent` : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300'
-                        )}>
-                        <span>{plan.emoji}</span><span>{plan.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {cfg.planType === 'custom' && (
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number" min="0" step="100"
-                      value={cfg.monthlyAmount}
-                      onChange={(e) => updateConfig(s.id, { monthlyAmount: Number(e.target.value) || 0 })}
-                      className="w-24 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                    <span className="text-xs text-slate-400">сом/мес</span>
-                  </div>
-                )}
+              <div className="flex-1 min-w-0">
+                <Link href={`/students/${s.id}`} className="text-sm font-medium text-slate-800 hover:text-emerald-700 hover:underline">
+                  {s.fullName}
+                </Link>
+                <p className="text-xs text-slate-400">Группа {s.group} · {s.age} лет</p>
               </div>
+              <div className={cn('px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0', c.badge)}>
+                {formatAmount(cfg.planType === 'custom' ? cfg.monthlyAmount : getSelectionAmount(cfg.planType))}
+              </div>
+            </div>
 
-              {/* Payment row */}
+            {/* Plan config */}
+            <div className="px-3 pt-3 pb-2 space-y-2">
+              <div className="flex flex-wrap gap-1.5">
+                {PLAN_ORDER_DETAIL.map((pt) => {
+                  const plan = SUPPORT_PLANS[pt];
+                  const pc = PLAN_COLORS[pt];
+                  const isActive = cfg.planType === pt;
+                  return (
+                    <button key={pt} type="button" onClick={() => updateConfig(s.id, { planType: pt })}
+                      className={cn(
+                        'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
+                        isActive ? `${pc.badge} border-transparent` : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300'
+                      )}>
+                      <span>{plan.emoji}</span><span>{plan.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {cfg.planType === 'custom' && (
+                <div className="flex items-center gap-1">
+                  <input type="number" min="0" step="100" value={cfg.monthlyAmount}
+                    onChange={(e) => updateConfig(s.id, { monthlyAmount: Number(e.target.value) || 0 })}
+                    className="w-24 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                  <span className="text-xs text-slate-400">сом/мес</span>
+                </div>
+              )}
+            </div>
+
+            {/* Payment status row */}
+            {studentExpected > 0 && (
               <div className="flex items-center justify-between px-3 py-2.5 border-t border-slate-100 bg-slate-50/60">
                 <div className="flex items-center gap-2">
-                  <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', sc.badge)}>
-                    {PAYMENT_STATUS_LABELS[studentStatus]}
+                  <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', statusClass)}>
+                    {statusLabel}
                   </span>
-                  {studentStatus === 'partial' && (
+                  {isPartial && (
                     <span className="text-xs text-slate-400">
                       {formatAmount(studentPaid)} / {formatAmount(studentExpected)}
                     </span>
                   )}
-                </div>
-                {!isPaid && studentExpected > 0 && (
-                  <button
-                    onClick={() => setPayingStudentId(s.id)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors">
-                    <Wallet className="size-3" /> Принять оплату
-                  </button>
-                )}
-                {isPaid && studentExpected > 0 && (
-                  <span className="text-xs text-emerald-600 font-medium">{formatAmount(studentPaid)}</span>
-                )}
-              </div>
-
-              {/* Badge row — only when paid */}
-              {isPaid && studentExpected > 0 && (
-                <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100">
-                  <span className="text-xs text-slate-500 flex items-center gap-1.5">
-                    <Award className="size-3.5 text-amber-400" /> Бейджик
-                  </span>
-                  {badgeGiven ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1">
-                        <Check className="size-3" /> Выдан
-                      </span>
-                      <button
-                        onClick={() => onToggleBadge(s.id)}
-                        title="Отменить"
-                        className="size-5 flex items-center justify-center rounded-full text-slate-400 hover:text-red-400 hover:bg-red-50 transition-colors text-xs">
-                        ×
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => onToggleBadge(s.id)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium hover:bg-amber-100 transition-colors">
-                      🏅 Дать бейджик
-                    </button>
+                  {isPaid && (
+                    <span className="text-xs text-emerald-600 font-medium">{formatAmount(studentPaid)}</span>
                   )}
                 </div>
-              )}
-            </div>
-          );
-        })}
+                {!isPaid && (
+                  <button
+                    onClick={() => onAcceptStudentPayment(s.id)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors">
+                    <Wallet className="size-3" />
+                    {studentRemaining > 0 ? `${formatAmount(studentRemaining)}` : 'Оплатить'}
+                  </button>
+                )}
+              </div>
+            )}
 
-        <button
-          onClick={handleSave}
-          className={cn(
-            'w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors',
-            saved
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-              : 'bg-emerald-600 text-white hover:bg-emerald-700'
-          )}>
-          {saved ? <><Check className="size-4" />Сохранено</> : <>Сохранить настройки</>}
-        </button>
-      </div>
+            {/* Badge row — only when paid */}
+            {isPaid && (
+              <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100">
+                <span className="text-xs text-slate-500 flex items-center gap-1.5">
+                  <Award className="size-3.5 text-amber-400" /> Бейджик
+                </span>
+                {badgeGiven ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      <Check className="size-3" /> Выдан
+                    </span>
+                    <button onClick={() => onToggleBadge(s.id)} title="Отменить"
+                      className="size-5 flex items-center justify-center rounded-full text-slate-400 hover:text-red-400 hover:bg-red-50 transition-colors text-xs">
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => onToggleBadge(s.id)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium hover:bg-amber-100 transition-colors">
+                    🏅 Дать бейджик
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
 
-      {payingStudent && (
-        <AcceptStudentPaymentModal
-          studentName={payingStudent.fullName}
-          expectedAmount={payingExpected}
-          paidAmount={payingPaid}
-          onAccept={(amount, method, comment) => onAcceptStudentPayment(payingStudent.id, amount, method, comment)}
-          onClose={() => setPayingStudentId(null)}
-        />
-      )}
-    </>
+      <button onClick={handleSave}
+        className={cn(
+          'w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors',
+          saved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-emerald-600 text-white hover:bg-emerald-700'
+        )}>
+        {saved ? <><Check className="size-4" />Сохранено</> : <>Сохранить настройки</>}
+      </button>
+    </div>
   );
 }
 
@@ -549,15 +641,22 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
   const family = useFamilyById(familyId);
   const parent = useFamilyParent(familyId);
   const students = useStudents();
-  const payments = useFamilyPaymentsByFamilyId(familyId);
+  const legacyPayments = useFamilyPaymentsByFamilyId(familyId);
+  const supportPayments = useSupportPaymentsByFamilyId(familyId);
   const history = usePaymentHistoryByFamilyId(familyId);
-  const { deleteFamily, deleteFamilyPayment, updateFamilyLessonSelections, markStudentPaymentPaid, toggleStudentBadge } = useAppStore();
+  const {
+    deleteFamily, deleteFamilyPayment, updateFamilyLessonSelections, toggleStudentBadge,
+    createSupportPayment, updateSupportPayment, deleteSupportPayment,
+  } = useAppStore();
 
   const [tab, setTab] = useState<'lessons' | 'payments' | 'history'>('lessons');
-  const [acceptPaymentMonth, setAcceptPaymentMonth] = useState<string | null>(null);
   const [showDelete, setShowDelete] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  // Payment modal state: null = closed, 'family' = family payment, string = studentId
+  const [openPaymentFor, setOpenPaymentFor] = useState<null | 'family' | string>(null);
+  const [editPayment, setEditPayment] = useState<SupportPayment | null>(null);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
 
   if (!hydrated) return (
     <div className="p-6 max-w-4xl mx-auto animate-pulse space-y-4">
@@ -580,17 +679,23 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
 
   const familyStudents = students.filter((s) => family.studentIds.includes(s.id));
   const currentMonth = getCurrentMonth();
-  const currentPayment = payments.find((p) => p.month === currentMonth);
-  const expectedAmount = currentPayment?.expectedAmount ?? calculateFamilyExpectedAmount(family);
-  const paidAmount = currentPayment?.paidAmount ?? 0;
-  const remaining = Math.max(0, expectedAmount - paidAmount);
-  const currentStatus = currentPayment?.status ?? (expectedAmount === 0 ? 'paid' : 'unpaid');
 
-  const acceptingPayment = acceptPaymentMonth
-    ? payments.find((p) => p.month === acceptPaymentMonth)
-    : null;
-  const acceptingExpected = acceptingPayment?.expectedAmount ?? expectedAmount;
-  const acceptingPaid = acceptingPayment?.paidAmount ?? 0;
+  const currentMonthPayments = supportPayments.filter((p) => p.month === currentMonth);
+  const expectedAmount = calculateFamilyExpectedAmount(family);
+  const paidAmount = currentMonthPayments.reduce((s, p) => s + p.appliedAmount, 0);
+  const advanceAmount = currentMonthPayments
+    .filter((p) => p.overpaymentType === 'advance')
+    .reduce((s, p) => s + p.overpaidAmount, 0);
+  const giftAmount = currentMonthPayments
+    .filter((p) => p.overpaymentType === 'gift')
+    .reduce((s, p) => s + p.overpaidAmount, 0);
+  const remaining = Math.max(0, expectedAmount - paidAmount);
+  const currentStatus = expectedAmount === 0 ? 'paid' : paidAmount <= 0 ? 'unpaid' : paidAmount >= expectedAmount ? 'paid' : 'partial';
+
+  function openPaymentModal(target: 'family' | string) {
+    setEditPayment(null);
+    setOpenPaymentFor(target);
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -606,9 +711,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
             </div>
             {(parent || family.parentName) && (
               <div className="flex items-center gap-3 mt-1 flex-wrap">
-                <span className="text-sm text-slate-600">
-                  {parent ? parent.fullName : family.parentName}
-                </span>
+                <span className="text-sm text-slate-600">{parent ? parent.fullName : family.parentName}</span>
                 {(parent?.whatsapp || family.parentPhone) && (
                   <div className="flex items-center gap-1 text-xs text-slate-400">
                     <Phone className="size-3" />
@@ -632,6 +735,11 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => openPaymentModal('family')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
+            <Wallet className="size-4" /> Внести оплату
+          </button>
           <div className="relative">
             <button onClick={() => setShowDropdown((v) => !v)}
               className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50">
@@ -654,8 +762,8 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         {[
           { label: 'Учеников', value: familyStudents.length, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Ожидается', value: formatAmount(expectedAmount), icon: AlertCircle, color: 'text-slate-500', bg: 'bg-slate-100' },
@@ -674,13 +782,31 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
         ))}
       </div>
 
+      {/* Advance / Gift chips */}
+      {(advanceAmount > 0 || giftAmount > 0) && (
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {advanceAmount > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200">
+              <PiggyBank className="size-3.5 text-blue-500" />
+              <span className="text-xs font-medium text-blue-700">Аванс: {formatAmount(advanceAmount)}</span>
+            </div>
+          )}
+          {giftAmount > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 border border-purple-200">
+              <Gift className="size-3.5 text-purple-500" />
+              <span className="text-xs font-medium text-purple-700">Хадия: {formatAmount(giftAmount)}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Copy messages */}
       {expectedAmount > 0 && (
         <div className="flex gap-2 mb-5 flex-wrap">
           {(currentStatus === 'unpaid' || currentStatus === 'partial') && remaining > 0 && (
             <CopyBtn text={getReminderMessage(family.name, remaining, currentMonth)} label="Скопировать напоминание" />
           )}
-          {(currentStatus === 'paid' || currentStatus === 'overpaid') && (
+          {currentStatus === 'paid' && (
             <CopyBtn text={getThankYouMessage(family.name, currentMonth)} label="Скопировать благодарность" />
           )}
         </div>
@@ -690,7 +816,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
       <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1 mb-5 w-fit">
         {([
           { key: 'lessons', label: 'Уроки' },
-          { key: 'payments', label: `Оплаты (${payments.length})` },
+          { key: 'payments', label: `Оплаты (${supportPayments.length + legacyPayments.length})` },
           { key: 'history', label: `История (${history.length})` },
         ] as const).map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)}
@@ -707,58 +833,125 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
         <LessonsTab
           family={family}
           familyStudents={familyStudents}
-          currentPayment={currentPayment}
-          currentMonth={currentMonth}
+          monthPayments={currentMonthPayments}
           onSave={(selections) => updateFamilyLessonSelections(familyId, selections)}
-          onAcceptStudentPayment={(studentId, amount, method, comment) =>
-            markStudentPaymentPaid(familyId, studentId, currentMonth, amount, method, comment)
-          }
           onToggleBadge={(studentId) => toggleStudentBadge(familyId, studentId)}
+          onAcceptStudentPayment={(studentId) => openPaymentModal(studentId)}
         />
       )}
 
       {/* Payments tab */}
       {tab === 'payments' && (
         <div className="space-y-3">
-          {payments.length === 0 ? (
-            <div className="text-center py-10 bg-slate-50 rounded-2xl">
-              <p className="text-slate-500 text-sm">Нет начислений</p>
-            </div>
-          ) : (
-            payments.map((p) => {
-              const sc = STATUS_COLORS[p.status];
-              const rem = Math.max(0, p.expectedAmount - p.paidAmount);
-              return (
-                <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-4">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div>
-                      <p className="font-semibold text-slate-800">{formatMonth(p.month)}</p>
-                      {p.paymentMethod && <p className="text-xs text-slate-400 mt-0.5">{PAYMENT_METHOD_LABELS[p.paymentMethod]}{p.comment ? ` · ${p.comment}` : ''}</p>}
+          {/* New SupportPayments */}
+          {supportPayments.length > 0 && supportPayments.map((p) => {
+            const isStudentPay = !!p.studentId;
+            const student = isStudentPay ? students.find((s) => s.id === p.studentId) : null;
+            return (
+              <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-4">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-slate-800">{formatAmount(p.amount)}</span>
+                      <span className="text-xs text-slate-400">·</span>
+                      <span className="text-xs text-slate-500">{formatMonth(p.month)}</span>
+                      {p.method && <span className="text-xs text-slate-400">· {PAYMENT_METHOD_LABELS[p.method]}</span>}
                     </div>
-                    <span className={cn('text-xs font-medium px-2.5 py-1 rounded-full shrink-0', sc.badge)}>
-                      {PAYMENT_STATUS_LABELS[p.status]}
-                    </span>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-xs text-slate-500">
+                        {isStudentPay ? (student?.fullName ?? 'Ученик') : 'Вся семья'}
+                      </span>
+                      {p.appliedAmount !== p.amount && (
+                        <span className="text-xs text-emerald-600">Применено: {formatAmount(p.appliedAmount)}</span>
+                      )}
+                      {p.overpaidAmount > 0 && p.overpaymentType === 'advance' && (
+                        <span className="flex items-center gap-1 text-xs text-blue-600">
+                          <PiggyBank className="size-3" />Аванс: {formatAmount(p.overpaidAmount)}
+                        </span>
+                      )}
+                      {p.overpaidAmount > 0 && p.overpaymentType === 'gift' && (
+                        <span className="flex items-center gap-1 text-xs text-purple-600">
+                          <Gift className="size-3" />Хадия: {formatAmount(p.overpaidAmount)}
+                        </span>
+                      )}
+                    </div>
+                    {p.note && <p className="text-xs text-slate-400 mt-1">{p.note}</p>}
+                    <p className="text-[10px] text-slate-400 mt-1">{fmtDate(p.paidAt)}</p>
                   </div>
-                  <div className="flex gap-4 text-sm mb-3">
-                    {p.expectedAmount > 0 && <span className="text-slate-500">Начислено: <span className="font-medium text-slate-800">{formatAmount(p.expectedAmount)}</span></span>}
-                    <span className="text-slate-500">Оплачено: <span className="font-semibold text-emerald-700">{formatAmount(p.paidAmount)}</span></span>
-                    {rem > 0 && <span className="text-slate-500">Остаток: <span className="font-semibold text-amber-600">{formatAmount(rem)}</span></span>}
-                  </div>
-                  <div className="flex gap-2">
-                    {(p.status === 'unpaid' || p.status === 'partial') && (
-                      <button onClick={() => setAcceptPaymentMonth(p.month)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700">
-                        <Wallet className="size-3.5" /> Принять оплату
-                      </button>
-                    )}
-                    <button onClick={() => deleteFamilyPayment(p.id)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-400 hover:bg-red-50 hover:border-red-200 hover:text-red-500">
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => { setEditPayment(p); setOpenPaymentFor('edit'); }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+                      <Edit2 className="size-3.5" />
+                    </button>
+                    <button onClick={() => setDeletingPaymentId(p.id)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors">
                       <Trash2 className="size-3.5" />
                     </button>
                   </div>
                 </div>
-              );
-            })
+                {/* Distribution breakdown */}
+                {!isStudentPay && p.distribution && p.distribution.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1">
+                    {p.distribution.map((d) => {
+                      const st = students.find((s) => s.id === d.studentId);
+                      return (
+                        <span key={d.studentId} className="text-[10px] text-slate-400">
+                          {st?.fullName.split(' ')[0] ?? '?'}: {formatAmount(d.amount)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Legacy FamilyPayments */}
+          {legacyPayments.length > 0 && (
+            <>
+              {supportPayments.length > 0 && (
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide pt-2">Прежние записи</p>
+              )}
+              {legacyPayments.map((p) => {
+                const sc = STATUS_COLORS[p.status];
+                const rem = Math.max(0, p.expectedAmount - p.paidAmount);
+                return (
+                  <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-4 opacity-80">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <p className="font-semibold text-slate-800">{formatMonth(p.month)}</p>
+                        {p.paymentMethod && <p className="text-xs text-slate-400 mt-0.5">{PAYMENT_METHOD_LABELS[p.paymentMethod]}{p.comment ? ` · ${p.comment}` : ''}</p>}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className={cn('text-xs font-medium px-2.5 py-1 rounded-full', sc.badge)}>
+                          {PAYMENT_STATUS_LABELS[p.status]}
+                        </span>
+                        <button onClick={() => deleteFamilyPayment(p.id)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors">
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex gap-4 text-sm">
+                      {p.expectedAmount > 0 && <span className="text-slate-500">Начислено: <span className="font-medium text-slate-800">{formatAmount(p.expectedAmount)}</span></span>}
+                      <span className="text-slate-500">Оплачено: <span className="font-semibold text-emerald-700">{formatAmount(p.paidAmount)}</span></span>
+                      {rem > 0 && <span className="text-slate-500">Остаток: <span className="font-semibold text-amber-600">{formatAmount(rem)}</span></span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {supportPayments.length === 0 && legacyPayments.length === 0 && (
+            <div className="text-center py-10 bg-slate-50 rounded-2xl">
+              <Wallet className="size-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-slate-500 text-sm">Оплат ещё не было</p>
+              <button onClick={() => openPaymentModal('family')}
+                className="mt-3 text-sm text-emerald-600 hover:underline">
+                Внести первую оплату
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -773,18 +966,12 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
           ) : (
             history.map((h) => {
               const actionLabels: Record<string, string> = {
-                created: 'Начислено',
-                updated: 'Обновлено',
-                paid: 'Оплачено',
-                partial_paid: 'Частично оплачено',
-                refund: 'Возврат',
+                created: 'Начислено', updated: 'Обновлено', paid: 'Оплачено',
+                partial_paid: 'Частично оплачено', refund: 'Возврат',
               };
               const actionColors: Record<string, string> = {
-                created: 'text-blue-600',
-                updated: 'text-slate-600',
-                paid: 'text-emerald-600',
-                partial_paid: 'text-amber-600',
-                refund: 'text-red-500',
+                created: 'text-blue-600', updated: 'text-slate-600', paid: 'text-emerald-600',
+                partial_paid: 'text-amber-600', refund: 'text-red-500',
               };
               return (
                 <div key={h.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
@@ -805,7 +992,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
         </div>
       )}
 
-      {/* Delete confirm */}
+      {/* Delete family confirm */}
       {showDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowDelete(false)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
@@ -821,10 +1008,10 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
             <div className="bg-slate-50 rounded-xl p-3 mb-4">
               <p className="font-semibold text-slate-800">{family.name}</p>
               <p className="text-xs text-slate-500 mt-0.5">
-                {familyStudents.length} {familyStudents.length === 1 ? 'ученик' : 'учеников'} · {payments.length} платежей
+                {familyStudents.length} учеников · {supportPayments.length + legacyPayments.length} оплат
               </p>
             </div>
-            <p className="text-sm text-slate-500 mb-5">Семья будет удалена, но ученики останутся в системе. История оплат будет удалена.</p>
+            <p className="text-sm text-slate-500 mb-5">Ученики останутся в системе. История оплат будет удалена.</p>
             <div className="flex gap-3">
               <button onClick={() => setShowDelete(false)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
               <button onClick={() => { deleteFamily(familyId); router.push('/support'); }}
@@ -836,17 +1023,56 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
         </div>
       )}
 
+      {/* Delete payment confirm */}
+      {deletingPaymentId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDeletingPaymentId(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="size-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                <Trash2 className="size-5 text-red-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Удалить оплату?</h2>
+                <p className="text-sm text-slate-500">После удаления суммы будут пересчитаны</p>
+              </div>
+            </div>
+            {(() => {
+              const p = supportPayments.find((x) => x.id === deletingPaymentId);
+              return p ? (
+                <div className="bg-slate-50 rounded-xl p-3 mb-4">
+                  <p className="font-semibold text-slate-800">{formatAmount(p.amount)}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{formatMonth(p.month)} · {fmtDate(p.paidAt)}</p>
+                </div>
+              ) : null;
+            })()}
+            <div className="flex gap-3">
+              <button onClick={() => setDeletingPaymentId(null)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+              <button onClick={() => { deleteSupportPayment(deletingPaymentId); setDeletingPaymentId(null); }}
+                className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 flex items-center justify-center gap-1.5">
+                <Trash2 className="size-4" /> Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modals */}
-      {acceptPaymentMonth && (
-        <AcceptPaymentModal
-          familyId={familyId}
-          month={acceptPaymentMonth}
-          expectedAmount={acceptingExpected}
-          paidAmount={acceptingPaid}
-          onClose={() => setAcceptPaymentMonth(null)}
+      {showEdit && <EditFamilyModal familyId={familyId} onClose={() => setShowEdit(false)} />}
+
+      {/* Payment form modal */}
+      {(openPaymentFor !== null || editPayment !== null) && (
+        <PaymentFormModal
+          family={family}
+          familyStudents={familyStudents}
+          allSupportPayments={supportPayments}
+          currentMonth={currentMonth}
+          preselectedStudentId={openPaymentFor !== null && openPaymentFor !== 'family' && openPaymentFor !== 'edit' ? openPaymentFor : undefined}
+          editPayment={editPayment ?? undefined}
+          onClose={() => { setOpenPaymentFor(null); setEditPayment(null); }}
+          onCreate={(input) => createSupportPayment(input)}
+          onUpdate={(id, patch) => updateSupportPayment(id, patch)}
         />
       )}
-      {showEdit && <EditFamilyModal familyId={familyId} onClose={() => setShowEdit(false)} />}
     </div>
   );
 }

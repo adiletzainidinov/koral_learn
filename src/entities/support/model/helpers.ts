@@ -1,5 +1,6 @@
 import type {
   SupportPlanType, PaymentStatus, SupportPlan, LessonType, LessonSelection, Family,
+  SupportPayment, SupportPaymentDistribution,
 } from './types';
 
 const MONTHS = [
@@ -236,6 +237,43 @@ export function getReminderMessage(parentName: string, remaining: number, month:
   const [year, m] = month.split('-');
   const monthName = MONTHS[Number(m) - 1] ?? month;
   return `Ассаламу алейкум! Напоминаем, что за ${monthName} ${year} осталось оплатить ${formatAmount(remaining)} за обучение детей. Спасибо за поддержку обучения Корана.`;
+}
+
+// ─── SupportPayment helpers ───────────────────────────────────────────────────
+
+/** Sum of appliedAmount for a given student across the provided payment list. */
+export function getStudentMonthPaid(studentId: string, payments: SupportPayment[]): number {
+  let total = 0;
+  for (const p of payments) {
+    if (p.studentId === studentId) {
+      total += p.appliedAmount;
+    } else if (!p.studentId && p.distribution) {
+      const d = p.distribution.find((x) => x.studentId === studentId);
+      if (d) total += d.amount;
+    }
+  }
+  return total;
+}
+
+/**
+ * Distribute appliedAmount sequentially among students with outstanding debt.
+ * Students are iterated in the order provided.
+ */
+export function distributeAmongStudents(
+  appliedAmount: number,
+  students: Array<{ id: string; expectedAmount: number; alreadyPaid: number }>
+): SupportPaymentDistribution[] {
+  const result: SupportPaymentDistribution[] = [];
+  let rem = appliedAmount;
+  for (const s of students) {
+    if (rem <= 0) break;
+    const need = Math.max(0, s.expectedAmount - s.alreadyPaid);
+    if (need <= 0) continue;
+    const give = Math.min(rem, need);
+    result.push({ studentId: s.id, amount: give });
+    rem -= give;
+  }
+  return result;
 }
 
 export function getThankYouMessage(parentName: string, month: string): string {
