@@ -437,38 +437,30 @@ function LessonsTab({
   onToggleBadge: (studentId: string) => void;
   onAcceptStudentPayment: (studentId: string) => void;
 }) {
-  if (!family) return null;
-
-  const initSelections = (): Map<string, { lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }> => {
+  const [configs, setConfigs] = useState<Map<string, { lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>>(() => {
     const m = new Map<string, { lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>();
     for (const s of familyStudents) {
-      const existing = family.lessonSelections?.find((ls) => ls.studentId === s.id);
+      const existing = family?.lessonSelections?.find((ls) => ls.studentId === s.id);
       m.set(s.id, existing
         ? { lessonType: existing.lessonType, planType: existing.planType, monthlyAmount: existing.monthlyAmount }
-        : { lessonType: 'quran_group', planType: family.supportPlanType, monthlyAmount: getSelectionAmount(family.supportPlanType) }
+        : { lessonType: 'quran_group', planType: family?.supportPlanType ?? 'family_support', monthlyAmount: getSelectionAmount(family?.supportPlanType ?? 'family_support') }
       );
     }
     return m;
-  };
+  });
+  const [lastSaved, setLastSaved] = useState<number | null>(null);
 
-  const [configs, setConfigs] = useState<Map<string, { lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>>(initSelections);
-  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    if (!lastSaved) return;
+    const t = setTimeout(() => setLastSaved(null), 2000);
+    return () => clearTimeout(t);
+  }, [lastSaved]);
 
-  function updateConfig(studentId: string, patch: Partial<{ lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>) {
-    setConfigs((prev) => {
-      const next = new Map(prev);
-      const old = next.get(studentId) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
-      const updated = { ...old, ...patch };
-      if (patch.planType && patch.planType !== 'custom') updated.monthlyAmount = getSelectionAmount(patch.planType);
-      next.set(studentId, updated);
-      return next;
-    });
-    setSaved(false);
-  }
+  if (!family) return null;
 
-  function handleSave() {
-    const selections: LessonSelection[] = familyStudents.map((s) => {
-      const cfg = configs.get(s.id) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
+  function buildSelections(map: typeof configs): LessonSelection[] {
+    return familyStudents.map((s) => {
+      const cfg = map.get(s.id) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
       const existing = family?.lessonSelections?.find((ls) => ls.studentId === s.id);
       return {
         id: existing?.id ?? generateId(),
@@ -481,9 +473,17 @@ function LessonsTab({
         badgeGivenAt: existing?.badgeGivenAt,
       };
     });
-    onSave(selections);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  }
+
+  function updateConfig(studentId: string, patch: Partial<{ lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>) {
+    const next = new Map(configs);
+    const old = next.get(studentId) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
+    const updated = { ...old, ...patch };
+    if (patch.planType && patch.planType !== 'custom') updated.monthlyAmount = getSelectionAmount(patch.planType);
+    next.set(studentId, updated);
+    setConfigs(next);
+    onSave(buildSelections(next));
+    setLastSaved(Date.now());
   }
 
   if (familyStudents.length === 0) {
@@ -497,6 +497,15 @@ function LessonsTab({
 
   return (
     <div className="space-y-3">
+      <div className="flex justify-end">
+        <span className={cn(
+          'text-xs transition-opacity duration-500',
+          lastSaved ? 'text-emerald-500 opacity-100' : 'text-slate-400 opacity-50'
+        )}>
+          {lastSaved ? '✓ Сохранено' : 'Изменения сохраняются автоматически'}
+        </span>
+      </div>
+
       {familyStudents.map((s) => {
         const cfg = configs.get(s.id) ?? { lessonType: 'quran_group' as LessonType, planType: 'family_support' as SupportPlanType, monthlyAmount: 1000 };
         const c = PLAN_COLORS[cfg.planType];
@@ -621,14 +630,6 @@ function LessonsTab({
           </div>
         );
       })}
-
-      <button onClick={handleSave}
-        className={cn(
-          'w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors',
-          saved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-emerald-600 text-white hover:bg-emerald-700'
-        )}>
-        {saved ? <><Check className="size-4" />Сохранено</> : <>Сохранить настройки</>}
-      </button>
     </div>
   );
 }
