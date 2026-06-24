@@ -11,10 +11,10 @@ import {
 } from 'lucide-react';
 import {
   useAppStore, useFamilyById, useStudents, useFamilyPaymentsByFamilyId,
-  usePaymentHistoryByFamilyId, useFamilyParent, useParents,
-  useSupportPaymentsByFamilyId,
+  usePaymentHistoryByFamilyId, useFamilyPrimaryContact, useFamilyContacts,
+  useSupportPaymentsByFamilyId, useFamilyContactLinks,
 } from '@/store/app-store';
-import { formatWhatsappLink } from '@/entities/parent/model/helpers';
+import { formatWhatsappLink, getContactInitials, formatContactRelation } from '@/entities/family-contact/model/helpers';
 import {
   SUPPORT_PLANS, PLAN_COLORS, STATUS_COLORS, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS,
   calculateFamilyExpectedAmount, getSelectionAmount,
@@ -59,11 +59,10 @@ function getMonthOptions(currentMonth: string) {
 
 function EditFamilyModal({ familyId, onClose }: { familyId: string; onClose: () => void }) {
   const family = useFamilyById(familyId);
-  const parents = useParents();
+  const primaryContact = useFamilyPrimaryContact(familyId);
   const updateFamily = useAppStore((s) => s.updateFamily);
   const [notes, setNotes] = useState(family?.notes ?? '');
   if (!family) return null;
-  const parent = parents.find((p) => p.id === family.parentId);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
@@ -72,14 +71,14 @@ function EditFamilyModal({ familyId, onClose }: { familyId: string; onClose: () 
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X className="size-5" /></button>
         </div>
         <div className="space-y-4">
-          {parent && (
+          {primaryContact && (
             <div className="px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2">
               <UserRound className="size-4 text-emerald-600 shrink-0" />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-slate-800 truncate">{parent.fullName}</p>
-                <p className="text-xs text-slate-500">{parent.whatsapp}</p>
+                <p className="text-sm font-medium text-slate-800 truncate">{primaryContact.fullName}</p>
+                <p className="text-xs text-slate-500">{primaryContact.whatsapp}</p>
               </div>
-              <Link href={`/parents/${parent.id}`} className="ml-auto text-xs text-emerald-600 hover:underline font-medium shrink-0">Открыть</Link>
+              <Link href={`/parents/${primaryContact.id}`} className="ml-auto text-xs text-emerald-600 hover:underline font-medium shrink-0">Открыть</Link>
             </div>
           )}
           <div>
@@ -1159,13 +1158,165 @@ function LessonsTab({
   );
 }
 
+// ─── Contacts Tab ─────────────────────────────────────────────────────────────
+
+function ContactsTab({ familyId }: { familyId: string }) {
+  const family = useFamilyById(familyId);
+  const contacts = useFamilyContacts(familyId);
+  const links = useFamilyContactLinks(familyId);
+  const students = useStudents();
+  const setFamilyPrimaryContact = useAppStore((s) => s.setFamilyPrimaryContact);
+  const setFamilyBillingContact = useAppStore((s) => s.setFamilyBillingContact);
+  const archiveFamilyContact = useAppStore((s) => s.archiveFamilyContact);
+
+  if (!family) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-slate-500">
+          Управляйте представителями семьи, их связями с учениками и ролями.
+        </p>
+        <Link
+          href={`/parents/new?familyId=${familyId}`}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors"
+        >
+          + Добавить представителя
+        </Link>
+      </div>
+
+      {contacts.length === 0 && (
+        <div className="text-center py-10 bg-slate-50 rounded-2xl">
+          <UserRound className="size-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-slate-500 text-sm">Контактов ещё нет</p>
+          <Link
+            href={`/parents/new?familyId=${familyId}`}
+            className="mt-2 inline-block text-sm text-emerald-600 hover:underline"
+          >
+            Добавить первого представителя
+          </Link>
+        </div>
+      )}
+
+      {contacts.map((contact) => {
+        const isPrimary = family.primaryContactId === contact.id;
+        const isBilling = family.billingContactId === contact.id;
+        const contactLinks = links.filter((l) => l.contactId === contact.id);
+        return (
+          <div key={contact.id} className="bg-white rounded-2xl border border-slate-200 p-4">
+            <div className="flex items-start gap-3">
+              <div className="size-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-sm font-bold shrink-0">
+                {getContactInitials(contact.fullName)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Link
+                    href={`/parents/${contact.id}`}
+                    className="font-semibold text-slate-900 hover:text-emerald-700"
+                  >
+                    {contact.fullName}
+                  </Link>
+                  {isPrimary && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700">
+                      Основной
+                    </span>
+                  )}
+                  {isBilling && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700">
+                      Платит
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
+                  {contact.whatsapp && (
+                    <a
+                      href={formatWhatsappLink(contact.whatsapp)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-green-600 hover:underline"
+                    >
+                      <MessageCircle className="size-3" />WA
+                    </a>
+                  )}
+                  {contact.phone && (
+                    <a href={`tel:${contact.phone}`} className="flex items-center gap-1">
+                      <Phone className="size-3" />{contact.phone}
+                    </a>
+                  )}
+                </div>
+                {contactLinks.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-slate-100">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">
+                      Привязан к
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {contactLinks.map((link) => {
+                        const student = students.find((s) => s.id === link.studentId);
+                        if (!student) return null;
+                        return (
+                          <span
+                            key={link.id}
+                            className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600"
+                          >
+                            {student.fullName.split(' ')[0]} · {formatContactRelation(link)}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <button
+                  onClick={() => setFamilyPrimaryContact(familyId, contact.id)}
+                  disabled={isPrimary}
+                  className={cn(
+                    'text-xs px-2 py-1 rounded-lg border transition-colors',
+                    isPrimary
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-600 cursor-not-allowed'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  )}
+                  title="Сделать основным"
+                >
+                  {isPrimary ? 'Основной' : 'Сделать основным'}
+                </button>
+                <button
+                  onClick={() => setFamilyBillingContact(familyId, contact.id)}
+                  disabled={isBilling}
+                  className={cn(
+                    'text-xs px-2 py-1 rounded-lg border transition-colors',
+                    isBilling
+                      ? 'border-blue-200 bg-blue-50 text-blue-600 cursor-not-allowed'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  )}
+                  title="Сделать плательщиком"
+                >
+                  {isBilling ? 'Платит' : 'Сделать плательщиком'}
+                </button>
+                {!isPrimary && !isBilling && (
+                  <button
+                    onClick={() => archiveFamilyContact(contact.id)}
+                    className="text-xs px-2 py-1 rounded-lg border border-slate-200 text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition-colors"
+                  >
+                    В архив
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Main Widget ──────────────────────────────────────────────────────────────
 
 export function FamilyDetail({ familyId }: { familyId: string }) {
   const hydrated = useHydrated();
   const router = useRouter();
   const family = useFamilyById(familyId);
-  const parent = useFamilyParent(familyId);
+  const parent = useFamilyPrimaryContact(familyId);
   const students = useStudents();
   const legacyPayments = useFamilyPaymentsByFamilyId(familyId);
   const supportPayments = useSupportPaymentsByFamilyId(familyId);
@@ -1175,7 +1326,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
     createSupportPayment, updateSupportPayment, deleteSupportPayment, applyAdvanceToMonth,
   } = useAppStore();
 
-  const [tab, setTab] = useState<'lessons' | 'payments' | 'history'>('lessons');
+  const [tab, setTab] = useState<'lessons' | 'contacts' | 'payments' | 'history'>('lessons');
   const [showDelete, setShowDelete] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -1372,6 +1523,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
       <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1 mb-5 w-fit">
         {([
           { key: 'lessons', label: 'Уроки' },
+          { key: 'contacts', label: `Контакты (${family.contactIds.length})` },
           { key: 'payments', label: `Оплаты (${supportPayments.length + legacyPayments.length})` },
           { key: 'history', label: `История (${history.length})` },
         ] as const).map(({ key, label }) => (
@@ -1394,6 +1546,11 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
           onSave={(selections) => updateFamilyLessonSelections(familyId, selections)}
           onToggleBadge={(studentId) => toggleStudentBadge(familyId, studentId)}
         />
+      )}
+
+      {/* Contacts tab */}
+      {tab === 'contacts' && (
+        <ContactsTab familyId={familyId} />
       )}
 
       {/* Payments tab */}

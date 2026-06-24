@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { X, Check } from 'lucide-react';
-import { useAppStore, useFamilies } from '@/store/app-store';
+import { useAppStore, useFamilies, useFamilyContacts } from '@/store/app-store';
 import type { PaymentMethod } from '@/entities/support/model/types';
 import {
   calculateFamilyExpectedAmount,
@@ -19,17 +19,29 @@ interface Props {
   onClose: () => void;
 }
 
+const PAID_BY_OTHER = '__other__';
+const PAID_BY_NONE = '';
+
 export function SupportPaymentModal({ familyId, month, onClose }: Props) {
   const families = useFamilies();
   const allSupportPayments = useAppStore((s) => s.supportPayments);
   const createSupportPayment = useAppStore((s) => s.createSupportPayment);
+  const familyContacts = useFamilyContacts(familyId);
 
   const family = families.find((f) => f.id === familyId);
-  const familyPayments = allSupportPayments.filter((p) => p.familyId === familyId);
+  const familyPayments = useMemo(
+    () => allSupportPayments.filter((p) => p.familyId === familyId),
+    [allSupportPayments, familyId]
+  );
 
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [comment, setComment] = useState('');
+  const [paidBy, setPaidBy] = useState<string>(() => {
+    if (!family) return PAID_BY_NONE;
+    return family.billingContactId ?? family.primaryContactId ?? PAID_BY_NONE;
+  });
+  const [paidByOtherName, setPaidByOtherName] = useState('');
 
   if (!family) return null;
 
@@ -40,6 +52,13 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
 
   function handleSubmit() {
     if (numAmount <= 0) return;
+    let paidByContactId: string | undefined;
+    let paidByNameSnapshot: string | undefined;
+    if (paidBy === PAID_BY_OTHER) {
+      paidByNameSnapshot = paidByOtherName.trim() || undefined;
+    } else if (paidBy && paidBy !== PAID_BY_NONE) {
+      paidByContactId = paidBy;
+    }
     createSupportPayment({
       familyId,
       month,
@@ -48,6 +67,8 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
       overpaidAmount: 0,
       method,
       note: comment || undefined,
+      paidByContactId,
+      paidByNameSnapshot,
     });
     onClose();
   }
@@ -126,6 +147,62 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
             className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 font-medium text-slate-900"
             autoFocus
           />
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">
+            Кто внёс оплату?
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPaidBy(PAID_BY_NONE)}
+              className={cn(
+                'px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors',
+                paidBy === PAID_BY_NONE
+                  ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+              )}
+            >
+              Не указано
+            </button>
+            {familyContacts.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setPaidBy(c.id)}
+                className={cn(
+                  'px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors',
+                  paidBy === c.id
+                    ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                {c.fullName.split(' ')[0]}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setPaidBy(PAID_BY_OTHER)}
+              className={cn(
+                'px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors',
+                paidBy === PAID_BY_OTHER
+                  ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+              )}
+            >
+              Другой человек
+            </button>
+          </div>
+          {paidBy === PAID_BY_OTHER && (
+            <input
+              type="text"
+              placeholder="Имя плательщика"
+              value={paidByOtherName}
+              onChange={(e) => setPaidByOtherName(e.target.value)}
+              className="w-full mt-2 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+          )}
         </div>
 
         <div className="mb-4">

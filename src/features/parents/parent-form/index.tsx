@@ -1,15 +1,19 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, User, Phone, MapPin, FileText, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, User, Phone, FileText, AlertTriangle, UserRound } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Select } from '@/shared/ui/select';
 import { Card } from '@/shared/ui/card';
-import { useAppStore } from '@/store/app-store';
-import type { PreferredContact } from '@/entities/parent/model/types';
-import { PREFERRED_CONTACT_LABELS, PARENT_RELATION_OPTIONS } from '@/entities/parent/model/types';
+import { Modal } from '@/shared/ui/modal';
+import { useAppStore, useAllFamilyContacts, useFamilies } from '@/store/app-store';
+import {
+  PREFERRED_CONTACT_METHOD_LABELS,
+  type PreferredContactMethod,
+} from '@/entities/family-contact/model/types';
+import { normalizePhone, getContactInitials } from '@/entities/family-contact/model/helpers';
 
 interface FormState {
   fullName: string;
@@ -17,10 +21,9 @@ interface FormState {
   phone: string;
   telegram: string;
   instagram: string;
-  address: string;
-  relation: string;
-  preferredContact: PreferredContact | '';
+  preferredContact: PreferredContactMethod | '';
   notes: string;
+  familyId: string;
 }
 
 const INITIAL: FormState = {
@@ -29,20 +32,20 @@ const INITIAL: FormState = {
   phone: '',
   telegram: '',
   instagram: '',
-  address: '',
-  relation: '',
   preferredContact: '',
   notes: '',
+  familyId: '',
 };
 
 interface Errors {
   fullName?: string;
   whatsapp?: string;
+  familyId?: string;
 }
 
 const PREFERRED_CONTACT_OPTIONS = [
   { value: '', label: 'Не указано' },
-  ...Object.entries(PREFERRED_CONTACT_LABELS).map(([value, label]) => ({ value, label })),
+  ...Object.entries(PREFERRED_CONTACT_METHOD_LABELS).map(([value, label]) => ({ value, label })),
 ];
 
 function Section({
@@ -66,43 +69,47 @@ function Section({
 
 interface Props {
   mode?: 'create' | 'edit';
-  parentId?: string;
+  /** ID of FamilyContact (URL still uses `parentId` slug) */
+  contactId?: string;
+  /** Preset family for new contacts (e.g. from family detail page) */
+  initialFamilyId?: string;
 }
 
-export function ParentForm({ mode = 'create', parentId }: Props) {
+export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Props) {
   const router = useRouter();
-  const parents = useAppStore((s) => s.parents);
-  const createParent = useAppStore((s) => s.createParent);
-  const updateParent = useAppStore((s) => s.updateParent);
+  const contacts = useAllFamilyContacts();
+  const families = useFamilies();
+  const createFamilyContact = useAppStore((s) => s.createFamilyContact);
+  const updateFamilyContact = useAppStore((s) => s.updateFamilyContact);
 
-  const [form, setForm] = useState<FormState>(INITIAL);
+  const [form, setForm] = useState<FormState>({ ...INITIAL, familyId: initialFamilyId ?? '' });
   const [errors, setErrors] = useState<Errors>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [duplicateMatch, setDuplicateMatch] = useState<null | { id: string; fullName: string }>(null);
   const hasLoaded = useRef(false);
   const fullNameRef = useRef<HTMLInputElement>(null);
   const whatsappRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (mode !== 'edit' || !parentId || hasLoaded.current) return;
-    const parent = parents.find((p) => p.id === parentId);
-    if (!parent) { setNotFound(true); return; }
+    if (mode !== 'edit' || !contactId || hasLoaded.current) return;
+    const contact = contacts.find((c) => c.id === contactId);
+    if (!contact) { setNotFound(true); return; }
     hasLoaded.current = true;
     setForm({
-      fullName: parent.fullName,
-      whatsapp: parent.whatsapp,
-      phone: parent.phone ?? '',
-      telegram: parent.telegram ?? '',
-      instagram: parent.instagram ?? '',
-      address: parent.address ?? '',
-      relation: parent.relation ?? '',
-      preferredContact: parent.preferredContact ?? '',
-      notes: parent.notes ?? parent.description ?? '',
+      fullName: contact.fullName,
+      whatsapp: contact.whatsapp,
+      phone: contact.phone ?? '',
+      telegram: contact.telegram ?? '',
+      instagram: contact.instagram ?? '',
+      preferredContact: contact.preferredContact ?? '',
+      notes: contact.notes ?? '',
+      familyId: contact.familyId,
     });
     setIsDirty(false);
-  }, [mode, parentId, parents]);
+  }, [mode, contactId, contacts]);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -116,10 +123,19 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
     setIsDirty(true);
   }, []);
 
+  const familyOptions = useMemo(
+    () => [
+      { value: '', label: 'Выберите семью...' },
+      ...families.map((f) => ({ value: f.id, label: f.name })),
+    ],
+    [families]
+  );
+
   function validate(): boolean {
     const errs: Errors = {};
-    if (!form.fullName.trim()) errs.fullName = 'Введите имя родителя';
+    if (!form.fullName.trim()) errs.fullName = 'Введите имя представителя';
     if (!form.whatsapp.trim()) errs.whatsapp = 'Введите WhatsApp номер';
+    if (mode === 'create' && !form.familyId) errs.familyId = 'Выберите семью';
     setErrors(errs);
     if (errs.fullName) fullNameRef.current?.focus();
     else if (errs.whatsapp) whatsappRef.current?.focus();
@@ -130,37 +146,54 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   }
 
-  function handleSubmit() {
-    setHasAttemptedSubmit(true);
-    if (!validate()) return;
-    setSaving(true);
+  function findDuplicate(): { id: string; fullName: string } | null {
+    const normWA = normalizePhone(form.whatsapp);
+    if (!normWA) return null;
+    const match = contacts.find(
+      (c) => c.id !== contactId && normalizePhone(c.whatsapp) === normWA
+    );
+    return match ? { id: match.id, fullName: match.fullName } : null;
+  }
 
+  function doSubmit() {
+    setSaving(true);
     const payload = {
       fullName: form.fullName.trim(),
       whatsapp: form.whatsapp.trim(),
       phone: form.phone.trim() || undefined,
       telegram: form.telegram.trim() || undefined,
       instagram: form.instagram.trim() || undefined,
-      address: form.address.trim() || undefined,
-      relation: form.relation.trim() || undefined,
-      preferredContact: (form.preferredContact || undefined) as PreferredContact | undefined,
+      preferredContact: (form.preferredContact || undefined) as PreferredContactMethod | undefined,
       notes: form.notes.trim() || undefined,
     };
 
-    if (mode === 'edit' && parentId) {
-      updateParent(parentId, payload);
+    if (mode === 'edit' && contactId) {
+      updateFamilyContact(contactId, payload);
       setIsDirty(false);
-      router.push(`/parents/${parentId}`);
+      router.push(`/parents/${contactId}`);
     } else {
-      const id = createParent(payload);
+      const id = createFamilyContact({ familyId: form.familyId, ...payload });
       setIsDirty(false);
       router.push(`/parents/${id}`);
     }
   }
 
+  function handleSubmit() {
+    setHasAttemptedSubmit(true);
+    if (!validate()) return;
+    if (mode === 'create') {
+      const dup = findDuplicate();
+      if (dup) {
+        setDuplicateMatch(dup);
+        return;
+      }
+    }
+    doSubmit();
+  }
+
   function handleCancel() {
     if (isDirty && !confirm('Есть несохранённые изменения. Покинуть страницу?')) return;
-    if (mode === 'edit' && parentId) router.push(`/parents/${parentId}`);
+    if (mode === 'edit' && contactId) router.push(`/parents/${contactId}`);
     else router.push('/parents');
   }
 
@@ -168,7 +201,7 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <AlertTriangle className="size-8 text-red-400" />
-        <p className="text-lg font-semibold text-slate-700">Родитель не найден</p>
+        <p className="text-lg font-semibold text-slate-700">Представитель не найден</p>
         <Button variant="outline" onClick={() => router.push('/parents')}>
           <ArrowLeft className="size-4" />Назад к списку
         </Button>
@@ -190,10 +223,10 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
           </button>
           <div>
             <h1 className="text-xl font-bold text-slate-900">
-              {mode === 'edit' ? 'Редактировать родителя' : 'Новый родитель'}
+              {mode === 'edit' ? 'Редактировать представителя' : 'Новый представитель'}
             </h1>
             <p className="text-sm text-slate-500">
-              {mode === 'edit' ? 'Измените данные и сохраните' : 'Заполните информацию о родителе'}
+              {mode === 'edit' ? 'Измените данные и сохраните' : 'Заполните информацию о представителе семьи'}
             </p>
           </div>
         </div>
@@ -206,15 +239,31 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
           <p className="text-sm text-red-700">
             Заполните обязательные поля:{' '}
             <span className="font-medium">
-              {[errors.fullName && 'Полное имя', errors.whatsapp && 'WhatsApp']
-                .filter(Boolean).join(', ')}
+              {[
+                errors.fullName && 'Полное имя',
+                errors.whatsapp && 'WhatsApp',
+                errors.familyId && 'Семья',
+              ].filter(Boolean).join(', ')}
             </span>
           </p>
         </div>
       )}
 
+      {/* Family selector (only in create) */}
+      {mode === 'create' && (
+        <Section icon={<UserRound className="size-4" />} title="Семья" description="К какой семье относится этот представитель">
+          <Select
+            label="Семья *"
+            options={familyOptions}
+            value={form.familyId}
+            onChange={(e) => { upd('familyId', e.target.value); clearError('familyId'); }}
+          />
+          {errors.familyId && <p className="text-xs text-red-500 mt-1">{errors.familyId}</p>}
+        </Section>
+      )}
+
       {/* Section 1: Basic info */}
-      <Section icon={<User className="size-4" />} title="Основная информация" description="Имя, роль и предпочтительный способ связи">
+      <Section icon={<User className="size-4" />} title="Основная информация" description="Имя и предпочтительный способ связи">
         <div className="flex flex-col gap-4">
           <Input
             ref={fullNameRef}
@@ -224,30 +273,12 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
             onChange={(e) => { upd('fullName', e.target.value); clearError('fullName'); }}
             error={errors.fullName}
           />
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-slate-700">Кем приходится</label>
-              <input
-                list="parent-relation-datalist"
-                value={form.relation}
-                onChange={(e) => upd('relation', e.target.value)}
-                placeholder="Мама, Папа, Бабушка или свой вариант"
-                className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-              />
-              <datalist id="parent-relation-datalist">
-                {PARENT_RELATION_OPTIONS.map((option) => (
-                  <option key={option} value={option} />
-                ))}
-              </datalist>
-              <p className="text-[11px] text-slate-400">Выберите из списка или напишите свой вариант</p>
-            </div>
-            <Select
-              label="Предпочтительный контакт"
-              options={PREFERRED_CONTACT_OPTIONS}
-              value={form.preferredContact}
-              onChange={(e) => upd('preferredContact', e.target.value as PreferredContact | '')}
-            />
-          </div>
+          <Select
+            label="Предпочтительный контакт"
+            options={PREFERRED_CONTACT_OPTIONS}
+            value={form.preferredContact}
+            onChange={(e) => upd('preferredContact', e.target.value as PreferredContactMethod | '')}
+          />
         </div>
       </Section>
 
@@ -283,18 +314,8 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
         </div>
       </Section>
 
-      {/* Section 3: Address */}
-      <Section icon={<MapPin className="size-4" />} title="Адрес" description="Место проживания семьи">
-        <Input
-          label="Адрес"
-          placeholder="г. Бишкек, ул. Токтогула, д. 14"
-          value={form.address}
-          onChange={(e) => upd('address', e.target.value)}
-        />
-      </Section>
-
-      {/* Section 4: Notes */}
-      <Section icon={<FileText className="size-4" />} title="Заметки" description="Дополнительная информация о родителе">
+      {/* Section 3: Notes */}
+      <Section icon={<FileText className="size-4" />} title="Заметки" description="Дополнительная информация о представителе">
         <textarea
           placeholder="Например: всегда на связи, предпочитает WhatsApp, важные особенности общения..."
           value={form.notes}
@@ -318,10 +339,53 @@ export function ParentForm({ mode = 'create', parentId }: Props) {
           <Button variant="outline" onClick={handleCancel}>Отмена</Button>
           <Button onClick={handleSubmit} loading={saving}>
             <Save className="size-4" />
-            {mode === 'edit' ? 'Сохранить изменения' : 'Сохранить родителя'}
+            {mode === 'edit' ? 'Сохранить изменения' : 'Сохранить'}
           </Button>
         </div>
       </div>
+
+      {/* Duplicate detection modal */}
+      <Modal
+        isOpen={duplicateMatch !== null}
+        onClose={() => setDuplicateMatch(null)}
+        size="sm"
+        title="Возможно, такой представитель уже существует"
+        description={
+          duplicateMatch
+            ? `«${duplicateMatch.fullName}» уже зарегистрирован с этим номером WhatsApp.`
+            : undefined
+        }
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDuplicateMatch(null)}>Отмена</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const id = duplicateMatch?.id;
+                setDuplicateMatch(null);
+                if (id) router.push(`/parents/${id}`);
+              }}
+            >
+              Использовать существующего
+            </Button>
+            <Button onClick={() => { setDuplicateMatch(null); doSubmit(); }}>
+              Всё равно создать
+            </Button>
+          </>
+        }
+      >
+        {duplicateMatch && (
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div className="size-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">
+              {getContactInitials(duplicateMatch.fullName)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-900 truncate">{duplicateMatch.fullName}</p>
+              <p className="text-xs text-slate-500">WhatsApp: {form.whatsapp}</p>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

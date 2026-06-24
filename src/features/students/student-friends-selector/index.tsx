@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, X, Users } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
-import { formatWhatsappLink } from '@/entities/parent/model/helpers';
+import { formatWhatsappLink } from '@/entities/family-contact/model/helpers';
 import type { Student } from '@/entities/student/model/types';
 
 // ─── Selected friend card ─────────────────────────────────────────────────────

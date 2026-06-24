@@ -1,5 +1,10 @@
 import { ParentForm } from '@/features/parents/parent-form';
 
-export default function NewParentPage() {
-  return <ParentForm mode="create" />;
+interface Props {
+  searchParams: Promise<{ familyId?: string }>;
+}
+
+export default async function NewParentPage({ searchParams }: Props) {
+  const { familyId } = await searchParams;
+  return <ParentForm mode="create" initialFamilyId={familyId} />;
 }

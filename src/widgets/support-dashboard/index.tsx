@@ -7,7 +7,7 @@ import {
   Plus, Search, AlertTriangle, ChevronLeft, ChevronRight,
   Check, SlidersHorizontal, X, Copy,
 } from 'lucide-react';
-import { useAppStore, useFamilies, useStudents, useParents } from '@/store/app-store';
+import { useAppStore, useFamilies, useStudents, useAllFamilyContacts } from '@/store/app-store';
 import {
   SUPPORT_PLANS, PLAN_COLORS,
   calculateFamilyExpectedAmount,
@@ -125,7 +125,7 @@ export function SupportDashboard() {
   // ── Zustand data ──
   const families = useFamilies();
   const students = useStudents();
-  const parents = useParents();
+  const contacts = useAllFamilyContacts();
   const allSupportPayments = useAppStore((s) => s.supportPayments);
   const deduplicateSupportAccounts = useAppStore((s) => s.deduplicateSupportAccounts);
 
@@ -133,9 +133,10 @@ export function SupportDashboard() {
     const seen = new Set<string>();
     let dups = 0;
     families.forEach((f) => {
-      if (!f.parentId) return;
-      if (seen.has(f.parentId)) dups++;
-      seen.add(f.parentId);
+      const key = f.primaryContactId;
+      if (!key) return;
+      if (seen.has(key)) dups++;
+      seen.add(key);
     });
     return dups;
   }, [families]);
@@ -144,7 +145,8 @@ export function SupportDashboard() {
   const allRows = useMemo<SupportFamilyRow[]>(() => {
     return families.map((family) => {
       const familyPayments = allSupportPayments.filter((p) => p.familyId === family.id);
-      const parent = parents.find((p) => p.id === family.parentId) ?? null;
+      const primaryId = family.primaryContactId ?? family.contactIds[0];
+      const parent = primaryId ? (contacts.find((c) => c.id === primaryId) ?? null) : null;
       const familyStudents = students.filter((s) => family.studentIds.includes(s.id));
       const studentById = Object.fromEntries(familyStudents.map((s) => [s.id, s]));
 
@@ -192,7 +194,7 @@ export function SupportDashboard() {
         family,
       };
     });
-  }, [families, allSupportPayments, parents, students, month]);
+  }, [families, allSupportPayments, contacts, students, month]);
 
   // ── Filter ──
   const filteredRows = useMemo<SupportFamilyRow[]>(() => {

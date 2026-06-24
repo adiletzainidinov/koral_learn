@@ -35,9 +35,18 @@ import {
   mockFamilies,
   mockFamilyPayments,
   mockPaymentHistory,
-  mockParents,
+  mockFamilyContacts,
+  mockStudentContactLinks,
 } from '@/mock';
-import type { Parent, CreateParentInput, UpdateParentInput } from '@/entities/parent/model/types';
+import type {
+  FamilyContact,
+  StudentFamilyContactLink,
+  CreateFamilyContactInput,
+  UpdateFamilyContactInput,
+  CreateStudentContactLinkInput,
+  UpdateStudentContactLinkInput,
+  FamilyRelationType,
+} from '@/entities/family-contact/model/types';
 import type {
   Family, FamilyPayment, PaymentHistoryItem, CreateFamilyInput, UpdateFamilyInput,
   SupportPlanType, PaymentMethod, LessonSelection, StudentPaymentRecord,
@@ -45,7 +54,6 @@ import type {
 } from '@/entities/support/model/types';
 import {
   calculateFamilyExpectedAmount, getPaymentStatus, formatMonth, derivePlanType,
-  calculateAvailableAdvance, calculatePaidForMonth,
 } from '@/entities/support/model/helpers';
 
 interface AppState {
@@ -114,11 +122,21 @@ interface AppState {
   awardTeamBadge: (teamId: string, type: TeamBadgeType) => void;
   removeTeamBadge: (teamId: string, badgeId: string) => void;
 
-  // ─── Parents ─────────────────────────────────────────────────────────────
-  parents: Parent[];
-  createParent: (input: CreateParentInput) => string;
-  updateParent: (id: string, patch: UpdateParentInput) => void;
-  deleteParent: (id: string) => void;
+  // ─── Family Contacts (replaces Parents) ──────────────────────────────────
+  familyContacts: FamilyContact[];
+  studentFamilyContactLinks: StudentFamilyContactLink[];
+
+  createFamilyContact: (input: CreateFamilyContactInput) => string;
+  updateFamilyContact: (id: string, patch: UpdateFamilyContactInput) => void;
+  archiveFamilyContact: (id: string) => void;
+  restoreFamilyContact: (id: string) => void;
+
+  linkContactToStudent: (input: CreateStudentContactLinkInput) => string | null;
+  updateStudentContactLink: (id: string, patch: UpdateStudentContactLinkInput) => void;
+  unlinkContactFromStudent: (linkId: string) => boolean;
+
+  setFamilyPrimaryContact: (familyId: string, contactId: string) => void;
+  setFamilyBillingContact: (familyId: string, contactId: string) => void;
 
   // ─── Support / Families ──────────────────────────────────────────────────
   families: Family[];
@@ -180,6 +198,155 @@ function buildPointHistory(
   return pointHistory;
 }
 
+// ─── Legacy relation mapping (for migration of old parent.relation strings) ──
+
+function mapLegacyRelation(rel?: string): FamilyRelationType {
+  if (!rel) return 'other';
+  const map: Record<string, FamilyRelationType> = {
+    'Мама': 'mother',
+    'Папа': 'father',
+    'Бабушка': 'grandmother',
+    'Дедушка': 'grandfather',
+    'Брат': 'brother',
+    'Сестра': 'sister',
+    'Дядя': 'uncle',
+    'Тётя': 'aunt',
+    'Опекун': 'guardian',
+    'Родственник': 'relative',
+    'Другое': 'other',
+    mother: 'mother',
+    father: 'father',
+    guardian: 'guardian',
+    relative: 'relative',
+    other: 'other',
+    'Приёмный родитель': 'guardian',
+    'Отчим': 'stepfather',
+    'Мачеха': 'stepmother',
+    'Старший брат': 'brother',
+    'Старшая сестра': 'sister',
+  };
+  return map[rel] ?? 'other';
+}
+
+// ─── Migration v1 → v2 ───────────────────────────────────────────────────────
+// Converts old `parents[]` + Student.parentId + Family.parentId structure into
+// `familyContacts[]` + `studentFamilyContactLinks[]` + Family.contactIds.
+
+interface LegacyParent {
+  id: string;
+  fullName: string;
+  whatsapp?: string;
+  phone?: string;
+  telegram?: string;
+  instagram?: string;
+  preferredContact?: 'whatsapp' | 'phone' | 'telegram' | 'instagram';
+  relation?: string;
+  notes?: string;
+  description?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface LegacyFamily {
+  id: string;
+  parentId?: string;
+  name?: string;
+  studentIds?: string[];
+  contactIds?: string[];
+  primaryContactId?: string;
+  billingContactId?: string;
+  [k: string]: unknown;
+}
+
+interface LegacyStudent {
+  id: string;
+  parentId?: string;
+  [k: string]: unknown;
+}
+
+function migrateV1ToV2(state: Record<string, unknown>): Record<string, unknown> {
+  const oldParents = (state.parents as LegacyParent[] | undefined) ?? [];
+  const students = (state.students as LegacyStudent[] | undefined) ?? [];
+  const families = (state.families as LegacyFamily[] | undefined) ?? [];
+
+  const familyContacts: FamilyContact[] = [];
+  const studentFamilyContactLinks: StudentFamilyContactLink[] = [];
+  const now = new Date().toISOString();
+
+  for (const parent of oldParents) {
+    // Find the family linked to this parent (if any)
+    const family = families.find((f) => f.parentId === parent.id);
+    const familyId = family?.id ?? generateId();
+
+    const contactId = parent.id; // reuse same id so existing references stay valid
+
+    const contact: FamilyContact = {
+      id: contactId,
+      familyId,
+      fullName: parent.fullName,
+      whatsapp: parent.whatsapp ?? '',
+      phone: parent.phone,
+      telegram: parent.telegram,
+      instagram: parent.instagram,
+      preferredContact: parent.preferredContact,
+      notes: parent.notes ?? parent.description,
+      isArchived: parent.isActive === false,
+      archivedAt: parent.isActive === false ? now : undefined,
+      createdAt: parent.createdAt ?? now,
+      updatedAt: parent.updatedAt,
+    };
+    familyContacts.push(contact);
+
+    // Create links for every student of this parent
+    const parentStudents = students.filter((s) => s.parentId === parent.id);
+    for (const student of parentStudents) {
+      const link: StudentFamilyContactLink = {
+        id: generateId(),
+        familyId,
+        studentId: student.id,
+        contactId,
+        relation: mapLegacyRelation(parent.relation),
+        isPrimaryContact: true,
+        canDecideEducation: true,
+        canReceiveNotifications: true,
+        isEmergencyContact: true,
+        isBillingContact: true,
+        createdAt: now,
+      };
+      studentFamilyContactLinks.push(link);
+    }
+  }
+
+  const updatedFamilies = families.map((f) => {
+    const contacts = familyContacts.filter((c) => c.familyId === f.id);
+    const contactIds = contacts.map((c) => c.id);
+    const primaryId =
+      f.parentId && contactIds.includes(f.parentId) ? f.parentId : contactIds[0];
+    return {
+      ...f,
+      contactIds: f.contactIds ?? contactIds,
+      primaryContactId: f.primaryContactId ?? primaryId,
+      billingContactId: f.billingContactId ?? primaryId,
+    };
+  });
+
+  const updatedStudents = students.map((s) => {
+    const next: Record<string, unknown> = { ...s };
+    delete next.parentId;
+    return next;
+  });
+
+  return {
+    ...state,
+    students: updatedStudents,
+    families: updatedFamilies,
+    familyContacts,
+    studentFamilyContactLinks,
+    parents: [],
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const useAppStore = create<AppState>()(
@@ -196,7 +363,8 @@ export const useAppStore = create<AppState>()(
       teamSeasons: [],
       teamGoals: [],
       activeSeasonId: null,
-      parents: [],
+      familyContacts: [],
+      studentFamilyContactLinks: [],
       families: [],
       familyPayments: [],
       paymentHistory: [],
@@ -217,7 +385,8 @@ export const useAppStore = create<AppState>()(
           teamSeasons: mockTeamSeasons,
           teamGoals: mockTeamGoals,
           activeSeasonId: 'season1',
-          parents: mockParents,
+          familyContacts: mockFamilyContacts,
+          studentFamilyContactLinks: mockStudentContactLinks,
           families: mockFamilies,
           familyPayments: mockFamilyPayments,
           paymentHistory: mockPaymentHistory,
@@ -254,6 +423,12 @@ export const useAppStore = create<AppState>()(
           assignments: state.assignments.filter((a) => a.studentId !== id),
           attendanceRecords: state.attendanceRecords.filter((r) => r.studentId !== id),
           pointHistory: state.pointHistory.filter((p) => p.studentId !== id),
+          studentFamilyContactLinks: state.studentFamilyContactLinks.filter((l) => l.studentId !== id),
+          families: state.families.map((f) =>
+            f.studentIds.includes(id)
+              ? { ...f, studentIds: f.studentIds.filter((sid) => sid !== id) }
+              : f
+          ),
         }));
       },
 
@@ -836,50 +1011,179 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      // ─── Parents ──────────────────────────────────────────────────────────
+      // ─── Family Contacts ─────────────────────────────────────────────────
 
-      createParent: (input) => {
+      createFamilyContact: (input) => {
         const id = generateId();
-        const parent: Parent = { ...input, id, isActive: true, createdAt: new Date().toISOString() };
-        set((state) => ({ parents: [...state.parents, parent] }));
+        const now = new Date().toISOString();
+        const contact: FamilyContact = {
+          id,
+          familyId: input.familyId,
+          fullName: input.fullName,
+          whatsapp: input.whatsapp,
+          phone: input.phone,
+          telegram: input.telegram,
+          instagram: input.instagram,
+          preferredContact: input.preferredContact,
+          notes: input.notes,
+          createdAt: now,
+        };
+        set((state) => ({
+          familyContacts: [...state.familyContacts, contact],
+          families: state.families.map((f) =>
+            f.id === input.familyId
+              ? {
+                  ...f,
+                  contactIds: f.contactIds.includes(id) ? f.contactIds : [...f.contactIds, id],
+                  primaryContactId: f.primaryContactId ?? id,
+                  billingContactId: f.billingContactId ?? id,
+                }
+              : f
+          ),
+        }));
         return id;
       },
 
-      updateParent: (id, patch) => {
+      updateFamilyContact: (id, patch) => {
+        const now = new Date().toISOString();
         set((state) => ({
-          parents: state.parents.map((p) =>
-            p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p
+          familyContacts: state.familyContacts.map((c) =>
+            c.id === id ? { ...c, ...patch, updatedAt: now } : c
           ),
         }));
       },
 
-      deleteParent: (id) => {
+      archiveFamilyContact: (id) => {
+        const now = new Date().toISOString();
         set((state) => ({
-          parents: state.parents.filter((p) => p.id !== id),
-          students: state.students.map((s) =>
-            s.parentId === id ? { ...s, parentId: undefined } : s
+          familyContacts: state.familyContacts.map((c) =>
+            c.id === id ? { ...c, isArchived: true, archivedAt: now, updatedAt: now } : c
           ),
+        }));
+      },
+
+      restoreFamilyContact: (id) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          familyContacts: state.familyContacts.map((c) =>
+            c.id === id ? { ...c, isArchived: false, archivedAt: undefined, updatedAt: now } : c
+          ),
+        }));
+      },
+
+      linkContactToStudent: (input) => {
+        const { studentFamilyContactLinks, familyContacts } = get();
+        const contact = familyContacts.find((c) => c.id === input.contactId);
+        if (!contact) return null;
+        if (contact.familyId !== input.familyId) return null;
+        const duplicate = studentFamilyContactLinks.some(
+          (l) => l.studentId === input.studentId && l.contactId === input.contactId
+        );
+        if (duplicate) return null;
+        const id = generateId();
+        const now = new Date().toISOString();
+        const link: StudentFamilyContactLink = {
+          id,
+          familyId: input.familyId,
+          studentId: input.studentId,
+          contactId: input.contactId,
+          relation: input.relation,
+          customRelation: input.customRelation,
+          isPrimaryContact: input.isPrimaryContact ?? false,
+          canDecideEducation: input.canDecideEducation ?? false,
+          canReceiveNotifications: input.canReceiveNotifications ?? true,
+          isEmergencyContact: input.isEmergencyContact ?? false,
+          isBillingContact: input.isBillingContact ?? false,
+          createdAt: now,
+        };
+        set((state) => ({
+          studentFamilyContactLinks: [...state.studentFamilyContactLinks, link],
+        }));
+        return id;
+      },
+
+      updateStudentContactLink: (id, patch) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          studentFamilyContactLinks: state.studentFamilyContactLinks.map((l) =>
+            l.id === id ? { ...l, ...patch, updatedAt: now } : l
+          ),
+        }));
+      },
+
+      unlinkContactFromStudent: (linkId) => {
+        const state = get();
+        const link = state.studentFamilyContactLinks.find((l) => l.id === linkId);
+        if (!link) return false;
+        const remaining = state.studentFamilyContactLinks.filter(
+          (l) => l.studentId === link.studentId && l.id !== linkId
+        );
+        // Guard: must keep at least one link per student that already had any link
+        if (remaining.length === 0) return false;
+        set((s) => ({
+          studentFamilyContactLinks: s.studentFamilyContactLinks.filter((l) => l.id !== linkId),
+        }));
+        return true;
+      },
+
+      setFamilyPrimaryContact: (familyId, contactId) => {
+        set((state) => ({
+          families: state.families.map((f) => {
+            if (f.id !== familyId) return f;
+            if (!f.contactIds.includes(contactId)) return f;
+            return { ...f, primaryContactId: contactId };
+          }),
+        }));
+      },
+
+      setFamilyBillingContact: (familyId, contactId) => {
+        set((state) => ({
+          families: state.families.map((f) => {
+            if (f.id !== familyId) return f;
+            if (!f.contactIds.includes(contactId)) return f;
+            return { ...f, billingContactId: contactId };
+          }),
         }));
       },
 
       // ─── Support / Families ────────────────────────────────────────────────
 
       createFamily: (input) => {
-        const { families, parents } = get();
-        const existing = families.find((f) => f.parentId && f.parentId === input.parentId);
-        if (existing) return existing.id;
+        const { families, familyContacts } = get();
+        const primaryContactId = input.primaryContactId ?? input.contactIds[0];
+        const billingContactId = input.billingContactId ?? primaryContactId;
+        const primaryContact = familyContacts.find((c) => c.id === primaryContactId);
         const id = generateId();
-        const parent = parents.find((p) => p.id === input.parentId);
-        const name = parent ? `Семья ${parent.fullName}` : 'Семья';
-        const family: Family = { ...input, id, name, createdAt: new Date().toISOString() };
-        set((state) => ({
+        const name = input.name ?? (primaryContact ? `Семья ${primaryContact.fullName}` : 'Семья');
+        const family: Family = {
+          id,
+          name,
+          studentIds: input.studentIds,
+          contactIds: input.contactIds,
+          primaryContactId,
+          billingContactId,
+          lessonSelections: input.lessonSelections,
+          supportPlanType: input.supportPlanType,
+          notes: input.notes,
+          createdAt: new Date().toISOString(),
+        };
+        set({
           families: [
-            ...state.families.map((f) => ({
+            ...families.map((f) => ({
               ...f,
               studentIds: f.studentIds.filter((sid) => !input.studentIds.includes(sid)),
             })),
             family,
           ],
+        });
+        // Re-home contacts and links to this family
+        set((state) => ({
+          familyContacts: state.familyContacts.map((c) =>
+            input.contactIds.includes(c.id) ? { ...c, familyId: id } : c
+          ),
+          studentFamilyContactLinks: state.studentFamilyContactLinks.map((l) =>
+            input.contactIds.includes(l.contactId) ? { ...l, familyId: id } : l
+          ),
         }));
         return id;
       },
@@ -914,6 +1218,9 @@ export const useAppStore = create<AppState>()(
           families: state.families.map((f) =>
             f.id === familyId ? { ...f, studentIds: f.studentIds.filter((s) => s !== studentId) } : f
           ),
+          studentFamilyContactLinks: state.studentFamilyContactLinks.filter(
+            (l) => !(l.studentId === studentId && l.familyId === familyId)
+          ),
         }));
       },
 
@@ -938,12 +1245,14 @@ export const useAppStore = create<AppState>()(
 
       deduplicateSupportAccounts: () => {
         const { families, familyPayments, paymentHistory } = get();
-        const byParent = new Map<string, Family[]>();
+        // Dedup by primaryContactId (replacement for old parentId-based dedup)
+        const byPrimary = new Map<string, Family[]>();
         for (const f of families) {
-          if (!f.parentId) continue;
-          const group = byParent.get(f.parentId) ?? [];
+          const key = f.primaryContactId ?? f.parentId;
+          if (!key) continue;
+          const group = byPrimary.get(key) ?? [];
           group.push(f);
-          byParent.set(f.parentId, group);
+          byPrimary.set(key, group);
         }
 
         const toDelete = new Set<string>();
@@ -951,11 +1260,12 @@ export const useAppStore = create<AppState>()(
         let updatedPayments = [...familyPayments];
         let updatedHistory = [...paymentHistory];
 
-        for (const [, group] of byParent) {
+        for (const [, group] of byPrimary) {
           if (group.length <= 1) continue;
           const [keeper, ...duplicates] = [...group].sort((a, b) => b.studentIds.length - a.studentIds.length);
           const mergedStudentIds = Array.from(new Set([...keeper.studentIds, ...duplicates.flatMap((d) => d.studentIds)]));
-          mergedMap.set(keeper.id, { ...keeper, studentIds: mergedStudentIds });
+          const mergedContactIds = Array.from(new Set([...keeper.contactIds, ...duplicates.flatMap((d) => d.contactIds)]));
+          mergedMap.set(keeper.id, { ...keeper, studentIds: mergedStudentIds, contactIds: mergedContactIds });
           const dupIds = new Set(duplicates.map((d) => d.id));
           updatedPayments = updatedPayments.map((p) => dupIds.has(p.familyId) ? { ...p, familyId: keeper.id } : p);
           updatedHistory = updatedHistory.map((h) => dupIds.has(h.familyId) ? { ...h, familyId: keeper.id } : h);
@@ -1163,6 +1473,8 @@ export const useAppStore = create<AppState>()(
           distribution: input.distribution,
           method: input.method,
           note: input.note,
+          paidByContactId: input.paidByContactId,
+          paidByNameSnapshot: input.paidByNameSnapshot,
           paidAt: now,
           createdAt: now,
         };
@@ -1204,6 +1516,14 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'quranlearn-v2',
+      version: 2,
+      migrate: (persistedState, version) => {
+        const state = (persistedState as Record<string, unknown> | null | undefined) ?? {};
+        if (version < 2) {
+          return migrateV1ToV2(state) as unknown as AppState;
+        }
+        return state as unknown as AppState;
+      },
       storage: createJSONStorage(() => {
         if (typeof window !== 'undefined') return localStorage;
         return {
@@ -1327,24 +1647,66 @@ export const useTeamGoalsByTeamId = (teamId: string) =>
   );
 
 
-// ─── Parent selectors ────────────────────────────────────────────────────────
+// ─── Family contact selectors ────────────────────────────────────────────────
 
-export const useParents = () => useAppStore(useShallow((s) => s.parents));
-
-export const useParentById = (id: string) =>
-  useAppStore((s) => s.parents.find((p) => p.id === id));
-
-export const useStudentsByParentId = (parentId: string) =>
+export const useFamilyContacts = (familyId: string) =>
   useAppStore(
-    useShallow((s) => s.students.filter((st) => st.parentId === parentId))
+    useShallow((s) =>
+      s.familyContacts.filter((c) => c.familyId === familyId && !c.isArchived)
+    )
   );
 
-export const useStudentParent = (studentId: string) =>
+export const useAllFamilyContacts = () =>
+  useAppStore((s) => s.familyContacts);
+
+export const useFamilyContactById = (id: string) =>
+  useAppStore((s) => s.familyContacts.find((c) => c.id === id));
+
+export const useStudentContactLinks = (studentId: string) =>
+  useAppStore(
+    useShallow((s) =>
+      s.studentFamilyContactLinks.filter((l) => l.studentId === studentId)
+    )
+  );
+
+export const useFamilyContactLinks = (familyId: string) =>
+  useAppStore(
+    useShallow((s) =>
+      s.studentFamilyContactLinks.filter((l) => l.familyId === familyId)
+    )
+  );
+
+export const useContactStudentLinks = (contactId: string) =>
+  useAppStore(
+    useShallow((s) =>
+      s.studentFamilyContactLinks.filter((l) => l.contactId === contactId)
+    )
+  );
+
+export const useFamilyPrimaryContact = (familyId: string) =>
   useAppStore((s) => {
-    const student = s.students.find((st) => st.id === studentId);
-    if (!student?.parentId) return null;
-    return s.parents.find((p) => p.id === student.parentId) ?? null;
+    const family = s.families.find((f) => f.id === familyId);
+    if (!family?.primaryContactId) {
+      // Fall back to first contact in contactIds if primary not set
+      const firstId = family?.contactIds?.[0];
+      if (!firstId) return null;
+      return s.familyContacts.find((c) => c.id === firstId) ?? null;
+    }
+    return s.familyContacts.find((c) => c.id === family.primaryContactId) ?? null;
   });
+
+export const useStudentFamilyContacts = (studentId: string) =>
+  useAppStore(
+    useShallow((s) => {
+      const links = s.studentFamilyContactLinks.filter((l) => l.studentId === studentId);
+      const result: { link: StudentFamilyContactLink; contact: FamilyContact }[] = [];
+      for (const link of links) {
+        const contact = s.familyContacts.find((c) => c.id === link.contactId);
+        if (contact) result.push({ link, contact });
+      }
+      return result;
+    })
+  );
 
 // ─── Support selectors ────────────────────────────────────────────────────────
 
@@ -1375,16 +1737,6 @@ export const usePaymentHistoryByFamilyId = (familyId: string) =>
 
 export const useStudentFamily = (studentId: string) =>
   useAppStore((s) => s.families.find((f) => f.studentIds.includes(studentId)));
-
-export const useFamilyParent = (familyId: string) =>
-  useAppStore((s) => {
-    const family = s.families.find((f) => f.id === familyId);
-    if (!family?.parentId) return null;
-    return s.parents.find((p) => p.id === family.parentId) ?? null;
-  });
-
-export const useFamilyByParentId = (parentId: string) =>
-  useAppStore((s) => s.families.find((f) => f.parentId === parentId));
 
 export const useSupportPaymentsByFamilyId = (familyId: string) =>
   useAppStore(

@@ -6,5 +6,5 @@ interface Props {
 
 export default async function EditParentPage({ params }: Props) {
   const { parentId } = await params;
-  return <ParentForm mode="edit" parentId={parentId} />;
+  return <ParentForm mode="edit" contactId={parentId} />;
 }

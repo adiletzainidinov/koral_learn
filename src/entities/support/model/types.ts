@@ -78,6 +78,10 @@ export interface SupportPayment {
   kind?: SupportPaymentKind;
   method?: PaymentMethod;
   note?: string;
+  /** Optional: which family contact actually paid */
+  paidByContactId?: string;
+  /** Optional: snapshot of payer name (for "Другой человек" entries) */
+  paidByNameSnapshot?: string;
   paidAt: string;
   createdAt: string;
   updatedAt?: string;
@@ -94,6 +98,8 @@ export interface CreateSupportPaymentInput {
   distribution?: SupportPaymentDistribution[];
   method?: PaymentMethod;
   note?: string;
+  paidByContactId?: string;
+  paidByNameSnapshot?: string;
 }
 
 // ─── Legacy types (kept for backward compat with old localStorage data) ────────
@@ -147,9 +153,16 @@ export interface SupportPlan {
 
 export interface Family {
   id: string;
+  /** @deprecated kept only for legacy data migration; new code uses contactIds + primaryContactId */
   parentId?: string;
   name: string;
   studentIds: string[];
+  /** IDs of FamilyContact entries linked to this family */
+  contactIds: string[];
+  /** Primary representative for this family (must be in contactIds) */
+  primaryContactId?: string;
+  /** Default payer for billing (must be in contactIds) */
+  billingContactId?: string;
   lessonSelections?: LessonSelection[];
   supportPlanType: SupportPlanType;
   notes?: string;
@@ -160,8 +173,12 @@ export interface Family {
 }
 
 export interface CreateFamilyInput {
-  parentId: string;
+  /** Optional name; if omitted falls back to "Семья {primaryContact.fullName}" */
+  name?: string;
   studentIds: string[];
+  contactIds: string[];
+  primaryContactId?: string;
+  billingContactId?: string;
   lessonSelections: LessonSelection[];
   supportPlanType: SupportPlanType;
   notes?: string;

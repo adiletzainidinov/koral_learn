@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, UserPlus, Trash2, Pencil, UserRound, MessageCircle, Phone } from 'lucide-react';
+import { Search, UserPlus, Archive, ArchiveRestore, Pencil, UserRound, MessageCircle, Phone, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
@@ -11,31 +11,36 @@ import { EmptyState } from '@/shared/ui/empty-state';
 import { Card } from '@/shared/ui/card';
 import { PageHeader } from '@/shared/ui/page-header';
 import { Modal } from '@/shared/ui/modal';
-import { useAppStore, useParents } from '@/store/app-store';
-import { normalizeParentRelation } from '@/entities/parent/model/types';
-import { formatWhatsappLink } from '@/entities/parent/model/helpers';
-import type { Parent } from '@/entities/parent/model/types';
+import { useAppStore, useAllFamilyContacts, useFamilies, useStudents } from '@/store/app-store';
+import {
+  formatWhatsappLink,
+  getContactInitials,
+} from '@/entities/family-contact/model/helpers';
+import type { FamilyContact } from '@/entities/family-contact/model/types';
 
-function ParentCard({
-  parent,
-  childCount,
+interface ContactRowMeta {
+  studentCount: number;
+  studentNames: string[];
+  familyName: string;
+  isPrimary: boolean;
+}
+
+function ContactCard({
+  contact,
+  meta,
   onEdit,
-  onDelete,
+  onArchive,
+  onRestore,
   onClick,
 }: {
-  parent: Parent;
-  childCount: number;
+  contact: FamilyContact;
+  meta: ContactRowMeta;
   onEdit: () => void;
-  onDelete: () => void;
+  onArchive: () => void;
+  onRestore: () => void;
   onClick: () => void;
 }) {
-  const initials = parent.fullName
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase();
-
+  const initials = getContactInitials(contact.fullName);
   return (
     <div
       onClick={onClick}
@@ -50,38 +55,40 @@ function ParentCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors">
-            {parent.fullName}
+            {contact.fullName}
           </span>
-          {parent.relation && (
-            <Badge variant="slate" className="text-[10px]">
-              {normalizeParentRelation(parent.relation)}
-            </Badge>
+          {meta.isPrimary && <Badge variant="emerald" className="text-[10px]">Основной</Badge>}
+          {contact.isArchived && <Badge variant="slate" className="text-[10px]">В архиве</Badge>}
+          {meta.familyName && (
+            <Badge variant="slate" className="text-[10px]">{meta.familyName}</Badge>
           )}
         </div>
         <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400">
           <span className="flex items-center gap-1">
             <Phone className="size-3" />
-            {parent.whatsapp}
+            {contact.whatsapp || '—'}
           </span>
-          {childCount > 0 && (
-            <span className="text-emerald-600 font-medium">
-              {childCount} {childCount === 1 ? 'ученик' : childCount < 5 ? 'ученика' : 'учеников'}
+          {meta.studentCount > 0 && (
+            <span className="text-emerald-600 font-medium" title={meta.studentNames.join(', ')}>
+              {meta.studentCount} {meta.studentCount === 1 ? 'ученик' : meta.studentCount < 5 ? 'ученика' : 'учеников'}
             </span>
           )}
         </div>
       </div>
 
       {/* WA link */}
-      <a
-        href={formatWhatsappLink(parent.whatsapp)}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="size-8 rounded-lg flex items-center justify-center text-green-500 hover:bg-green-50 transition-colors shrink-0"
-        title="Написать в WhatsApp"
-      >
-        <MessageCircle className="size-4" />
-      </a>
+      {contact.whatsapp && (
+        <a
+          href={formatWhatsappLink(contact.whatsapp)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="size-8 rounded-lg flex items-center justify-center text-green-500 hover:bg-green-50 transition-colors shrink-0"
+          title="Написать в WhatsApp"
+        >
+          <MessageCircle className="size-4" />
+        </a>
+      )}
 
       {/* Actions */}
       <div
@@ -93,92 +100,144 @@ function ParentCard({
           size="sm"
           onClick={onEdit}
           className="size-7 p-0 text-slate-400 hover:text-emerald-600"
+          aria-label="Редактировать"
         >
           <Pencil className="size-3.5" />
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          className="size-7 p-0 text-slate-400 hover:text-red-500"
-        >
-          <Trash2 className="size-3.5" />
-        </Button>
+        {contact.isArchived ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRestore}
+            className="size-7 p-0 text-slate-400 hover:text-emerald-600"
+            aria-label="Восстановить"
+          >
+            <ArchiveRestore className="size-3.5" />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onArchive}
+            className="size-7 p-0 text-slate-400 hover:text-amber-600"
+            aria-label="В архив"
+          >
+            <Archive className="size-3.5" />
+          </Button>
+        )}
       </div>
     </div>
   );
 }
 
 export function ParentsList() {
-  const parents = useParents();
-  const students = useAppStore((s) => s.students);
-  const deleteParent = useAppStore((s) => s.deleteParent);
+  const contacts = useAllFamilyContacts();
+  const families = useFamilies();
+  const students = useStudents();
+  const links = useAppStore((s) => s.studentFamilyContactLinks);
+  const archiveFamilyContact = useAppStore((s) => s.archiveFamilyContact);
+  const restoreFamilyContact = useAppStore((s) => s.restoreFamilyContact);
   const router = useRouter();
 
   const [search, setSearch] = useState('');
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archiveId, setArchiveId] = useState<string | null>(null);
 
-  const childCountMap = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const s of students) {
-      if (s.parentId) map[s.parentId] = (map[s.parentId] ?? 0) + 1;
+  const metaMap = useMemo(() => {
+    const map: Record<string, ContactRowMeta> = {};
+    const familyById = new Map(families.map((f) => [f.id, f]));
+    const studentById = new Map(students.map((s) => [s.id, s]));
+
+    for (const c of contacts) {
+      const contactLinks = links.filter((l) => l.contactId === c.id);
+      const studentNames: string[] = [];
+      const seen = new Set<string>();
+      for (const link of contactLinks) {
+        if (seen.has(link.studentId)) continue;
+        seen.add(link.studentId);
+        const student = studentById.get(link.studentId);
+        if (student) studentNames.push(student.fullName);
+      }
+      const family = familyById.get(c.familyId);
+      const isPrimary = family?.primaryContactId === c.id;
+      map[c.id] = {
+        studentCount: studentNames.length,
+        studentNames,
+        familyName: family?.name ?? '',
+        isPrimary,
+      };
     }
     return map;
-  }, [students]);
+  }, [contacts, families, students, links]);
 
-  const filtered = useMemo(() => {
-    if (!search) return parents;
-    const q = search.toLowerCase();
-    return parents.filter(
-      (p) =>
-        p.fullName.toLowerCase().includes(q) ||
-        p.whatsapp.includes(q) ||
-        (p.phone ?? '').includes(q) ||
-        normalizeParentRelation(p.relation).toLowerCase().includes(q)
-    );
-  }, [parents, search]);
+  const visible = useMemo(() => {
+    let result = showArchived ? contacts : contacts.filter((c) => !c.isArchived);
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.fullName.toLowerCase().includes(q) ||
+          c.whatsapp.includes(q) ||
+          (c.phone ?? '').includes(q) ||
+          (metaMap[c.id]?.familyName ?? '').toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [contacts, search, showArchived, metaMap]);
 
-  const parentToDelete = parents.find((p) => p.id === deleteId);
-  const deleteChildCount = deleteId ? (childCountMap[deleteId] ?? 0) : 0;
+  const contactToArchive = contacts.find((c) => c.id === archiveId) ?? null;
+  const archiveStudentCount = archiveId ? metaMap[archiveId]?.studentCount ?? 0 : 0;
+
+  const activeCount = contacts.filter((c) => !c.isArchived).length;
+  const archivedCount = contacts.length - activeCount;
 
   return (
     <div>
       <PageHeader
-        title="Родители"
-        description={`${parents.length} родителей`}
+        title="Представители семьи"
+        description={`${activeCount} активных${archivedCount > 0 ? ` · ${archivedCount} в архиве` : ''}`}
         action={
           <Link href="/parents/new">
             <Button>
               <UserPlus className="size-4" />
-              Добавить родителя
+              Добавить представителя
             </Button>
           </Link>
         }
       />
 
       <Card padding="none">
-        {/* Search */}
-        <div className="px-5 py-3 border-b border-slate-100">
-          <div className="relative max-w-sm">
+        {/* Search + toggle */}
+        <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-3 flex-wrap">
+          <div className="relative max-w-sm flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
             <Input
-              placeholder="Поиск по имени или номеру..."
+              placeholder="Поиск по имени, номеру или семье..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
           </div>
+          {archivedCount > 0 && (
+            <button
+              onClick={() => setShowArchived((v) => !v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              {showArchived ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+              {showArchived ? 'Скрыть архив' : `Показать архив (${archivedCount})`}
+            </button>
+          )}
         </div>
 
-        {filtered.length === 0 ? (
+        {visible.length === 0 ? (
           <EmptyState
             icon={<UserRound className="size-5" />}
-            title={search ? 'Родители не найдены' : 'Родителей пока нет'}
-            description={search ? 'Попробуйте другой запрос' : 'Добавьте первого родителя'}
+            title={search ? 'Представители не найдены' : 'Представителей пока нет'}
+            description={search ? 'Попробуйте другой запрос' : 'Добавьте первого представителя семьи'}
             action={
               !search ? (
                 <Link href="/parents/new">
-                  <Button><UserPlus className="size-4" />Добавить родителя</Button>
+                  <Button><UserPlus className="size-4" />Добавить представителя</Button>
                 </Link>
               ) : undefined
             }
@@ -186,54 +245,53 @@ export function ParentsList() {
           />
         ) : (
           <div className="divide-y divide-slate-50">
-            {filtered.map((parent) => (
-              <ParentCard
-                key={parent.id}
-                parent={parent}
-                childCount={childCountMap[parent.id] ?? 0}
-                onClick={() => router.push(`/parents/${parent.id}`)}
-                onEdit={() => router.push(`/parents/${parent.id}/edit`)}
-                onDelete={() => setDeleteId(parent.id)}
+            {visible.map((c) => (
+              <ContactCard
+                key={c.id}
+                contact={c}
+                meta={metaMap[c.id] ?? { studentCount: 0, studentNames: [], familyName: '', isPrimary: false }}
+                onClick={() => router.push(`/parents/${c.id}`)}
+                onEdit={() => router.push(`/parents/${c.id}/edit`)}
+                onArchive={() => setArchiveId(c.id)}
+                onRestore={() => restoreFamilyContact(c.id)}
               />
             ))}
           </div>
         )}
       </Card>
 
-      {/* Delete confirm */}
+      {/* Archive confirm */}
       <Modal
-        isOpen={deleteId !== null}
-        onClose={() => setDeleteId(null)}
+        isOpen={archiveId !== null}
+        onClose={() => setArchiveId(null)}
         size="sm"
-        title="Удалить родителя?"
+        title="Отправить в архив?"
         description={
-          parentToDelete
-            ? `«${parentToDelete.fullName}» будет удалён. Это действие нельзя отменить.`
+          contactToArchive
+            ? `«${contactToArchive.fullName}» будет скрыт из активного списка. Связи с учениками сохранятся.`
             : undefined
         }
         footer={
           <>
-            <Button variant="ghost" onClick={() => setDeleteId(null)}>Отмена</Button>
+            <Button variant="ghost" onClick={() => setArchiveId(null)}>Отмена</Button>
             <Button
-              variant="danger"
+              variant="primary"
               onClick={() => {
-                if (deleteId) { deleteParent(deleteId); setDeleteId(null); }
+                if (archiveId) { archiveFamilyContact(archiveId); setArchiveId(null); }
               }}
             >
-              Удалить
+              <Archive className="size-4" />В архив
             </Button>
           </>
         }
       >
-        {deleteChildCount > 0 ? (
+        {archiveStudentCount > 0 ? (
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            У этого родителя {deleteChildCount}{' '}
-            {deleteChildCount === 1 ? 'ученик' : 'ученика'} — у них будет снята привязка к родителю.
+            У этого представителя {archiveStudentCount}{' '}
+            {archiveStudentCount === 1 ? 'ученик' : 'ученика'}. Связи сохранятся, представителя можно восстановить позже.
           </p>
         ) : (
-          <p className="text-sm text-slate-500">
-            Привязанных учеников нет — удаление безопасно.
-          </p>
+          <p className="text-sm text-slate-500">Связанных учеников нет — архивирование безопасно.</p>
         )}
       </Modal>
     </div>

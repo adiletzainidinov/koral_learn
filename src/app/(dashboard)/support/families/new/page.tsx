@@ -5,16 +5,18 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, Users, Check, AlertTriangle, MessageCircle, Phone, Send,
-  AtSign, MapPin, UserRound, X, Search, Star,
+  AtSign, UserRound, X, Search, Star, Plus,
 } from 'lucide-react';
-import { useAppStore, useParents, useStudents, useFamilyByParentId } from '@/store/app-store';
+import { useAppStore, useAllFamilyContacts, useFamilies, useStudents } from '@/store/app-store';
 import {
   SUPPORT_PLANS, PLAN_COLORS, LESSON_TYPE_LABELS,
   calculateMixedAmount, getSelectionAmount, formatAmount, derivePlanType,
 } from '@/entities/support/model/helpers';
 import type { SupportPlanType, LessonType, LessonSelection } from '@/entities/support/model/types';
-import type { Parent } from '@/entities/parent/model/types';
-import { formatWhatsappLink, formatTelegramLink, formatInstagramLink } from '@/entities/parent/model/helpers';
+import type { FamilyContact } from '@/entities/family-contact/model/types';
+import {
+  formatWhatsappLink, formatTelegramLink, formatInstagramLink, getContactInitials,
+} from '@/entities/family-contact/model/helpers';
 import { STUDENT_LEVEL_LABELS } from '@/entities/student/model/types';
 import { generateId } from '@/shared/lib/ids';
 import { cn } from '@/shared/lib/cn';
@@ -43,15 +45,14 @@ function Section({
   );
 }
 
-// ─── Parent combobox ──────────────────────────────────────────────────────────
+// ─── Contact combobox ─────────────────────────────────────────────────────────
 
-function ParentCombobox({
-  parentId, onChange, parents, allStudents, error, inputRef,
+function ContactCombobox({
+  contactId, onChange, contacts, error, inputRef,
 }: {
-  parentId?: string;
+  contactId?: string;
   onChange: (id: string | undefined) => void;
-  parents: Parent[];
-  allStudents: ReturnType<typeof useStudents>;
+  contacts: FamilyContact[];
   error?: string;
   inputRef?: React.RefObject<HTMLInputElement | null>;
 }) {
@@ -59,26 +60,18 @@ function ParentCombobox({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const selectedParent = useMemo(() => parents.find((p) => p.id === parentId), [parents, parentId]);
-
-  const childCountMap = useMemo(() => {
-    const map = new Map<string, number>();
-    allStudents.forEach((s) => {
-      if (s.parentId) map.set(s.parentId, (map.get(s.parentId) ?? 0) + 1);
-    });
-    return map;
-  }, [allStudents]);
+  const selectedContact = useMemo(() => contacts.find((c) => c.id === contactId), [contacts, contactId]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    if (!q) return parents;
-    return parents.filter(
-      (p) =>
-        p.fullName.toLowerCase().includes(q) ||
-        p.whatsapp.includes(q) ||
-        (p.phone ?? '').includes(q)
+    if (!q) return contacts;
+    return contacts.filter(
+      (c) =>
+        c.fullName.toLowerCase().includes(q) ||
+        c.whatsapp.includes(q) ||
+        (c.phone ?? '').includes(q)
     );
-  }, [parents, search]);
+  }, [contacts, search]);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -90,7 +83,7 @@ function ParentCombobox({
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  const inputValue = selectedParent ? selectedParent.fullName : search;
+  const inputValue = selectedContact ? selectedContact.fullName : search;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -102,7 +95,7 @@ function ParentCombobox({
             type="text"
             value={inputValue}
             onChange={(e) => {
-              if (selectedParent) onChange(undefined);
+              if (selectedContact) onChange(undefined);
               setSearch(e.target.value);
               setIsOpen(true);
             }}
@@ -113,7 +106,7 @@ function ParentCombobox({
               error ? 'border-red-300 bg-red-50/40' : 'border-slate-200 bg-white'
             )}
           />
-          {selectedParent && (
+          {selectedContact && (
             <button
               type="button"
               onClick={() => { onChange(undefined); setSearch(''); setIsOpen(false); }}
@@ -129,41 +122,33 @@ function ParentCombobox({
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center py-6 gap-2">
                 <UserRound className="size-5 text-slate-300" />
-                <p className="text-sm text-slate-400">Родителей не найдено</p>
+                <p className="text-sm text-slate-400">Представители не найдены</p>
                 <a href="/parents/new" target="_blank" rel="noopener noreferrer"
                   className="text-xs text-emerald-600 hover:underline font-medium">
-                  + Создать родителя
+                  + Создать представителя
                 </a>
               </div>
             ) : (
-              filtered.map((p) => {
-                const initials = p.fullName.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
-                const count = childCountMap.get(p.id) ?? 0;
+              filtered.map((c) => {
+                const initials = getContactInitials(c.fullName);
                 return (
                   <button
-                    key={p.id}
+                    key={c.id}
                     type="button"
-                    onMouseDown={(e) => { e.preventDefault(); onChange(p.id); setSearch(''); setIsOpen(false); }}
+                    onMouseDown={(e) => { e.preventDefault(); onChange(c.id); setSearch(''); setIsOpen(false); }}
                     className={cn(
                       'w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors',
-                      parentId === p.id && 'bg-emerald-50'
+                      contactId === c.id && 'bg-emerald-50'
                     )}
                   >
                     <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{p.fullName}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {p.whatsapp}
-                        {count > 0 && (
-                          <span className="ml-2 text-emerald-600">
-                            · {count} {count === 1 ? 'ребёнок' : count < 5 ? 'ребёнка' : 'детей'}
-                          </span>
-                        )}
-                      </p>
+                      <p className="text-sm font-medium text-slate-900 truncate">{c.fullName}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{c.whatsapp}</p>
                     </div>
-                    {parentId === p.id && <Check className="size-4 text-emerald-600 shrink-0" />}
+                    {contactId === c.id && <Check className="size-4 text-emerald-600 shrink-0" />}
                   </button>
                 );
               })
@@ -176,10 +161,10 @@ function ParentCombobox({
   );
 }
 
-// ─── Selected parent card ─────────────────────────────────────────────────────
+// ─── Selected contact card ───────────────────────────────────────────────────
 
-function ParentCard({ parent, onClear }: { parent: Parent; onClear: () => void }) {
-  const initials = parent.fullName.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+function ContactCard({ contact, onClear }: { contact: FamilyContact; onClear: () => void }) {
+  const initials = getContactInitials(contact.fullName);
   return (
     <div className="mt-4 p-4 rounded-xl border border-emerald-200 bg-emerald-50/60">
       <div className="flex items-start gap-3">
@@ -187,38 +172,33 @@ function ParentCard({ parent, onClear }: { parent: Parent; onClear: () => void }
           {initials || <UserRound className="size-5 text-emerald-400" />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-slate-900">{parent.fullName}</p>
+          <p className="font-semibold text-slate-900">{contact.fullName}</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2">
-            <a href={formatWhatsappLink(parent.whatsapp)} target="_blank" rel="noopener noreferrer"
+            <a href={formatWhatsappLink(contact.whatsapp)} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs text-green-700 hover:underline">
-              <MessageCircle className="size-3 shrink-0" />{parent.whatsapp}
+              <MessageCircle className="size-3 shrink-0" />{contact.whatsapp}
             </a>
-            {parent.phone && (
-              <a href={`tel:${parent.phone}`} className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-emerald-700">
-                <Phone className="size-3 shrink-0" />{parent.phone}
+            {contact.phone && (
+              <a href={`tel:${contact.phone}`} className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-emerald-700">
+                <Phone className="size-3 shrink-0" />{contact.phone}
               </a>
             )}
-            {parent.telegram && (
-              <a href={formatTelegramLink(parent.telegram)} target="_blank" rel="noopener noreferrer"
+            {contact.telegram && (
+              <a href={formatTelegramLink(contact.telegram)} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
-                <Send className="size-3 shrink-0" />{parent.telegram}
+                <Send className="size-3 shrink-0" />{contact.telegram}
               </a>
             )}
-            {parent.instagram && (
-              <a href={formatInstagramLink(parent.instagram)} target="_blank" rel="noopener noreferrer"
+            {contact.instagram && (
+              <a href={formatInstagramLink(contact.instagram)} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-xs text-pink-600 hover:underline">
-                <AtSign className="size-3 shrink-0" />{parent.instagram}
+                <AtSign className="size-3 shrink-0" />{contact.instagram}
               </a>
-            )}
-            {parent.address && (
-              <span className="flex items-center gap-1.5 text-xs text-slate-500 col-span-2">
-                <MapPin className="size-3 shrink-0" />{parent.address}
-              </span>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Link href={`/parents/${parent.id}`} target="_blank" rel="noopener noreferrer"
+          <Link href={`/parents/${contact.id}`} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors">
             <UserRound className="size-3" />Открыть
           </Link>
@@ -260,7 +240,6 @@ function StudentPlanRow({
 
   return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 overflow-hidden">
-      {/* Student header */}
       <div className="flex items-center gap-3 px-3 py-2.5 border-b border-emerald-100">
         <div className="size-8 rounded-full overflow-hidden bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">
           {student.avatar ? (
@@ -270,18 +249,14 @@ function StudentPlanRow({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-slate-800">{student.fullName}</p>
-          <p className="text-xs text-slate-400">
-            Группа {student.group} · {student.age} лет
-          </p>
+          <p className="text-xs text-slate-400">Группа {student.group} · {student.age} лет</p>
         </div>
         <div className="flex items-center gap-1 text-xs text-slate-400 shrink-0">
           <Star className="size-3" />{student.totalPoints}
         </div>
       </div>
 
-      {/* Plan + lesson type */}
       <div className="p-3 space-y-2.5">
-        {/* Plan type chips */}
         <div className="flex flex-wrap gap-1.5">
           {PLAN_ORDER.map((pt) => {
             const plan = SUPPORT_PLANS[pt];
@@ -309,7 +284,6 @@ function StudentPlanRow({
           })}
         </div>
 
-        {/* Lesson type + amount row */}
         <div className="flex items-center gap-2">
           <select
             value={config.lessonType}
@@ -324,9 +298,7 @@ function StudentPlanRow({
           {config.planType === 'custom' ? (
             <div className="flex items-center gap-1">
               <input
-                type="number"
-                min="0"
-                step="100"
+                type="number" min="0" step="100"
                 value={config.monthlyAmount}
                 onChange={(e) => onChange({ ...config, monthlyAmount: Number(e.target.value) || 0 })}
                 className="w-24 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
@@ -351,7 +323,7 @@ function ExistingFamilyWarning({ familyId }: { familyId: string }) {
     <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
       <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-amber-800">У этого родителя уже есть запись</p>
+        <p className="text-sm font-medium text-amber-800">Этот представитель уже привязан к семье</p>
         <p className="text-xs text-amber-700 mt-0.5">
           Создание дубликата не разрешено.{' '}
           <Link href={`/support/families/${familyId}`} className="underline font-medium">
@@ -366,17 +338,22 @@ function ExistingFamilyWarning({ familyId }: { familyId: string }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 interface FormErrors {
-  parentId?: string;
+  contactId?: string;
   studentIds?: string;
 }
 
 export default function NewFamilyPage() {
   const router = useRouter();
-  const parents = useParents();
+  const allContacts = useAllFamilyContacts();
+  const families = useFamilies();
   const allStudents = useStudents();
+  const allLinks = useAppStore((s) => s.studentFamilyContactLinks);
   const createFamily = useAppStore((s) => s.createFamily);
 
-  const [parentId, setParentId] = useState<string | undefined>();
+  // Filter out archived contacts for selection
+  const activeContacts = useMemo(() => allContacts.filter((c) => !c.isArchived), [allContacts]);
+
+  const [contactId, setContactId] = useState<string | undefined>();
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [studentConfigs, setStudentConfigs] = useState<Map<string, StudentConfig>>(new Map());
   const [notes, setNotes] = useState('');
@@ -384,31 +361,42 @@ export default function NewFamilyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [hasAttempted, setHasAttempted] = useState(false);
 
-  const parentInputRef = useRef<HTMLInputElement | null>(null);
+  const contactInputRef = useRef<HTMLInputElement | null>(null);
 
-  const selectedParent = useMemo(
-    () => parents.find((p) => p.id === parentId),
-    [parents, parentId]
+  const selectedContact = useMemo(
+    () => activeContacts.find((c) => c.id === contactId),
+    [activeContacts, contactId]
   );
 
-  const existingFamily = useFamilyByParentId(parentId ?? '');
+  // The contact's existing family (one contact → one family today)
+  const existingFamily = useMemo(() => {
+    if (!selectedContact) return null;
+    return families.find((f) => f.contactIds.includes(selectedContact.id)) ?? null;
+  }, [selectedContact, families]);
 
-  // Students belonging to the selected parent
-  const parentStudents = useMemo(
-    () => (parentId ? allStudents.filter((s) => s.parentId === parentId) : []),
-    [allStudents, parentId]
-  );
+  // Students belonging to the same family as this contact (via existing links)
+  const candidateStudents = useMemo(() => {
+    if (!selectedContact) return [];
+    const familyId = selectedContact.familyId;
+    const linkedStudentIds = new Set(
+      allLinks.filter((l) => l.contactId === selectedContact.id).map((l) => l.studentId)
+    );
+    const fam = families.find((f) => f.id === familyId);
+    const famStudentIds = new Set(fam?.studentIds ?? []);
+    // Union: students linked via this contact + students in the same family
+    return allStudents.filter((s) => linkedStudentIds.has(s.id) || famStudentIds.has(s.id));
+  }, [selectedContact, allLinks, families, allStudents]);
 
-  // When parent changes, reset student selection to all children of that parent
+  // When contact changes, reset student selection to all candidates
   useEffect(() => {
-    const ids = parentStudents.map((s) => s.id);
+    const ids = candidateStudents.map((s) => s.id);
     setSelectedStudentIds(ids);
     setStudentConfigs((prev) => {
       const next = new Map(prev);
       ids.forEach((id) => { if (!next.has(id)) next.set(id, defaultConfig()); });
       return next;
     });
-  }, [parentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [contactId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleStudent(id: string) {
     setSelectedStudentIds((prev) => {
@@ -426,7 +414,6 @@ export default function NewFamilyPage() {
     setStudentConfigs((prev) => new Map(prev).set(studentId, cfg));
   }
 
-  // Build lessonSelections from current state
   const lessonSelections: LessonSelection[] = useMemo(() => {
     return selectedStudentIds.map((sid) => {
       const cfg = studentConfigs.get(sid) ?? defaultConfig();
@@ -446,19 +433,23 @@ export default function NewFamilyPage() {
 
   function validate(): boolean {
     const errs: FormErrors = {};
-    if (!parentId) errs.parentId = 'Выберите родителя';
+    if (!contactId) errs.contactId = 'Выберите представителя';
     if (selectedStudentIds.length === 0) errs.studentIds = 'Выберите хотя бы одного ребёнка';
     setErrors(errs);
-    if (errs.parentId) { parentInputRef.current?.focus(); return false; }
+    if (errs.contactId) { contactInputRef.current?.focus(); return false; }
     return Object.keys(errs).length === 0;
   }
 
   function handleSubmit() {
     setHasAttempted(true);
-    if (!validate() || !parentId || submitting || existingFamily) return;
+    if (!validate() || !contactId || submitting || existingFamily) return;
     setSubmitting(true);
+    const name = selectedContact ? `Семья ${selectedContact.fullName}` : undefined;
     const id = createFamily({
-      parentId,
+      name,
+      contactIds: [contactId],
+      primaryContactId: contactId,
+      billingContactId: contactId,
       studentIds: selectedStudentIds,
       lessonSelections,
       supportPlanType: dominantPlan,
@@ -477,7 +468,7 @@ export default function NewFamilyPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-slate-900">Добавить семью</h1>
-          <p className="text-sm text-slate-500">Выберите родителя, детей и формат обучения для каждого</p>
+          <p className="text-sm text-slate-500">Выберите представителя, детей и формат обучения для каждого</p>
         </div>
       </div>
 
@@ -489,7 +480,7 @@ export default function NewFamilyPage() {
             Заполните обязательные поля:{' '}
             <span className="font-medium">
               {[
-                errors.parentId && 'Родитель',
+                errors.contactId && 'Представитель',
                 errors.studentIds && 'Дети',
               ].filter(Boolean).join(', ')}
             </span>
@@ -498,46 +489,45 @@ export default function NewFamilyPage() {
       )}
 
       <div className="space-y-5">
-        {/* ── Block 1: Parent ────────────────────────────────────────────────── */}
-        <Section title="Родитель *" description="Источник контактных данных семьи">
-          {parents.length === 0 ? (
+        {/* ── Block 1: Contact ────────────────────────────────────────────── */}
+        <Section title="Представитель *" description="Основной контакт семьи">
+          {activeContacts.length === 0 ? (
             <div className="flex flex-col items-center py-6 gap-3 text-center">
               <div className="size-12 rounded-2xl bg-slate-100 flex items-center justify-center">
                 <UserRound className="size-6 text-slate-400" />
               </div>
               <div>
-                <p className="font-medium text-slate-700">Родители не добавлены</p>
-                <p className="text-sm text-slate-500 mt-0.5">Сначала создайте родителя в разделе Родители</p>
+                <p className="font-medium text-slate-700">Представители не добавлены</p>
+                <p className="text-sm text-slate-500 mt-0.5">Сначала создайте представителя в разделе Представители</p>
               </div>
               <Link href="/parents/new"
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-                + Создать родителя
+                <Plus className="size-4" />Создать представителя
               </Link>
             </div>
           ) : (
             <>
-              <ParentCombobox
-                parentId={parentId}
+              <ContactCombobox
+                contactId={contactId}
                 onChange={(id) => {
-                  setParentId(id);
-                  if (hasAttempted) setErrors((e) => ({ ...e, parentId: undefined }));
+                  setContactId(id);
+                  if (hasAttempted) setErrors((e) => ({ ...e, contactId: undefined }));
                 }}
-                parents={parents}
-                allStudents={allStudents}
-                error={errors.parentId}
-                inputRef={parentInputRef}
+                contacts={activeContacts}
+                error={errors.contactId}
+                inputRef={contactInputRef}
               />
 
-              {selectedParent && (
-                <ParentCard parent={selectedParent} onClear={() => setParentId(undefined)} />
+              {selectedContact && (
+                <ContactCard contact={selectedContact} onClear={() => setContactId(undefined)} />
               )}
 
-              {!selectedParent && (
+              {!selectedContact && (
                 <div className="flex items-center gap-2 mt-3">
-                  <span className="text-xs text-slate-400">Нет нужного родителя?</span>
+                  <span className="text-xs text-slate-400">Нет нужного представителя?</span>
                   <a href="/parents/new" target="_blank" rel="noopener noreferrer"
                     className="text-xs text-emerald-600 hover:underline font-medium">
-                    + Создать родителя
+                    + Создать представителя
                   </a>
                 </div>
               )}
@@ -552,26 +542,26 @@ export default function NewFamilyPage() {
         </Section>
 
         {/* ── Block 2: Children + per-student plan ───────────────────────────── */}
-        {parentId && !existingFamily && (
+        {contactId && !existingFamily && (
           <Section
             title="Дети и формат обучения"
             description="Настройте план для каждого ребёнка отдельно"
             badge={
-              parentStudents.length > 0 ? (
+              candidateStudents.length > 0 ? (
                 <span className="text-xs font-medium text-slate-500">
-                  {selectedStudentIds.length} / {parentStudents.length}
+                  {selectedStudentIds.length} / {candidateStudents.length}
                 </span>
               ) : undefined
             }
           >
-            {parentStudents.length === 0 ? (
+            {candidateStudents.length === 0 ? (
               <div className="flex flex-col items-center py-6 gap-3 text-center">
                 <div className="size-10 rounded-xl bg-slate-100 flex items-center justify-center">
                   <Users className="size-5 text-slate-400" />
                 </div>
                 <div>
-                  <p className="font-medium text-slate-700">У этого родителя пока нет учеников</p>
-                  <p className="text-sm text-slate-500 mt-0.5">Добавьте ученика и привяжите к этому родителю</p>
+                  <p className="font-medium text-slate-700">У этого представителя пока нет учеников</p>
+                  <p className="text-sm text-slate-500 mt-0.5">Сначала привяжите ученика к семье представителя</p>
                 </div>
                 <Link href="/students/new"
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
@@ -580,11 +570,10 @@ export default function NewFamilyPage() {
               </div>
             ) : (
               <>
-                {/* Select all / clear */}
                 <div className="flex items-center gap-2 mb-3">
                   <button type="button"
                     onClick={() => {
-                      const ids = parentStudents.map((s) => s.id);
+                      const ids = candidateStudents.map((s) => s.id);
                       setSelectedStudentIds(ids);
                       setStudentConfigs((prev) => {
                         const next = new Map(prev);
@@ -604,12 +593,11 @@ export default function NewFamilyPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {parentStudents.map((s) => {
+                  {candidateStudents.map((s) => {
                     const isSelected = selectedStudentIds.includes(s.id);
                     const initials = s.fullName.slice(0, 2).toUpperCase();
                     return (
                       <div key={s.id}>
-                        {/* Checkbox row */}
                         <label className={cn(
                           'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none',
                           isSelected
@@ -646,7 +634,6 @@ export default function NewFamilyPage() {
                           </div>
                         </label>
 
-                        {/* Plan config (expands when selected) */}
                         {isSelected && (
                           <StudentPlanRow
                             student={s}
@@ -685,7 +672,6 @@ export default function NewFamilyPage() {
               </div>
             </div>
 
-            {/* Per-student breakdown */}
             <div className="space-y-1.5 mt-3 pt-3 border-t border-slate-200/60">
               {lessonSelections.map((sel) => {
                 const student = allStudents.find((s) => s.id === sel.studentId);

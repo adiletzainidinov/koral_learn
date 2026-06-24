@@ -12,11 +12,11 @@ import { Card } from '@/shared/ui/card';
 import { PageHeader } from '@/shared/ui/page-header';
 import { Modal } from '@/shared/ui/modal';
 import { Select } from '@/shared/ui/select';
-import { useAppStore, useStudents, useAttendanceRecords, useParents } from '@/store/app-store';
+import { useAppStore, useStudents, useAttendanceRecords } from '@/store/app-store';
 import { formatDate } from '@/shared/lib/dates';
 import { getDaysAgoLabel, getDaysCount, getAttendanceVariant } from '@/shared/lib/getDaysAgo';
 import type { AttendanceRecord } from '@/entities/attendance/model/types';
-import { STUDENT_LEVEL_LABELS, type StudentLevel } from '@/entities/student/model/types';
+import { STUDENT_LEVEL_LABELS } from '@/entities/student/model/types';
 
 // ─── Attendance presence helper ───────────────────────────────────────────────
 
@@ -42,15 +42,31 @@ type SortBy = 'points_desc' | 'points_asc' | 'date_newest' | 'date_oldest';
 export function StudentsTable() {
   const students = useStudents();
   const records = useAttendanceRecords();
-  const parents = useParents();
+  const familyContacts = useAppStore((s) => s.familyContacts);
+  const links = useAppStore((s) => s.studentFamilyContactLinks);
+  const families = useAppStore((s) => s.families);
   const removeStudent = useAppStore((s) => s.removeStudent);
   const router = useRouter();
 
-  const parentMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const p of parents) map[p.id] = p.fullName;
+  // Map studentId → primary contact (or first contact) info for display
+  const studentContactMap = useMemo(() => {
+    const map: Record<string, { contactId: string; contactName: string }> = {};
+    const familyById = new Map(families.map((f) => [f.id, f]));
+    const contactById = new Map(familyContacts.map((c) => [c.id, c]));
+    for (const student of students) {
+      const studentLinks = links.filter((l) => l.studentId === student.id);
+      if (studentLinks.length === 0) continue;
+      // Prefer primary contact on the family
+      const family = familyById.get(studentLinks[0].familyId);
+      const preferredId = family?.primaryContactId;
+      const link = studentLinks.find((l) => l.contactId === preferredId) ?? studentLinks.find((l) => l.isPrimaryContact) ?? studentLinks[0];
+      const contact = contactById.get(link.contactId);
+      if (contact) {
+        map[student.id] = { contactId: contact.id, contactName: contact.fullName };
+      }
+    }
     return map;
-  }, [parents]);
+  }, [students, links, families, familyContacts]);
 
   const [search, setSearch] = useState('');
   const [filterGroup, setFilterGroup] = useState('');
@@ -96,7 +112,7 @@ export function StudentsTable() {
       result = result.filter(
         (s) =>
           s.fullName.toLowerCase().includes(q) ||
-          (s.parentId && (parentMap[s.parentId] ?? '').toLowerCase().includes(q))
+          (studentContactMap[s.id]?.contactName ?? '').toLowerCase().includes(q)
       );
     }
     if (filterGroup) {
@@ -128,7 +144,7 @@ export function StudentsTable() {
         default: return 0;
       }
     });
-  }, [students, records, parentMap, search, filterGroup, filterLevel, filterPresence, sortBy]);
+  }, [students, records, studentContactMap, search, filterGroup, filterLevel, filterPresence, sortBy]);
 
   const studentToDelete = students.find((s) => s.id === deleteId);
 
@@ -292,13 +308,13 @@ export function StudentsTable() {
                     <LevelBadge level={student.level} />
                   </td>
                   <td className="px-4 py-3">
-                    {student.parentId && parentMap[student.parentId] ? (
+                    {studentContactMap[student.id] ? (
                       <Link
-                        href={`/parents/${student.parentId}`}
+                        href={`/parents/${studentContactMap[student.id].contactId}`}
                         onClick={(e) => e.stopPropagation()}
                         className="text-sm text-slate-600 hover:text-emerald-600 transition-colors"
                       >
-                        {parentMap[student.parentId]}
+                        {studentContactMap[student.id].contactName}
                       </Link>
                     ) : (
                       <span className="text-sm text-slate-300">—</span>

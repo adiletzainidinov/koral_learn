@@ -10,7 +10,7 @@ import {
 import {
   SUPPORT_PLANS, PLAN_COLORS, formatAmount, getReminderMessage, getThankYouMessage,
 } from '@/entities/support/model/helpers';
-import { formatWhatsappLink } from '@/entities/parent/model/helpers';
+import { formatWhatsappLink } from '@/entities/family-contact/model/helpers';
 import { cn } from '@/shared/lib/cn';
 import type { SupportFamilyRow, SortKey, SortDir, ListPaymentStatus } from './types';
 

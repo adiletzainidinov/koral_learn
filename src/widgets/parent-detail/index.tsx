@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Pencil, Trash2, Phone, MessageCircle, Send, AtSign, MapPin,
+  ArrowLeft, Pencil, Archive, ArchiveRestore, Phone, MessageCircle, Send, AtSign,
   UserRound, Users, FileText, HeartHandshake, ChevronRight, Plus,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
@@ -13,40 +13,53 @@ import { SectionCard } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Modal } from '@/shared/ui/modal';
 import {
-  useAppStore, useParentById, useStudentsByParentId, useFamilyByParentId, useFamilyPaymentsByFamilyId,
+  useAppStore, useFamilyContactById, useContactStudentLinks, useStudents, useFamilyById,
+  useFamilyPaymentsByFamilyId,
 } from '@/store/app-store';
 import {
   SUPPORT_PLANS, PLAN_COLORS, STATUS_COLORS, PAYMENT_STATUS_LABELS,
   calculateFamilyExpectedAmount, formatAmount, getCurrentMonth, formatMonth,
 } from '@/entities/support/model/helpers';
 import {
-  PREFERRED_CONTACT_LABELS, normalizeParentRelation,
-} from '@/entities/parent/model/types';
+  PREFERRED_CONTACT_METHOD_LABELS,
+  FAMILY_RELATION_LABELS,
+} from '@/entities/family-contact/model/types';
 import {
   formatWhatsappLink, formatTelegramLink, formatInstagramLink,
-} from '@/entities/parent/model/helpers';
+  formatContactRelation, getContactInitials,
+} from '@/entities/family-contact/model/helpers';
 import { cn } from '@/shared/lib/cn';
 
 type Tab = 'children' | 'contacts' | 'notes' | 'support';
 
 interface Props {
-  parentId: string;
+  /** The URL still uses `parentId` slug for backward compat — this is the FamilyContact id */
+  contactId: string;
 }
 
-export function ParentDetail({ parentId }: Props) {
+export function ParentDetail({ contactId }: Props) {
   const router = useRouter();
-  const parent = useParentById(parentId);
-  const children = useStudentsByParentId(parentId);
-  const deleteParent = useAppStore((s) => s.deleteParent);
+  const contact = useFamilyContactById(contactId);
+  const links = useContactStudentLinks(contactId);
+  const students = useStudents();
+  const archiveFamilyContact = useAppStore((s) => s.archiveFamilyContact);
+  const restoreFamilyContact = useAppStore((s) => s.restoreFamilyContact);
+
+  const childRows = useMemo(() => {
+    const map = new Map<string, typeof students[number]>(students.map((s) => [s.id, s]));
+    return links
+      .map((link) => ({ link, student: map.get(link.studentId) }))
+      .filter((row): row is { link: typeof links[number]; student: typeof students[number] } => !!row.student);
+  }, [links, students]);
 
   const [tab, setTab] = useState<Tab>('children');
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
 
-  if (!parent) {
+  if (!contact) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <UserRound className="size-8 text-slate-300" />
-        <p className="text-lg font-semibold text-slate-700">Родитель не найден</p>
+        <p className="text-lg font-semibold text-slate-700">Представитель не найден</p>
         <Button variant="outline" onClick={() => router.push('/parents')}>
           <ArrowLeft className="size-4" />Назад к списку
         </Button>
@@ -54,24 +67,26 @@ export function ParentDetail({ parentId }: Props) {
     );
   }
 
-  const initials = parent.fullName
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase();
+  const initials = getContactInitials(contact.fullName);
 
-  function handleDelete() {
-    deleteParent(parentId);
-    router.push('/parents');
+  function handleArchive() {
+    archiveFamilyContact(contactId);
+    setConfirmArchive(false);
+  }
+
+  function handleRestore() {
+    restoreFamilyContact(contactId);
   }
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'children', label: `Дети (${children.length})` },
+    { id: 'children', label: `Дети (${childRows.length})` },
     { id: 'support', label: 'Поддержка' },
     { id: 'contacts', label: 'Контакты' },
     { id: 'notes', label: 'Заметки' },
   ];
+
+  // Determine the family this contact belongs to (for the "primary" badge label)
+  const familyId = contact.familyId;
 
   return (
     <div className="flex flex-col gap-6">
@@ -86,27 +101,38 @@ export function ParentDetail({ parentId }: Props) {
               <ArrowLeft className="size-4" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">{parent.fullName}</h1>
+              <h1 className="text-xl font-bold text-slate-900">{contact.fullName}</h1>
               <p className="text-sm text-slate-500">
-                {parent.relation ? normalizeParentRelation(parent.relation) : 'Родитель'}
-                {children.length > 0 && ` · ${children.length} ${children.length === 1 ? 'ученик' : 'ученика'}`}
+                Представитель семьи
+                {childRows.length > 0 && ` · ${childRows.length} ${childRows.length === 1 ? 'ученик' : 'ученика'}`}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link href={`/parents/${parentId}/edit`}>
+            <Link href={`/parents/${contactId}/edit`}>
               <Button variant="outline" size="sm">
                 <Pencil className="size-3.5" />Редактировать
               </Button>
             </Link>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setConfirmDelete(true)}
-              className="text-red-500 hover:text-red-600 hover:bg-red-50"
-            >
-              <Trash2 className="size-3.5" />
-            </Button>
+            {contact.isArchived ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRestore}
+                className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+              >
+                <ArchiveRestore className="size-3.5" />Восстановить
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmArchive(true)}
+                className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+              >
+                <Archive className="size-3.5" />В архив
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -117,27 +143,27 @@ export function ParentDetail({ parentId }: Props) {
           {initials || <UserRound className="size-7 text-emerald-400" />}
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-bold text-slate-900">{parent.fullName}</h2>
+          <h2 className="text-lg font-bold text-slate-900">{contact.fullName}</h2>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {parent.relation && (
-              <Badge variant="emerald">{normalizeParentRelation(parent.relation)}</Badge>
-            )}
-            {parent.preferredContact && (
+            {contact.isArchived && <Badge variant="slate">В архиве</Badge>}
+            {contact.preferredContact && (
               <Badge variant="slate">
-                Предпочитает: {PREFERRED_CONTACT_LABELS[parent.preferredContact]}
+                Предпочитает: {PREFERRED_CONTACT_METHOD_LABELS[contact.preferredContact]}
               </Badge>
             )}
           </div>
         </div>
-        <a
-          href={formatWhatsappLink(parent.whatsapp)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 transition-colors text-sm font-medium shrink-0"
-        >
-          <MessageCircle className="size-4" />
-          WhatsApp
-        </a>
+        {contact.whatsapp && (
+          <a
+            href={formatWhatsappLink(contact.whatsapp)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 transition-colors text-sm font-medium shrink-0"
+          >
+            <MessageCircle className="size-4" />
+            WhatsApp
+          </a>
+        )}
       </div>
 
       {/* Tabs */}
@@ -160,66 +186,90 @@ export function ParentDetail({ parentId }: Props) {
 
       {/* Tab content */}
       {tab === 'children' && (
-        <ChildrenTab children={children} />
+        <ChildrenTab rows={childRows} />
       )}
       {tab === 'support' && (
-        <SupportTab parentId={parentId} />
+        <SupportTab familyId={familyId} />
       )}
       {tab === 'contacts' && (
-        <ContactsTab parent={parent} />
+        <ContactsTab contact={contact} />
       )}
       {tab === 'notes' && (
-        <NotesTab parent={parent} />
+        <NotesTab contact={contact} />
       )}
 
-      {/* Delete confirm */}
+      {/* Archive confirm */}
       <Modal
-        isOpen={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
+        isOpen={confirmArchive}
+        onClose={() => setConfirmArchive(false)}
         size="sm"
-        title="Удалить родителя?"
-        description={`«${parent.fullName}» будет удалён. Это действие нельзя отменить.`}
+        title="Отправить в архив?"
+        description={`«${contact.fullName}» будет скрыт из активного списка. Связи с учениками сохранятся.`}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>Отмена</Button>
-            <Button variant="danger" onClick={handleDelete}>Удалить</Button>
+            <Button variant="ghost" onClick={() => setConfirmArchive(false)}>Отмена</Button>
+            <Button onClick={handleArchive}>
+              <Archive className="size-4" />В архив
+            </Button>
           </>
         }
       >
-        {children.length > 0 ? (
+        {childRows.length > 0 ? (
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            У родителя {children.length}{' '}
-            {children.length === 1 ? 'ученик' : 'ученика'} — у них будет снята привязка.
+            У представителя {childRows.length}{' '}
+            {childRows.length === 1 ? 'ученик' : 'ученика'} — связи сохранятся, можно восстановить позже.
           </p>
         ) : (
-          <p className="text-sm text-slate-500">Привязанных учеников нет — удаление безопасно.</p>
+          <p className="text-sm text-slate-500">Связанных учеников нет — архивирование безопасно.</p>
         )}
       </Modal>
     </div>
   );
 }
 
-function ChildrenTab({ children }: { children: ReturnType<typeof useStudentsByParentId> }) {
-  if (children.length === 0) {
+interface ChildRow {
+  link: {
+    id: string;
+    relation: keyof typeof FAMILY_RELATION_LABELS;
+    customRelation?: string;
+    isPrimaryContact: boolean;
+    canDecideEducation: boolean;
+    canReceiveNotifications: boolean;
+    isEmergencyContact: boolean;
+    isBillingContact: boolean;
+  };
+  student: {
+    id: string;
+    fullName: string;
+    age: number;
+    group: string;
+    totalPoints: number;
+    avatar?: string;
+  };
+}
+
+function ChildrenTab({ rows }: { rows: ChildRow[] }) {
+  if (rows.length === 0) {
     return (
       <EmptyState
         icon={<Users className="size-5" />}
         title="Учеников не привязано"
-        description="Привяжите ученика через форму редактирования ученика"
+        description="Привяжите ученика через карточку семьи"
       />
     );
   }
 
   return (
-    <SectionCard title="Дети" description="Ученики, привязанные к этому родителю">
+    <SectionCard title="Дети" description="Ученики, привязанные к этому представителю">
       <div className="flex flex-col gap-2">
-        {children.map((student) => {
+        {rows.map(({ link, student }) => {
           const initials = student.fullName.slice(0, 2).toUpperCase();
+          const relationText = formatContactRelation(link);
           return (
             <Link
-              key={student.id}
+              key={link.id}
               href={`/students/${student.id}`}
-              className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors group"
+              className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors group"
             >
               <div className="size-9 rounded-full overflow-hidden bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">
                 {student.avatar ? (
@@ -228,14 +278,24 @@ function ChildrenTab({ children }: { children: ReturnType<typeof useStudentsByPa
                 ) : initials}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 group-hover:text-emerald-700 transition-colors">
-                  {student.fullName}
-                </p>
-                <p className="text-xs text-slate-400">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium text-slate-900 group-hover:text-emerald-700 transition-colors">
+                    {student.fullName}
+                  </p>
+                  <Badge variant="slate" className="text-[10px]">{relationText}</Badge>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
                   {student.age} лет · Группа {student.group} · {student.totalPoints} баллов
                 </p>
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {link.isPrimaryContact && <Badge variant="emerald" className="text-[10px]">Основной</Badge>}
+                  {link.canDecideEducation && <Badge variant="slate" className="text-[10px]">Решает</Badge>}
+                  {link.canReceiveNotifications && <Badge variant="slate" className="text-[10px]">Уведомления</Badge>}
+                  {link.isEmergencyContact && <Badge variant="warning" className="text-[10px]">Экстренный</Badge>}
+                  {link.isBillingContact && <Badge variant="info" className="text-[10px]">Платит</Badge>}
+                </div>
               </div>
-              <ArrowLeft className="size-3.5 text-slate-300 group-hover:text-emerald-500 rotate-180 transition-colors" />
+              <ChevronRight className="size-3.5 text-slate-300 group-hover:text-emerald-500 transition-colors" />
             </Link>
           );
         })}
@@ -244,91 +304,76 @@ function ChildrenTab({ children }: { children: ReturnType<typeof useStudentsByPa
   );
 }
 
-function ContactsTab({ parent }: { parent: ReturnType<typeof useParentById> }) {
-  if (!parent) return null;
-
+function ContactsTab({ contact }: { contact: NonNullable<ReturnType<typeof useFamilyContactById>> }) {
   return (
     <div className="grid grid-cols-2 gap-6">
       <SectionCard title="Контакты" description="Все способы связи">
         <div className="flex flex-col gap-3">
-          <ContactRow icon={<UserRound className="size-3.5 text-slate-400" />}>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Кем приходится</p>
-            <p className="text-sm text-slate-700">{normalizeParentRelation(parent.relation)}</p>
-          </ContactRow>
-          <ContactRow icon={<MessageCircle className="size-3.5 text-green-500" />}>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">WhatsApp</p>
-            <a
-              href={formatWhatsappLink(parent.whatsapp)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-green-600 hover:underline"
-            >
-              {parent.whatsapp}
-            </a>
-          </ContactRow>
-
-          {parent.phone && (
-            <ContactRow icon={<Phone className="size-3.5 text-slate-400" />}>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Телефон</p>
-              <a href={`tel:${parent.phone}`} className="text-sm text-slate-700 hover:text-emerald-600">
-                {parent.phone}
+          {contact.whatsapp && (
+            <ContactRow icon={<MessageCircle className="size-3.5 text-green-500" />}>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">WhatsApp</p>
+              <a
+                href={formatWhatsappLink(contact.whatsapp)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-green-600 hover:underline"
+              >
+                {contact.whatsapp}
               </a>
             </ContactRow>
           )}
 
-          {parent.telegram && (
+          {contact.phone && (
+            <ContactRow icon={<Phone className="size-3.5 text-slate-400" />}>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Телефон</p>
+              <a href={`tel:${contact.phone}`} className="text-sm text-slate-700 hover:text-emerald-600">
+                {contact.phone}
+              </a>
+            </ContactRow>
+          )}
+
+          {contact.telegram && (
             <ContactRow icon={<Send className="size-3.5 text-blue-500" />}>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Telegram</p>
               <a
-                href={formatTelegramLink(parent.telegram)}
+                href={formatTelegramLink(contact.telegram)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-blue-500 hover:underline"
               >
-                {parent.telegram}
+                {contact.telegram}
               </a>
             </ContactRow>
           )}
 
-          {parent.instagram && (
+          {contact.instagram && (
             <ContactRow icon={<AtSign className="size-3.5 text-pink-500" />}>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Instagram</p>
               <a
-                href={formatInstagramLink(parent.instagram)}
+                href={formatInstagramLink(contact.instagram)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-pink-500 hover:underline"
               >
-                {parent.instagram}
+                {contact.instagram}
               </a>
             </ContactRow>
           )}
         </div>
       </SectionCard>
-
-      {parent.address && (
-        <SectionCard title="Адрес">
-          <div className="flex items-start gap-2 text-sm text-slate-600">
-            <MapPin className="size-4 text-slate-400 mt-0.5 shrink-0" />
-            {parent.address}
-          </div>
-        </SectionCard>
-      )}
     </div>
   );
 }
 
-function NotesTab({ parent }: { parent: ReturnType<typeof useParentById> }) {
-  if (!parent) return null;
-
-  const notes = parent.notes ?? parent.description;
+function NotesTab({ contact }: { contact: NonNullable<ReturnType<typeof useFamilyContactById>> }) {
+  const notes = contact.notes;
 
   if (!notes) {
     return (
       <EmptyState
         icon={<FileText className="size-5" />}
         title="Заметок пока нет"
-        description="Добавьте заметки при редактировании родителя"
+        description="Добавьте заметки при редактировании представителя"
       />
     );
   }
@@ -340,8 +385,8 @@ function NotesTab({ parent }: { parent: ReturnType<typeof useParentById> }) {
   );
 }
 
-function SupportTab({ parentId }: { parentId: string }) {
-  const family = useFamilyByParentId(parentId);
+function SupportTab({ familyId }: { familyId: string }) {
+  const family = useFamilyById(familyId);
   const payments = useFamilyPaymentsByFamilyId(family?.id ?? '');
   const currentMonth = getCurrentMonth();
   const currentPayment = family ? payments.find((p) => p.month === currentMonth) : undefined;

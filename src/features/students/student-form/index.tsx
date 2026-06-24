@@ -15,20 +15,19 @@ import {
   AlertTriangle,
   Camera,
   UserRound,
-  MessageCircle,
   Phone,
   Users,
+  Info,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Select } from '@/shared/ui/select';
 import { Card } from '@/shared/ui/card';
-import { useAppStore, useParents } from '@/store/app-store';
+import { useAppStore } from '@/store/app-store';
 import { generateId } from '@/shared/lib/ids';
-import { cn } from '@/shared/lib/cn';
 import type { StudentLevel, StudentAttachment } from '@/entities/student/model/types';
-import type { Parent } from '@/entities/parent/model/types';
-import { formatWhatsappLink } from '@/entities/parent/model/helpers';
+import { formatContactRelation, formatWhatsappLink } from '@/entities/family-contact/model/helpers';
 import { StudentFriendsSelector } from '@/features/students/student-friends-selector';
 
 // ─── internal form types ─────────────────────────────────────────────────────
@@ -58,7 +57,6 @@ interface FormState {
   notes: string;
   attachments: AttachmentEntry[];
   avatar?: string;
-  parentId?: string;
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -127,7 +125,6 @@ const INITIAL_STATE: FormState = {
   notes: '',
   attachments: [],
   avatar: undefined,
-  parentId: undefined,
 };
 
 // ─── section wrapper ─────────────────────────────────────────────────────────
@@ -208,115 +205,6 @@ function AvatarUploader({
   );
 }
 
-// ─── parent combobox ──────────────────────────────────────────────────────────
-
-function ParentCombobox({
-  parentId, onChange, parents, error, inputRef,
-}: {
-  parentId?: string;
-  onChange: (id: string | undefined) => void;
-  parents: Parent[];
-  error?: string;
-  inputRef?: React.RefObject<HTMLInputElement | null>;
-}) {
-  const [search, setSearch] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const selectedParent = useMemo(() => parents.find((p) => p.id === parentId), [parents, parentId]);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    if (!q) return parents;
-    return parents.filter(
-      (p) =>
-        p.fullName.toLowerCase().includes(q) ||
-        p.whatsapp.includes(q) ||
-        (p.phone ?? '').includes(q)
-    );
-  }, [parents, search]);
-
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, []);
-
-  const inputValue = selectedParent ? selectedParent.fullName : search;
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-slate-700">Родитель / опекун *</label>
-      <div ref={containerRef} className="relative">
-        <input
-          ref={inputRef as React.RefObject<HTMLInputElement>}
-          type="text"
-          value={inputValue}
-          onChange={(e) => {
-            if (selectedParent) onChange(undefined);
-            setSearch(e.target.value);
-            setIsOpen(true);
-          }}
-          onFocus={() => setIsOpen(true)}
-          placeholder="Поиск по имени или номеру..."
-          className={cn(
-            'h-9 w-full rounded-lg border px-3 pr-8 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors',
-            error ? 'border-red-300 bg-red-50/40' : 'border-slate-200 bg-white'
-          )}
-        />
-        {selectedParent && (
-          <button type="button"
-            onClick={() => { onChange(undefined); setSearch(''); setIsOpen(false); }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 size-5 flex items-center justify-center text-slate-400 hover:text-slate-600">
-            <X className="size-3.5" />
-          </button>
-        )}
-        {isOpen && (
-          <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-auto max-h-56">
-            {filtered.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-slate-400">Родителей не найдено</p>
-            ) : (
-              filtered.map((p) => {
-                const initials = p.fullName.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
-                return (
-                  <button key={p.id} type="button"
-                    onMouseDown={(e) => { e.preventDefault(); onChange(p.id); setSearch(''); setIsOpen(false); }}
-                    className={cn(
-                      'w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 transition-colors',
-                      parentId === p.id && 'bg-emerald-50'
-                    )}
-                  >
-                    <div className="size-7 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">
-                      {initials}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{p.fullName}</p>
-                      <p className="text-xs text-slate-400">{p.whatsapp}</p>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        )}
-      </div>
-      {selectedParent && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg border border-green-100">
-          <MessageCircle className="size-3.5 text-green-600 shrink-0" />
-          <span className="text-sm text-green-700 flex-1">{selectedParent.whatsapp}</span>
-          <a href={formatWhatsappLink(selectedParent.whatsapp)} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-green-600 hover:underline font-medium">Написать</a>
-        </div>
-      )}
-      {error && <p className="text-xs text-red-500">{error}</p>}
-    </div>
-  );
-}
-
 // ─── attachment item ──────────────────────────────────────────────────────────
 
 function AttachmentItem({ attachment, onRemove }: { attachment: AttachmentEntry; onRemove: () => void }) {
@@ -348,12 +236,89 @@ function AttachmentItem({ attachment, onRemove }: { attachment: AttachmentEntry;
   );
 }
 
+// ─── existing contacts panel (edit mode only) ────────────────────────────────
+
+function ExistingContactsPanel({ studentId }: { studentId: string }) {
+  const links = useAppStore((s) => s.studentFamilyContactLinks);
+  const contacts = useAppStore((s) => s.familyContacts);
+  const families = useAppStore((s) => s.families);
+
+  const studentLinks = useMemo(
+    () => links.filter((l) => l.studentId === studentId),
+    [links, studentId]
+  );
+
+  if (studentLinks.length === 0) {
+    return (
+      <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+        <Info className="size-4 text-slate-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-sm text-slate-700">Представители не привязаны.</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Привяжите ученика к семье на странице{' '}
+            <Link href="/support" className="text-emerald-600 hover:underline">Поддержки</Link>, а затем добавьте представителей через карточку семьи.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {studentLinks.map((link) => {
+        const contact = contacts.find((c) => c.id === link.contactId);
+        const family = families.find((f) => f.id === link.familyId);
+        if (!contact) return null;
+        const relation = formatContactRelation(link);
+        return (
+          <div
+            key={link.id}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200 bg-white"
+          >
+            <div className="size-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">
+              {contact.fullName.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-900 truncate">{contact.fullName}</p>
+              <p className="text-xs text-slate-400">
+                {relation}
+                {family ? ` · ${family.name}` : ''}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {contact.whatsapp && (
+                <a
+                  href={formatWhatsappLink(contact.whatsapp)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="size-7 rounded-lg flex items-center justify-center text-green-500 hover:bg-green-50"
+                  title="WhatsApp"
+                >
+                  <Phone className="size-3.5" />
+                </a>
+              )}
+              <Link
+                href={`/parents/${contact.id}`}
+                className="px-2 py-1 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100"
+              >
+                Открыть
+              </Link>
+            </div>
+          </div>
+        );
+      })}
+      <p className="text-xs text-slate-400 mt-1">
+        Управление представителями выполняется через карточку семьи.
+      </p>
+    </div>
+  );
+}
+
 // ─── main form ────────────────────────────────────────────────────────────────
 
 interface Errors {
   fullName?: string;
   age?: string;
-  parentId?: string;
 }
 
 interface Props {
@@ -366,7 +331,6 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
   const addStudent = useAppStore((s) => s.addStudent);
   const updateStudent = useAppStore((s) => s.updateStudent);
   const students = useAppStore((s) => s.students);
-  const parents = useParents();
 
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
   const [errors, setErrors] = useState<Errors>({});
@@ -380,7 +344,6 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
   const attachmentZoneRef = useRef<HTMLDivElement>(null);
   const fullNameRef = useRef<HTMLInputElement>(null);
   const ageRef = useRef<HTMLInputElement>(null);
-  const parentComboboxRef = useRef<HTMLInputElement>(null);
 
   // Exclude self from friends list in edit mode
   const otherStudents = useMemo(
@@ -419,7 +382,6 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
         base64: a.base64, previewUrl: a.base64, createdAt: a.createdAt,
       })),
       avatar: student.avatar,
-      parentId: student.parentId,
     });
     setIsDirty(false);
   }, [mode, studentId, students]);
@@ -443,11 +405,9 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
     if (!form.fullName.trim()) errs.fullName = 'Введите имя ученика';
     if (!form.age.trim()) errs.age = 'Введите возраст ученика';
     else if (isNaN(Number(form.age)) || Number(form.age) <= 0) errs.age = 'Введите корректный возраст';
-    if (!form.parentId) errs.parentId = 'Выберите родителя ученика';
     setErrors(errs);
     if (errs.fullName) fullNameRef.current?.focus();
     else if (errs.age) ageRef.current?.focus();
-    else if (errs.parentId) parentComboboxRef.current?.focus();
     return Object.keys(errs).length === 0;
   }
 
@@ -522,7 +482,6 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       notes: form.notes.trim(),
       attachments: persistedAttachments,
       avatar: form.avatar,
-      parentId: form.parentId || undefined,
       studentPhone: form.studentPhone.trim() || undefined,
       studentWhatsapp: form.studentWhatsapp.trim() || undefined,
       studentTelegram: form.studentTelegram.trim() || undefined,
@@ -593,7 +552,6 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
               {[
                 errors.fullName && 'Полное имя',
                 errors.age && 'Возраст',
-                errors.parentId && 'Родитель',
               ].filter(Boolean).join(', ')}
             </span>
           </p>
@@ -631,31 +589,23 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
         </div>
       </Section>
 
-      {/* ── section 2: parent ────────────────────────────────────────────── */}
-      <Section icon={<UserRound className="size-4" />} title="Родитель *"
-        description="Основной контакт семьи — источник данных о родителе">
-        <div className="flex flex-col gap-3">
-          <ParentCombobox
-            parentId={form.parentId}
-            onChange={(id) => { upd('parentId', id); clearError('parentId'); }}
-            parents={parents}
-            error={errors.parentId}
-            inputRef={parentComboboxRef}
-          />
-          {parents.length === 0 && (
-            <p className="text-xs text-slate-400">
-              В системе пока нет родителей.{' '}
-              <a href="/parents/new" className="text-emerald-600 hover:underline font-medium">Создать родителя</a>
-            </p>
-          )}
-          <div className="flex items-center gap-2 pt-1">
-            <span className="text-xs text-slate-400">Нет нужного родителя?</span>
-            <a href="/parents/new" target="_blank" rel="noopener noreferrer"
-              className="text-xs text-emerald-600 hover:underline font-medium">
-              + Создать родителя
-            </a>
+      {/* ── section 2: family contacts info ────────────────────────────── */}
+      <Section icon={<UserRound className="size-4" />} title="Представители семьи"
+        description="Управление контактами семьи происходит через карточку семьи">
+        {mode === 'edit' && studentId ? (
+          <ExistingContactsPanel studentId={studentId} />
+        ) : (
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <Info className="size-4 text-slate-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm text-slate-700">Представители добавляются после создания семьи.</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Сначала сохраните ученика, затем создайте семью в разделе{' '}
+                <Link href="/support" className="text-emerald-600 hover:underline">Поддержки</Link>.
+              </p>
+            </div>
           </div>
-        </div>
+        )}
       </Section>
 
       {/* ── section 3: student contacts ──────────────────────────────────── */}
