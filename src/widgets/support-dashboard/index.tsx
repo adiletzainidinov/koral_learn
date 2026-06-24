@@ -1,368 +1,133 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Plus, Search, Users, CheckCircle2, Clock, AlertCircle,
-  ChevronRight, Copy, Phone, HeartHandshake, X, Wallet,
-  CalendarDays, Check, AlertTriangle,
+  Plus, Search, AlertTriangle, ChevronLeft, ChevronRight,
+  Check, SlidersHorizontal, X, Copy,
 } from 'lucide-react';
+import { useAppStore, useFamilies, useStudents, useParents } from '@/store/app-store';
 import {
-  useAppStore, useFamilies, useStudents, useFamilyPayments, useParents,
-} from '@/store/app-store';
-import type { Parent } from '@/entities/parent/model/types';
-import {
-  SUPPORT_PLANS, PLAN_COLORS, STATUS_COLORS, PAYMENT_STATUS_LABELS, PAYMENT_METHOD_LABELS,
-  calculateFamilyExpectedAmount, formatAmount, getCurrentMonth, formatMonth,
-  getReminderMessage, getThankYouMessage,
+  SUPPORT_PLANS, PLAN_COLORS,
+  calculateFamilyExpectedAmount,
+  calculatePaidForMonth,
+  calculateAvailableAdvance,
+  calculateGiftTotal,
+  getReminderMessage,
+  formatAmount, formatMonth, getCurrentMonth,
 } from '@/entities/support/model/helpers';
-import type { SupportPlanType, PaymentStatus, PaymentMethod } from '@/entities/support/model/types';
+import type { SupportPlanType } from '@/entities/support/model/types';
 import { cn } from '@/shared/lib/cn';
+import type { SupportFamilyRow, ListPaymentStatus, SortKey, SortDir, DebtRange } from './types';
+import { SupportSummary } from './support-summary';
+import { SupportTable } from './support-table';
+import { SupportPaymentModal } from './support-payment-modal';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function useHydrated() {
   const [h, setH] = useState(false);
-  useEffect(() => setH(true), []);
+  useEffect(() => { setH(true); }, []);
   return h;
 }
 
-// ─── Accept Payment Modal ─────────────────────────────────────────────────────
+type PlanFilter = 'all' | SupportPlanType | 'mixed';
+type StatusFilter = 'all' | ListPaymentStatus;
 
-function AcceptPaymentModal({
-  familyId, month, onClose,
-}: { familyId: string; month: string; onClose: () => void }) {
-  const families = useFamilies();
-  const familyPayments = useFamilyPayments();
-  const students = useStudents();
-  const markPaid = useAppStore((s) => s.markFamilyPaymentPaid);
-
-  const family = families.find((f) => f.id === familyId);
-  const payment = familyPayments.find((p) => p.familyId === familyId && p.month === month);
-
-  const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState<PaymentMethod>('cash');
-  const [comment, setComment] = useState('');
-
-  if (!family) return null;
-
-  const expectedAmount = payment?.expectedAmount ?? calculateFamilyExpectedAmount(family);
-  const alreadyPaid = payment?.paidAmount ?? 0;
-  const remaining = Math.max(0, expectedAmount - alreadyPaid);
-  const numAmount = Number(amount);
-
-  function handleSubmit() {
-    if (numAmount <= 0) return;
-    markPaid(familyId, month, numAmount, method, comment || undefined);
-    onClose();
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">Принять оплату</h2>
-            <p className="text-sm text-slate-500">{family.name} · {formatMonth(month)}</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
-            <X className="size-5" />
-          </button>
-        </div>
-
-        {/* Info */}
-        {expectedAmount > 0 && (
-          <div className="bg-slate-50 rounded-xl p-3 mb-5 flex gap-4 text-sm">
-            <div><p className="text-slate-400 text-xs">Ожидается</p><p className="font-semibold text-slate-800">{formatAmount(expectedAmount)}</p></div>
-            <div><p className="text-slate-400 text-xs">Оплачено</p><p className="font-semibold text-emerald-600">{formatAmount(alreadyPaid)}</p></div>
-            {remaining > 0 && <div><p className="text-slate-400 text-xs">Остаток</p><p className="font-semibold text-amber-600">{formatAmount(remaining)}</p></div>}
-          </div>
-        )}
-
-        {/* Quick buttons */}
-        {expectedAmount > 0 && (
-          <div className="flex gap-2 mb-4">
-            {remaining > 0 && (
-              <button onClick={() => setAmount(String(remaining))}
-                className="flex-1 py-2 px-3 rounded-xl border border-emerald-200 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
-                Полная сумма ({formatAmount(remaining)})
-              </button>
-            )}
-            <button onClick={() => setAmount(String(Math.ceil(expectedAmount / 2)))}
-              className="flex-1 py-2 px-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-              Половина ({formatAmount(Math.ceil(expectedAmount / 2))})
-            </button>
-          </div>
-        )}
-
-        {/* Amount */}
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Сумма (сом)</label>
-          <input
-            type="number" min="0" placeholder="0"
-            value={amount} onChange={(e) => setAmount(e.target.value)}
-            className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 font-medium text-slate-900"
-          />
-        </div>
-
-        {/* Method */}
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Способ оплаты</label>
-          <div className="flex flex-wrap gap-2">
-            {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => (
-              <button key={m} onClick={() => setMethod(m)}
-                className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-                  method === m
-                    ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
-                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                )}>
-                {PAYMENT_METHOD_LABELS[m]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Comment */}
-        <div className="mb-5">
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Комментарий (необязательно)</label>
-          <input type="text" placeholder="Примечание..." value={comment} onChange={(e) => setComment(e.target.value)}
-            className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-        </div>
-
-        <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-            Отмена
-          </button>
-          <button onClick={handleSubmit} disabled={numAmount <= 0}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 flex items-center justify-center gap-1.5">
-            <Check className="size-4" /> Принять {numAmount > 0 ? formatAmount(numAmount) : ''}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Plan Card ────────────────────────────────────────────────────────────────
-
-function PlanCard({ planType, familyCount }: { planType: SupportPlanType; familyCount: number }) {
-  const plan = SUPPORT_PLANS[planType];
-  const colors = PLAN_COLORS[planType];
-  return (
-    <div className={cn('bg-white rounded-2xl border p-5', colors.border)}>
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <div className="text-2xl mb-1">{plan.emoji}</div>
-          <h3 className="font-bold text-slate-900 text-sm">{plan.name}</h3>
-          {plan.monthlyBasePrice && (
-            <p className={cn('text-xs font-semibold mt-0.5', colors.text)}>
-              от {formatAmount(plan.monthlyBasePrice)}/мес
-            </p>
-          )}
-        </div>
-        <span className={cn('text-xs font-medium px-2 py-1 rounded-full', colors.badge)}>
-          {familyCount} {familyCount === 1 ? 'семья' : familyCount < 5 ? 'семьи' : 'семей'}
-        </span>
-      </div>
-      <p className="text-xs text-slate-500 mb-3">{plan.description}</p>
-      <div className="space-y-1">
-        {plan.features.map((f) => (
-          <div key={f} className="flex items-center gap-1.5 text-xs text-slate-600">
-            <CheckCircle2 className={cn('size-3 shrink-0', colors.text)} />
-            {f}
-          </div>
-        ))}
-      </div>
-      <p className={cn('mt-3 text-[11px] px-2 py-1.5 rounded-lg', colors.light, colors.text)}>{plan.educationLogic}</p>
-    </div>
-  );
-}
-
-// ─── Copy Message Button ──────────────────────────────────────────────────────
-
-function CopyBtn({ text, label }: { text: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  function handleCopy() {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
-  return (
-    <button onClick={handleCopy}
-      className={cn('flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-        copied ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-      )}>
-      {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-      {copied ? 'Скопировано' : label}
-    </button>
-  );
-}
-
-// ─── Family Card ──────────────────────────────────────────────────────────────
-
-function FamilyCard({
-  family, parent, payment, studentNames, month, onAcceptPayment,
-}: {
-  family: ReturnType<typeof useFamilies>[number];
-  parent?: Parent;
-  payment: ReturnType<typeof useFamilyPayments>[number] | undefined;
-  studentNames: string[];
-  month: string;
-  onAcceptPayment: (familyId: string) => void;
-}) {
-  const plan = SUPPORT_PLANS[family.supportPlanType];
-  const planColors = PLAN_COLORS[family.supportPlanType];
-  const expectedAmount = payment?.expectedAmount ?? calculateFamilyExpectedAmount(family);
-  const paidAmount = payment?.paidAmount ?? 0;
-  const remaining = Math.max(0, expectedAmount - paidAmount);
-  const status = payment?.status ?? (expectedAmount === 0 ? 'paid' : 'unpaid');
-  const statusColors = STATUS_COLORS[status];
-
-  const displayName = parent ? parent.fullName : (family.parentName ?? family.name);
-  const displayContact = parent ? parent.whatsapp : family.parentPhone;
-
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h3 className="font-bold text-slate-900 truncate">{family.name}</h3>
-              <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full shrink-0', planColors.badge)}>
-                {plan.emoji} {plan.name}
-              </span>
-            </div>
-            <p className="text-sm text-slate-600">{displayName}</p>
-            {displayContact && (
-              <div className="flex items-center gap-1 text-xs text-slate-400 mt-0.5">
-                <Phone className="size-3" />
-                {displayContact}
-              </div>
-            )}
-          </div>
-          <span className={cn('text-xs font-medium px-2.5 py-1 rounded-full shrink-0', statusColors.badge)}>
-            {PAYMENT_STATUS_LABELS[status]}
-          </span>
-        </div>
-
-        {/* Students */}
-        <div className="flex items-center gap-1.5 mb-3">
-          <Users className="size-3.5 text-slate-400 shrink-0" />
-          <div className="flex gap-1 flex-wrap">
-            {studentNames.map((n) => (
-              <span key={n} className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md">{n.split(' ')[0]}</span>
-            ))}
-            {studentNames.length === 0 && <span className="text-xs text-slate-400">Нет учеников</span>}
-          </div>
-        </div>
-
-        {/* Amounts */}
-        {expectedAmount > 0 && (
-          <div className="flex gap-3 text-sm mb-4">
-            <div className="flex-1 text-center py-2 rounded-xl bg-slate-50">
-              <p className="text-[10px] text-slate-400 mb-0.5">Ожидается</p>
-              <p className="font-bold text-slate-800">{formatAmount(expectedAmount)}</p>
-            </div>
-            <div className="flex-1 text-center py-2 rounded-xl bg-emerald-50">
-              <p className="text-[10px] text-slate-400 mb-0.5">Оплачено</p>
-              <p className="font-bold text-emerald-700">{formatAmount(paidAmount)}</p>
-            </div>
-            {remaining > 0 && (
-              <div className="flex-1 text-center py-2 rounded-xl bg-amber-50">
-                <p className="text-[10px] text-slate-400 mb-0.5">Остаток</p>
-                <p className="font-bold text-amber-700">{formatAmount(remaining)}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-2 flex-wrap">
-          <Link href={`/support/families/${family.id}`}
-            className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
-            Открыть <ChevronRight className="size-3" />
-          </Link>
-          {expectedAmount > 0 && status !== 'paid' && status !== 'overpaid' && (
-            <button onClick={() => onAcceptPayment(family.id)}
-              className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700">
-              <Wallet className="size-3.5" /> Принять оплату
-            </button>
-          )}
-          {status === 'paid' && expectedAmount > 0 && (
-            <CopyBtn text={getThankYouMessage(family.name, month)} label="Благодарность" />
-          )}
-          {(status === 'unpaid' || status === 'partial') && remaining > 0 && (
-            <CopyBtn text={getReminderMessage(family.name, remaining, month)} label="Напоминание" />
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+const STATUS_PRIORITY: Record<ListPaymentStatus, number> = {
+  unpaid: 0, partial: 1, paid: 2, overpaid: 3, no_charge: 4,
+};
 
 // ─── Main Widget ──────────────────────────────────────────────────────────────
 
 export function SupportDashboard() {
   const hydrated = useHydrated();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // ── URL state ──
+  const month = searchParams.get('month') ?? getCurrentMonth();
+  const qFromUrl = searchParams.get('q') ?? '';
+  const statusFilter = (searchParams.get('status') ?? 'all') as StatusFilter;
+  const planFilter = (searchParams.get('plan') ?? 'all') as PlanFilter;
+  const sortKey = (searchParams.get('col') ?? 'status') as SortKey;
+  const sortDir = (searchParams.get('dir') ?? 'asc') as SortDir;
+  const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
+  const pageSize = Number(searchParams.get('per') ?? '20');
+  const debtRange = (searchParams.get('debt') ?? 'any') as DebtRange;
+  const extraStr = searchParams.get('extra') ?? '';
+
+  // ── Local state ──
+  const [searchInput, setSearchInput] = useState(qFromUrl);
+  const [paymentFamilyId, setPaymentFamilyId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showExtraFilters, setShowExtraFilters] = useState(false);
+  const [copiedBulk, setCopiedBulk] = useState(false);
+
+  // Sync search input when URL q changes externally (back/forward nav)
+  useEffect(() => { setSearchInput(qFromUrl); }, [qFromUrl]);
+
+  // Debounce search → URL (300ms)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      updateParams({ q: searchInput || null, page: null });
+    }, 300);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
+  function updateParams(updates: Record<string, string | null>) {
+    const next = new URLSearchParams(Array.from(searchParams.entries()));
+    for (const [key, val] of Object.entries(updates)) {
+      if (val === null || val === '') next.delete(key);
+      else next.set(key, val);
+    }
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+  }
+
+  function setMonth(m: string) { updateParams({ month: m, page: null }); }
+  function setStatusFilter(s: StatusFilter | 'all') { updateParams({ status: s === 'all' ? null : s, page: null }); }
+  function setPlanFilter(p: PlanFilter) { updateParams({ plan: p === 'all' ? null : p, page: null }); }
+  function setDebtRange(d: DebtRange) { updateParams({ debt: d === 'any' ? null : d, page: null }); }
+  function setPage(p: number) { updateParams({ page: p === 1 ? null : String(p) }); }
+  function setPageSize(ps: number) { updateParams({ per: ps === 20 ? null : String(ps), page: null }); }
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      updateParams({ dir: sortDir === 'asc' ? 'desc' : 'asc' });
+    } else {
+      updateParams({ col: key, dir: 'asc' });
+    }
+  }
+
+  function toggleExtra(filter: string) {
+    const parts = extraStr.split(',').filter(Boolean);
+    const idx = parts.indexOf(filter);
+    if (idx >= 0) parts.splice(idx, 1);
+    else parts.push(filter);
+    updateParams({ extra: parts.join(',') || null, page: null });
+  }
+
+  function hasExtra(filter: string) {
+    return extraStr.split(',').includes(filter);
+  }
+
+  function resetFilters() {
+    updateParams({
+      q: null, status: null, plan: null, col: null, dir: null,
+      page: null, debt: null, extra: null,
+    });
+    setSearchInput('');
+  }
+
+  // ── Zustand data ──
   const families = useFamilies();
   const students = useStudents();
   const parents = useParents();
-  const familyPayments = useFamilyPayments();
-  const createMonthlyPayments = useAppStore((s) => s.createMonthlyPayments);
+  const allSupportPayments = useAppStore((s) => s.supportPayments);
   const deduplicateSupportAccounts = useAppStore((s) => s.deduplicateSupportAccounts);
-
-  const [search, setSearch] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
-  const [statusFilter, setStatusFilter] = useState<'all' | PaymentStatus>('all');
-  const [planFilter, setPlanFilter] = useState<'all' | SupportPlanType>('all');
-  const [acceptPaymentFamilyId, setAcceptPaymentFamilyId] = useState<string | null>(null);
-  const [showPlans, setShowPlans] = useState(false);
-
-  const monthPayments = familyPayments.filter((p) => p.month === selectedMonth);
-  const hasMonthPayments = families.every((f) => monthPayments.some((p) => p.familyId === f.id));
-
-  // Summary stats
-  const totalFamilies = families.length;
-  const paidCount = monthPayments.filter((p) => p.status === 'paid' || p.status === 'overpaid').length;
-  const partialCount = monthPayments.filter((p) => p.status === 'partial').length;
-  const unpaidCount = families.filter((f) => {
-    const p = monthPayments.find((mp) => mp.familyId === f.id);
-    return !p ? f.supportPlanType !== 'open_learning' : p.status === 'unpaid';
-  }).length;
-  const totalExpected = monthPayments.reduce((s, p) => s + p.expectedAmount, 0);
-  const totalPaid = monthPayments.reduce((s, p) => s + p.paidAmount, 0);
-  const openLearningCount = families.filter((f) => f.supportPlanType === 'open_learning').length;
-
-  // Filter families
-  const filtered = families
-    .filter((f) => {
-      if (search) {
-        const q = search.toLowerCase();
-        const parent = parents.find((p) => p.id === f.parentId);
-        const studentNamesMatch = students.filter((s) => f.studentIds.includes(s.id)).some((s) => s.fullName.toLowerCase().includes(q));
-        const parentMatch = parent
-          ? parent.fullName.toLowerCase().includes(q) || parent.whatsapp.includes(q) || (parent.phone ?? '').includes(q)
-          : false;
-        if (
-          !f.name.toLowerCase().includes(q) &&
-          !(f.parentName ?? '').toLowerCase().includes(q) &&
-          !(f.parentPhone ?? '').includes(q) &&
-          !parentMatch &&
-          !studentNamesMatch
-        ) return false;
-      }
-      if (planFilter !== 'all' && f.supportPlanType !== planFilter) return false;
-      if (statusFilter !== 'all') {
-        const p = monthPayments.find((mp) => mp.familyId === f.id);
-        const status = p?.status ?? (calculateFamilyExpectedAmount(f) === 0 ? 'paid' : 'unpaid');
-        if (status !== statusFilter) return false;
-      }
-      return true;
-    });
-
-  const planCounts = families.reduce((acc, f) => {
-    acc[f.supportPlanType] = (acc[f.supportPlanType] ?? 0) + 1;
-    return acc;
-  }, {} as Record<SupportPlanType, number>);
 
   const duplicateParentCount = useMemo(() => {
     const seen = new Set<string>();
@@ -375,28 +140,216 @@ export function SupportDashboard() {
     return dups;
   }, [families]);
 
-  if (!hydrated) return (
-    <div className="p-6 max-w-7xl mx-auto animate-pulse space-y-4">
-      <div className="h-8 w-48 bg-slate-100 rounded-xl" />
-      <div className="grid grid-cols-3 gap-4">{Array(6).fill(0).map((_, i) => <div key={i} className="h-20 bg-slate-100 rounded-2xl" />)}</div>
-    </div>
-  );
+  // ── Build view model ──
+  const allRows = useMemo<SupportFamilyRow[]>(() => {
+    return families.map((family) => {
+      const familyPayments = allSupportPayments.filter((p) => p.familyId === family.id);
+      const parent = parents.find((p) => p.id === family.parentId) ?? null;
+      const familyStudents = students.filter((s) => family.studentIds.includes(s.id));
+      const studentById = Object.fromEntries(familyStudents.map((s) => [s.id, s]));
+
+      const expectedAmount = calculateFamilyExpectedAmount(family);
+      const paidAmount = calculatePaidForMonth(familyPayments, month);
+      const remainingAmount = Math.max(0, expectedAmount - paidAmount);
+      const availableAdvance = calculateAvailableAdvance(familyPayments);
+      const giftAmount = calculateGiftTotal(familyPayments);
+
+      const paymentStatus: ListPaymentStatus =
+        expectedAmount === 0 ? 'no_charge' :
+        paidAmount > expectedAmount ? 'overpaid' :
+        paidAmount >= expectedAmount ? 'paid' :
+        paidAmount > 0 ? 'partial' :
+        'unpaid';
+
+      const plans: SupportPlanType[] =
+        family.lessonSelections && family.lessonSelections.length > 0
+          ? [...new Set(family.lessonSelections.filter((s) => s.isActive).map((s) => s.planType))]
+          : [family.supportPlanType];
+
+      const planTooltip =
+        family.lessonSelections && family.lessonSelections.length > 0
+          ? family.lessonSelections
+              .filter((s) => s.isActive)
+              .map((s) => `${studentById[s.studentId]?.fullName?.split(' ')[0] ?? '?'} — ${SUPPORT_PLANS[s.planType].name}`)
+              .join('\n')
+          : SUPPORT_PLANS[family.supportPlanType].name;
+
+      return {
+        familyId: family.id,
+        familyName: family.name,
+        parent,
+        studentCount: family.studentIds.length,
+        studentNames: familyStudents.map((s) => s.fullName),
+        plans,
+        hasMixedPlans: plans.length > 1,
+        planTooltip,
+        expectedAmount,
+        paidAmount,
+        remainingAmount,
+        availableAdvance,
+        giftAmount,
+        paymentStatus,
+        family,
+      };
+    });
+  }, [families, allSupportPayments, parents, students, month]);
+
+  // ── Filter ──
+  const filteredRows = useMemo<SupportFamilyRow[]>(() => {
+    let rows = allRows;
+
+    if (qFromUrl) {
+      const q = qFromUrl.toLowerCase().trim();
+      const qPhone = q.replace(/[+\s\-()]/g, '');
+      rows = rows.filter((row) => {
+        if (row.familyName.toLowerCase().includes(q)) return true;
+        if (row.parent?.fullName.toLowerCase().includes(q)) return true;
+        const wa = (row.parent?.whatsapp ?? '').replace(/[+\s\-()]/g, '');
+        if (qPhone && wa.includes(qPhone)) return true;
+        const ph = (row.parent?.phone ?? '').replace(/[+\s\-()]/g, '');
+        if (qPhone && ph.includes(qPhone)) return true;
+        if (row.studentNames.some((n) => n.toLowerCase().includes(q))) return true;
+        if (row.plans.some((p) => SUPPORT_PLANS[p].name.toLowerCase().includes(q))) return true;
+        return false;
+      });
+    }
+
+    if (statusFilter !== 'all') {
+      rows = rows.filter((row) => row.paymentStatus === statusFilter);
+    }
+
+    if (planFilter !== 'all') {
+      if (planFilter === 'mixed') {
+        rows = rows.filter((row) => row.hasMixedPlans);
+      } else {
+        rows = rows.filter((row) => row.plans.includes(planFilter as SupportPlanType));
+      }
+    }
+
+    if (hasExtra('hasDebt')) rows = rows.filter((row) => row.remainingAmount > 0);
+    if (hasExtra('hasAdvance')) rows = rows.filter((row) => row.availableAdvance > 0);
+    if (hasExtra('hasGift')) rows = rows.filter((row) => row.giftAmount > 0);
+    if (hasExtra('noCharge')) rows = rows.filter((row) => row.expectedAmount === 0);
+
+    if (debtRange !== 'any') {
+      rows = rows.filter((row) => {
+        const r = row.remainingAmount;
+        if (debtRange === 'to1000') return r > 0 && r <= 1000;
+        if (debtRange === '1000to3000') return r > 1000 && r <= 3000;
+        if (debtRange === 'over3000') return r > 3000;
+        return true;
+      });
+    }
+
+    return rows;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allRows, qFromUrl, statusFilter, planFilter, extraStr, debtRange]);
+
+  // ── Sort ──
+  const sortedRows = useMemo<SupportFamilyRow[]>(() => {
+    return [...filteredRows].sort((a, b) => {
+      const dir = sortDir === 'asc' ? 1 : -1;
+      let cmp = 0;
+      switch (sortKey) {
+        case 'name': cmp = a.familyName.localeCompare(b.familyName, 'ru'); break;
+        case 'students': cmp = a.studentCount - b.studentCount; break;
+        case 'expected': cmp = a.expectedAmount - b.expectedAmount; break;
+        case 'paid': cmp = a.paidAmount - b.paidAmount; break;
+        case 'remaining': cmp = a.remainingAmount - b.remainingAmount; break;
+        case 'advance': cmp = a.availableAdvance - b.availableAdvance; break;
+        case 'status':
+        default:
+          cmp = STATUS_PRIORITY[a.paymentStatus] - STATUS_PRIORITY[b.paymentStatus];
+          if (cmp === 0) cmp = b.remainingAmount - a.remainingAmount;
+          return cmp * dir;
+      }
+      return cmp * dir;
+    });
+  }, [filteredRows, sortKey, sortDir]);
+
+  // ── Paginate ──
+  const totalCount = sortedRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIdx = (currentPage - 1) * pageSize;
+  const pagedRows = sortedRows.slice(startIdx, startIdx + pageSize);
+
+  // ── Bulk selection ──
+  const allPageSelected = pagedRows.length > 0 && pagedRows.every((r) => selectedIds.has(r.familyId));
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (allPageSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        pagedRows.forEach((r) => next.delete(r.familyId));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        pagedRows.forEach((r) => next.add(r.familyId));
+        return next;
+      });
+    }
+  }
+
+  function copySelectedReminders() {
+    const msgs = sortedRows
+      .filter((r) => selectedIds.has(r.familyId) && r.remainingAmount > 0)
+      .map((r) => getReminderMessage(r.parent?.fullName ?? r.familyName, r.remainingAmount, month))
+      .join('\n\n---\n\n');
+    if (msgs) {
+      navigator.clipboard.writeText(msgs).then(() => {
+        setCopiedBulk(true);
+        setTimeout(() => setCopiedBulk(false), 2000);
+      });
+    }
+  }
+
+  const hasActiveFilters =
+    qFromUrl || statusFilter !== 'all' || planFilter !== 'all' ||
+    debtRange !== 'any' || extraStr;
+
+  // ── Loading skeleton ──
+  if (!hydrated) {
+    return (
+      <div className="p-4 md:p-6 max-w-[1440px] mx-auto animate-pulse space-y-4">
+        <div className="h-8 w-48 bg-slate-100 rounded-xl" />
+        <div className="grid grid-cols-4 gap-3">
+          {[0, 1, 2, 3].map((i) => <div key={i} className="h-16 bg-slate-100 rounded-2xl" />)}
+        </div>
+        <div className="h-64 bg-slate-100 rounded-2xl" />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
+    <div className="p-4 md:p-6 max-w-[1440px] mx-auto">
+
+      {/* ── Header ── */}
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Поддержка</h1>
           <p className="text-sm text-slate-500 mt-0.5">Учёт взносов, семей и форматов обучения</p>
         </div>
-        <Link href="/support/families/new"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
+        <Link
+          href="/support/families/new"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+        >
           <Plus className="size-4" /> Добавить семью
         </Link>
       </div>
 
-      {/* Dedup warning */}
+      {/* ── Dedup warning ── */}
       {duplicateParentCount > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 mb-5 rounded-xl bg-amber-50 border border-amber-200">
           <AlertTriangle className="size-4 text-amber-600 shrink-0" />
@@ -405,148 +358,342 @@ export function SupportDashboard() {
               Обнаружены дублирующиеся записи ({duplicateParentCount})
             </p>
             <p className="text-xs text-amber-700 mt-0.5">
-              Несколько записей поддержки привязаны к одному родителю. Рекомендуем объединить их.
+              Несколько записей поддержки привязаны к одному родителю.
             </p>
           </div>
           <button
             onClick={deduplicateSupportAccounts}
-            className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-medium hover:bg-amber-700 shrink-0 transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-medium hover:bg-amber-700 shrink-0"
           >
             Объединить
           </button>
         </div>
       )}
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        {[
-          { label: 'Семей', value: totalFamilies, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Оплачено', value: paidCount, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Частично', value: partialCount, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'Не оплачено', value: unpaidCount, icon: AlertCircle, color: 'text-slate-500', bg: 'bg-slate-100' },
-          { label: 'Собрано', value: formatAmount(totalPaid), icon: Wallet, color: 'text-violet-600', bg: 'bg-violet-50' },
-          { label: 'Открытый формат', value: openLearningCount, icon: HeartHandshake, color: 'text-slate-500', bg: 'bg-slate-100' },
-        ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col gap-2">
-            <div className={cn('size-8 rounded-lg flex items-center justify-center', bg)}>
-              <Icon className={cn('size-4', color)} />
-            </div>
-            <div>
-              <p className="text-lg font-bold text-slate-900 leading-none">{value}</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">{label}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* ── Summary stats ── */}
+      <SupportSummary
+        allRows={allRows}
+        filteredCount={filteredRows.length}
+        currentStatusFilter={statusFilter}
+        onStatusFilter={setStatusFilter}
+      />
 
-      {/* Month selector + Create payments */}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2">
-          <CalendarDays className="size-4 text-slate-400" />
-          <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}
-            className="text-sm font-medium text-slate-700 focus:outline-none bg-transparent" />
-        </div>
-        {!hasMonthPayments && families.length > 0 && (
-          <button onClick={() => createMonthlyPayments(selectedMonth)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-800">
-            <Plus className="size-4" /> Создать начисления за {formatMonth(selectedMonth).toLowerCase()}
+      {/* ── Toolbar ── */}
+      <div className="space-y-3 mb-4">
+        {/* Row 1: month + search */}
+        <div className="flex gap-3 flex-wrap">
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shrink-0">
+            <span className="text-xs text-slate-500 whitespace-nowrap">Месяц:</span>
+            <input
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="text-sm font-medium text-slate-700 focus:outline-none bg-transparent"
+              aria-label="Расчётный месяц"
+            />
+          </div>
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Поиск по семье, родителю, телефону или ученику..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+          </div>
+          <button
+            onClick={() => setShowExtraFilters((v) => !v)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-colors',
+              showExtraFilters || extraStr || debtRange !== 'any'
+                ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+            )}
+            aria-expanded={showExtraFilters}
+          >
+            <SlidersHorizontal className="size-4" />
+            Фильтры
+            {(extraStr || debtRange !== 'any') && (
+              <span className="size-2 rounded-full bg-emerald-500" />
+            )}
           </button>
-        )}
-        {hasMonthPayments && totalExpected > 0 && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm">
-            <span className="text-slate-500">Ожидается:</span>
-            <span className="font-bold text-slate-800">{formatAmount(totalExpected)}</span>
-            <span className="text-slate-300">·</span>
-            <span className="text-slate-500">Собрано:</span>
-            <span className="font-bold text-emerald-700">{formatAmount(totalPaid)}</span>
-          </div>
-        )}
-        <button onClick={() => setShowPlans((v) => !v)}
-          className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-          {showPlans ? 'Скрыть форматы' : 'Форматы обучения'}
-        </button>
-      </div>
-
-      {/* Plan cards */}
-      {showPlans && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {(Object.keys(SUPPORT_PLANS) as SupportPlanType[]).map((type) => (
-            <PlanCard key={type} planType={type} familyCount={planCounts[type] ?? 0} />
-          ))}
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-5">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-          <input type="text" placeholder="Семья, родитель, ученик..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-        </div>
-        <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-medium">
-          {(['all', 'paid', 'partial', 'unpaid'] as const).map((v) => (
-            <button key={v} onClick={() => setStatusFilter(v)}
-              className={cn('px-3 py-2 transition-colors', statusFilter === v ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50')}>
-              {v === 'all' ? 'Все' : PAYMENT_STATUS_LABELS[v as PaymentStatus]}
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-500 hover:bg-slate-50 transition-colors"
+            >
+              <X className="size-3.5" /> Сбросить
             </button>
-          ))}
-        </div>
-        <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-medium">
-          {(['all', ...Object.keys(SUPPORT_PLANS)] as const).map((v) => (
-            <button key={v} onClick={() => setPlanFilter(v as 'all' | SupportPlanType)}
-              className={cn('px-3 py-2 transition-colors whitespace-nowrap', planFilter === v ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50')}>
-              {v === 'all' ? 'Все планы' : SUPPORT_PLANS[v as SupportPlanType].emoji}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Family cards */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="size-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-            <HeartHandshake className="size-8 text-slate-400" />
-          </div>
-          <h3 className="font-semibold text-slate-700 mb-1">{families.length === 0 ? 'Семей пока нет' : 'Ничего не найдено'}</h3>
-          <p className="text-sm text-slate-400">
-            {families.length === 0 ? 'Добавьте первую семью, чтобы начать учёт' : 'Попробуйте изменить фильтры'}
-          </p>
-          {families.length === 0 && (
-            <Link href="/support/families/new"
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-              <Plus className="size-4" /> Добавить семью
-            </Link>
           )}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((family) => {
-            const payment = monthPayments.find((p) => p.familyId === family.id);
-            const familyStudents = students.filter((s) => family.studentIds.includes(s.id));
-            const parent = parents.find((p) => p.id === family.parentId);
-            return (
-              <FamilyCard
-                key={family.id}
-                family={family}
-                parent={parent}
-                payment={payment}
-                studentNames={familyStudents.map((s) => s.fullName)}
-                month={selectedMonth}
-                onAcceptPayment={setAcceptPaymentFamilyId}
-              />
-            );
-          })}
+
+        {/* Row 2: Status + Plan filters */}
+        <div className="flex gap-2 flex-wrap">
+          {/* Status filter */}
+          <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-medium">
+            {(['all', 'unpaid', 'partial', 'paid'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setStatusFilter(v)}
+                className={cn(
+                  'px-3 py-2 transition-colors',
+                  statusFilter === v ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                {v === 'all' ? 'Все' : v === 'unpaid' ? 'Не оплачено' : v === 'partial' ? 'Частично' : 'Оплачено'}
+              </button>
+            ))}
+          </div>
+
+          {/* Plan filter */}
+          <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-medium">
+            <button
+              onClick={() => setPlanFilter('all')}
+              className={cn('px-3 py-2 transition-colors', planFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50')}
+            >
+              Все планы
+            </button>
+            {(Object.keys(SUPPORT_PLANS) as SupportPlanType[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => setPlanFilter(v)}
+                title={SUPPORT_PLANS[v].name}
+                className={cn(
+                  'px-3 py-2 transition-colors whitespace-nowrap',
+                  planFilter === v ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                {SUPPORT_PLANS[v].emoji}
+              </button>
+            ))}
+            <button
+              onClick={() => setPlanFilter('mixed')}
+              title="Смешанные форматы"
+              className={cn('px-3 py-2 transition-colors text-[10px]', planFilter === 'mixed' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50')}
+            >
+              Микс
+            </button>
+          </div>
+
+          {/* Page size */}
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-slate-500">По</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-white"
+              aria-label="Семей на странице"
+            >
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Expanded extra filters */}
+        {showExtraFilters && (
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4">
+            <div className="flex flex-wrap gap-x-6 gap-y-3">
+              {[
+                { key: 'hasDebt', label: 'Есть долг' },
+                { key: 'hasAdvance', label: 'Есть аванс' },
+                { key: 'hasGift', label: 'Есть хадия' },
+                { key: 'noCharge', label: 'Без начисления' },
+              ].map(({ key, label }) => (
+                <label key={key} className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={hasExtra(key)}
+                    onChange={() => toggleExtra(key)}
+                    className="rounded border-slate-300 accent-emerald-600"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Диапазон остатка</p>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  ['any', 'Любой'],
+                  ['to1000', 'до 1 000'],
+                  ['1000to3000', '1 000 – 3 000'],
+                  ['over3000', 'больше 3 000'],
+                ] as [DebtRange, string][]).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setDebtRange(val)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                      debtRange === val
+                        ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50 bg-white'
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Bulk actions bar ── */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl bg-slate-900 text-white flex-wrap">
+          <span className="text-sm font-medium">Выбрано: {selectedIds.size}</span>
+          <button
+            onClick={copySelectedReminders}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+              copiedBulk ? 'bg-emerald-600' : 'bg-white/20 hover:bg-white/30'
+            )}
+          >
+            {copiedBulk ? <Check className="size-3" /> : <Copy className="size-3" />}
+            {copiedBulk ? 'Скопировано!' : 'Копировать напоминания'}
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-auto flex items-center gap-1 text-xs text-white/70 hover:text-white"
+          >
+            <X className="size-3" /> Снять выделение
+          </button>
         </div>
       )}
 
-      {/* Accept payment modal */}
-      {acceptPaymentFamilyId && (
-        <AcceptPaymentModal
-          familyId={acceptPaymentFamilyId}
-          month={selectedMonth}
-          onClose={() => setAcceptPaymentFamilyId(null)}
+      {/* ── Table / Empty state ── */}
+      {families.length === 0 ? (
+        <EmptyState noFamilies />
+      ) : filteredRows.length === 0 ? (
+        <EmptyState noFamilies={false} onReset={resetFilters} />
+      ) : (
+        <>
+          {/* Results summary */}
+          <p className="text-xs text-slate-500 mb-3">
+            Показано {startIdx + 1}–{Math.min(startIdx + pageSize, totalCount)} из {totalCount}{' '}
+            {totalCount !== allRows.length && `(всего ${allRows.length})`} семей · {formatMonth(month)}
+          </p>
+
+          <SupportTable
+            rows={pagedRows}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+            onSelectAll={toggleSelectAll}
+            allPageSelected={allPageSelected}
+            month={month}
+            onPayment={setPaymentFamilyId}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={toggleSort}
+          />
+
+          {/* ── Pagination ── */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
+              <p className="text-sm text-slate-500">
+                Страница {currentPage} из {totalPages}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Предыдущая страница"
+                >
+                  <ChevronLeft className="size-4 text-slate-600" />
+                </button>
+                {buildPageRange(currentPage, totalPages).map((item, idx) =>
+                  item === '...' ? (
+                    <span key={`ellipsis-${idx}`} className="px-2 text-slate-400 text-sm">…</span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => setPage(Number(item))}
+                      className={cn(
+                        'min-w-[32px] h-8 rounded-lg text-sm font-medium transition-colors',
+                        currentPage === Number(item)
+                          ? 'bg-emerald-600 text-white'
+                          : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
+                      )}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() => setPage(currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Следующая страница"
+                >
+                  <ChevronRight className="size-4 text-slate-600" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Payment modal ── */}
+      {paymentFamilyId && (
+        <SupportPaymentModal
+          familyId={paymentFamilyId}
+          month={month}
+          onClose={() => setPaymentFamilyId(null)}
         />
       )}
     </div>
   );
+}
+
+// ── Empty state ──────────────────────────────────────────────────────────────
+
+function EmptyState({ noFamilies, onReset }: { noFamilies: boolean; onReset?: () => void }) {
+  return (
+    <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
+      <div className="size-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+        <span className="text-3xl">{noFamilies ? '🕌' : '🔍'}</span>
+      </div>
+      <h3 className="font-semibold text-slate-700 mb-1 text-lg">
+        {noFamilies ? 'Семей пока нет' : 'Ничего не найдено'}
+      </h3>
+      <p className="text-sm text-slate-400 mb-4">
+        {noFamilies
+          ? 'Добавьте родителя и настройте поддержку его детей'
+          : 'По заданным условиям семьи не найдены'}
+      </p>
+      {noFamilies ? (
+        <Link
+          href="/support/families/new"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+        >
+          <Plus className="size-4" /> Добавить семью
+        </Link>
+      ) : (
+        <button
+          onClick={onReset}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+        >
+          <X className="size-4" /> Сбросить фильтры
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Pagination helper ────────────────────────────────────────────────────────
+
+function buildPageRange(current: number, total: number): (number | '...')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | '...')[] = [];
+  const add = (n: number) => { if (!pages.includes(n)) pages.push(n); };
+  add(1);
+  if (current > 3) pages.push('...');
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) add(i);
+  if (current < total - 2) pages.push('...');
+  add(total);
+  return pages;
 }
