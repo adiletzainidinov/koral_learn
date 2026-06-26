@@ -146,6 +146,8 @@ interface AppState {
   createFamily: (input: CreateFamilyInput) => string;
   updateFamily: (id: string, patch: UpdateFamilyInput) => void;
   deleteFamily: (id: string) => void;
+  archiveFamily: (id: string) => void;
+  restoreFamily: (id: string) => void;
   assignStudentToFamily: (familyId: string, studentId: string) => void;
   removeStudentFromFamily: (familyId: string, studentId: string) => void;
   setFamilySupportPlan: (familyId: string, planType: SupportPlanType) => void;
@@ -1150,20 +1152,23 @@ export const useAppStore = create<AppState>()(
 
       createFamily: (input) => {
         const { families, familyContacts } = get();
-        const primaryContactId = input.primaryContactId ?? input.contactIds[0];
+        const contactIds = input.contactIds ?? [];
+        const studentIds = input.studentIds ?? [];
+        const primaryContactId = input.primaryContactId ?? contactIds[0];
         const billingContactId = input.billingContactId ?? primaryContactId;
         const primaryContact = familyContacts.find((c) => c.id === primaryContactId);
         const id = generateId();
-        const name = input.name ?? (primaryContact ? `Семья ${primaryContact.fullName}` : 'Семья');
+        const name = input.name?.trim() || (primaryContact ? `Семья ${primaryContact.fullName}` : 'Семья');
         const family: Family = {
           id,
           name,
-          studentIds: input.studentIds,
-          contactIds: input.contactIds,
+          studentIds,
+          contactIds,
           primaryContactId,
           billingContactId,
-          lessonSelections: input.lessonSelections,
-          supportPlanType: input.supportPlanType,
+          lessonSelections: input.lessonSelections ?? [],
+          supportPlanType: input.supportPlanType ?? 'family_support',
+          address: input.address,
           notes: input.notes,
           createdAt: new Date().toISOString(),
         };
@@ -1171,20 +1176,21 @@ export const useAppStore = create<AppState>()(
           families: [
             ...families.map((f) => ({
               ...f,
-              studentIds: f.studentIds.filter((sid) => !input.studentIds.includes(sid)),
+              studentIds: f.studentIds.filter((sid) => !studentIds.includes(sid)),
             })),
             family,
           ],
         });
-        // Re-home contacts and links to this family
-        set((state) => ({
-          familyContacts: state.familyContacts.map((c) =>
-            input.contactIds.includes(c.id) ? { ...c, familyId: id } : c
-          ),
-          studentFamilyContactLinks: state.studentFamilyContactLinks.map((l) =>
-            input.contactIds.includes(l.contactId) ? { ...l, familyId: id } : l
-          ),
-        }));
+        if (contactIds.length > 0) {
+          set((state) => ({
+            familyContacts: state.familyContacts.map((c) =>
+              contactIds.includes(c.id) ? { ...c, familyId: id } : c
+            ),
+            studentFamilyContactLinks: state.studentFamilyContactLinks.map((l) =>
+              contactIds.includes(l.contactId) ? { ...l, familyId: id } : l
+            ),
+          }));
+        }
         return id;
       },
 
@@ -1199,6 +1205,22 @@ export const useAppStore = create<AppState>()(
           families: state.families.filter((f) => f.id !== id),
           familyPayments: state.familyPayments.filter((p) => p.familyId !== id),
           paymentHistory: state.paymentHistory.filter((h) => h.familyId !== id),
+        }));
+      },
+
+      archiveFamily: (id) => {
+        set((state) => ({
+          families: state.families.map((f) =>
+            f.id === id ? { ...f, isArchived: true, archivedAt: new Date().toISOString() } : f
+          ),
+        }));
+      },
+
+      restoreFamily: (id) => {
+        set((state) => ({
+          families: state.families.map((f) =>
+            f.id === id ? { ...f, isArchived: false, archivedAt: undefined } : f
+          ),
         }));
       },
 

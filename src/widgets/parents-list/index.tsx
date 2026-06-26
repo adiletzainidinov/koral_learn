@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, UserPlus, Archive, ArchiveRestore, Pencil, UserRound, MessageCircle, Phone, Eye, EyeOff } from 'lucide-react';
+import { Search, UserPlus, Archive, ArchiveRestore, Pencil, UserRound, MessageCircle, Phone, Eye, EyeOff, Plus, Home } from 'lucide-react';
 import { Input } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
@@ -190,6 +190,7 @@ export function ParentsList() {
 
   const activeCount = contacts.filter((c) => !c.isArchived).length;
   const archivedCount = contacts.length - activeCount;
+  const hasFamilies = families.some((f) => !f.isArchived);
 
   return (
     <div>
@@ -197,12 +198,20 @@ export function ParentsList() {
         title="Представители семьи"
         description={`${activeCount} активных${archivedCount > 0 ? ` · ${archivedCount} в архиве` : ''}`}
         action={
-          <Link href="/parents/new">
-            <Button>
-              <UserPlus className="size-4" />
-              Добавить представителя
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/families/new">
+              <Button variant="outline">
+                <Home className="size-4" />
+                Добавить семью
+              </Button>
+            </Link>
+            <Link href="/parents/new">
+              <Button>
+                <UserPlus className="size-4" />
+                Добавить представителя
+              </Button>
+            </Link>
+          </div>
         }
       />
 
@@ -233,12 +242,29 @@ export function ParentsList() {
           <EmptyState
             icon={<UserRound className="size-5" />}
             title={search ? 'Представители не найдены' : 'Представителей пока нет'}
-            description={search ? 'Попробуйте другой запрос' : 'Добавьте первого представителя семьи'}
+            description={
+              search
+                ? 'Попробуйте другой запрос'
+                : hasFamilies
+                  ? 'Добавьте первого представителя семьи'
+                  : 'Сначала создайте семью, затем добавьте представителя'
+            }
             action={
               !search ? (
-                <Link href="/parents/new">
-                  <Button><UserPlus className="size-4" />Добавить представителя</Button>
-                </Link>
+                hasFamilies ? (
+                  <Link href="/parents/new">
+                    <Button><UserPlus className="size-4" />Добавить представителя</Button>
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Link href="/families/new">
+                      <Button><Plus className="size-4" />Создать семью</Button>
+                    </Link>
+                    <Link href="/parents/new">
+                      <Button variant="outline"><UserPlus className="size-4" />Добавить представителя</Button>
+                    </Link>
+                  </div>
+                )
               ) : undefined
             }
             className="py-20"

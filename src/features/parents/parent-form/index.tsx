@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, User, Phone, FileText, AlertTriangle, UserRound } from 'lucide-react';
+import { ArrowLeft, Save, User, Phone, FileText, AlertTriangle, UserRound, Plus } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Select } from '@/shared/ui/select';
@@ -82,6 +82,8 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
   const createFamilyContact = useAppStore((s) => s.createFamilyContact);
   const updateFamilyContact = useAppStore((s) => s.updateFamilyContact);
 
+  const createFamily = useAppStore((s) => s.createFamily);
+
   const [form, setForm] = useState<FormState>({ ...INITIAL, familyId: initialFamilyId ?? '' });
   const [errors, setErrors] = useState<Errors>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -89,6 +91,8 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [duplicateMatch, setDuplicateMatch] = useState<null | { id: string; fullName: string }>(null);
+  const [newFamilyName, setNewFamilyName] = useState('');
+  const [showNewFamilyModal, setShowNewFamilyModal] = useState(false);
   const hasLoaded = useRef(false);
   const fullNameRef = useRef<HTMLInputElement>(null);
   const whatsappRef = useRef<HTMLInputElement>(null);
@@ -259,6 +263,13 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
             onChange={(e) => { upd('familyId', e.target.value); clearError('familyId'); }}
           />
           {errors.familyId && <p className="text-xs text-red-500 mt-1">{errors.familyId}</p>}
+          <button
+            type="button"
+            onClick={() => { setNewFamilyName(''); setShowNewFamilyModal(true); }}
+            className="flex items-center gap-1 mt-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+          >
+            <Plus className="size-3.5" />Создать новую семью
+          </button>
         </Section>
       )}
 
@@ -343,6 +354,41 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
           </Button>
         </div>
       </div>
+
+      {/* Quick-create family modal */}
+      <Modal
+        isOpen={showNewFamilyModal}
+        onClose={() => setShowNewFamilyModal(false)}
+        size="sm"
+        title="Создать новую семью"
+        description="Введите название семьи, чтобы быстро создать её и выбрать для этого представителя"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowNewFamilyModal(false)}>Отмена</Button>
+            <Button
+              onClick={() => {
+                const name = newFamilyName.trim();
+                if (!name) return;
+                const id = createFamily({ name });
+                upd('familyId', id);
+                clearError('familyId');
+                setShowNewFamilyModal(false);
+              }}
+              disabled={!newFamilyName.trim()}
+            >
+              <Plus className="size-4" />Создать и выбрать
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Название семьи *"
+          placeholder="Маматовы"
+          value={newFamilyName}
+          onChange={(e) => setNewFamilyName(e.target.value)}
+          autoFocus
+        />
+      </Modal>
 
       {/* Duplicate detection modal */}
       <Modal

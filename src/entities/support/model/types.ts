@@ -165,7 +165,10 @@ export interface Family {
   billingContactId?: string;
   lessonSelections?: LessonSelection[];
   supportPlanType: SupportPlanType;
+  address?: string;
   notes?: string;
+  isArchived?: boolean;
+  archivedAt?: string;
   createdAt: string;
   updatedAt?: string;
   parentName?: string;
@@ -175,12 +178,13 @@ export interface Family {
 export interface CreateFamilyInput {
   /** Optional name; if omitted falls back to "Семья {primaryContact.fullName}" */
   name?: string;
-  studentIds: string[];
-  contactIds: string[];
+  studentIds?: string[];
+  contactIds?: string[];
   primaryContactId?: string;
   billingContactId?: string;
-  lessonSelections: LessonSelection[];
-  supportPlanType: SupportPlanType;
+  lessonSelections?: LessonSelection[];
+  supportPlanType?: SupportPlanType;
+  address?: string;
   notes?: string;
 }
 

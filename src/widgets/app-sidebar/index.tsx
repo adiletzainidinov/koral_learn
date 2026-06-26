@@ -12,6 +12,7 @@ import {
   UsersRound,
   HeartHandshake,
   UserRound,
+  Home,
   Settings,
   BookMarked,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ import { cn } from '@/shared/lib/cn';
 const navItems = [
   { href: '/dashboard', label: 'Дашборд', icon: LayoutDashboard },
   { href: '/students', label: 'Ученики', icon: Users },
+  { href: '/families', label: 'Семьи', icon: Home },
   { href: '/parents', label: 'Родители', icon: UserRound },
   { href: '/assignments', label: 'Задания', icon: BookOpen },
   { href: '/reviews', label: 'Проверка', icon: ClipboardCheck },
