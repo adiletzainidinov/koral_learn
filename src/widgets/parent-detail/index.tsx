@@ -7,6 +7,7 @@ import {
   ArrowLeft, Pencil, Archive, ArchiveRestore, Phone, MessageCircle, Send, AtSign,
   UserRound, Users, FileText, HeartHandshake, ChevronRight, Plus,
 } from 'lucide-react';
+import { Breadcrumb } from '@/shared/ui/breadcrumb';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { SectionCard } from '@/shared/ui/card';
@@ -60,7 +61,7 @@ export function ParentDetail({ contactId }: Props) {
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <UserRound className="size-8 text-slate-300" />
         <p className="text-lg font-semibold text-slate-700">Представитель не найден</p>
-        <Button variant="outline" onClick={() => router.push('/parents')}>
+        <Button variant="outline" onClick={() => router.push('/families?tab=representatives')}>
           <ArrowLeft className="size-4" />Назад к списку
         </Button>
       </div>
@@ -92,10 +93,17 @@ export function ParentDetail({ contactId }: Props) {
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
-        <div className="flex items-center justify-between gap-4">
+        <Breadcrumb
+          items={[
+            { label: 'Семьи', href: '/families' },
+            { label: 'Представители', href: '/families?tab=representatives' },
+            { label: contact.fullName },
+          ]}
+        />
+        <div className="flex items-center justify-between gap-4 mt-1">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push('/parents')}
+              onClick={() => router.push('/families?tab=representatives')}
               className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors shrink-0"
             >
               <ArrowLeft className="size-4" />

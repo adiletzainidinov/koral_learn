@@ -11,7 +11,6 @@ import {
   Trophy,
   UsersRound,
   HeartHandshake,
-  UserRound,
   Home,
   Settings,
   BookMarked,
@@ -22,7 +21,6 @@ const navItems = [
   { href: '/dashboard', label: 'Дашборд', icon: LayoutDashboard },
   { href: '/students', label: 'Ученики', icon: Users },
   { href: '/families', label: 'Семьи', icon: Home },
-  { href: '/parents', label: 'Родители', icon: UserRound },
   { href: '/assignments', label: 'Задания', icon: BookOpen },
   { href: '/reviews', label: 'Проверка', icon: ClipboardCheck },
   { href: '/attendance', label: 'Посещаемость', icon: CalendarDays },
@@ -40,6 +38,7 @@ export function AppSidebar() {
 
   function isActive(href: string) {
     if (href === '/dashboard') return pathname === '/dashboard';
+    if (href === '/families') return pathname.startsWith('/families') || pathname.startsWith('/parents');
     return pathname.startsWith(href);
   }
 

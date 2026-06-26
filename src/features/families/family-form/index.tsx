@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Home, FileText, AlertTriangle } from 'lucide-react';
+import { Breadcrumb } from '@/shared/ui/breadcrumb';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Card } from '@/shared/ui/card';
@@ -103,7 +104,13 @@ export function FamilyForm() {
     <div className="flex flex-col gap-6">
       {/* sticky header */}
       <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
-        <div className="flex items-center gap-3">
+        <Breadcrumb
+          items={[
+            { label: 'Семьи', href: '/families' },
+            { label: 'Новая семья' },
+          ]}
+        />
+        <div className="flex items-center gap-3 mt-1">
           <button
             type="button"
             onClick={handleCancel}

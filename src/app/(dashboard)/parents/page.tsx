@@ -1,5 +1,5 @@
-import { ParentsList } from '@/widgets/parents-list';
+import { redirect } from 'next/navigation';
 
 export default function ParentsPage() {
-  return <ParentsList />;
+  redirect('/families?tab=representatives');
 }

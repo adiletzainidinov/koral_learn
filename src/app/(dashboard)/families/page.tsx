@@ -1,5 +1,5 @@
-import { FamiliesList } from '@/widgets/families-list';
+import { FamiliesPage } from '@/widgets/families-page';
 
-export default function FamiliesPage() {
-  return <FamiliesList />;
+export default function FamiliesRoute() {
+  return <FamiliesPage />;
 }
