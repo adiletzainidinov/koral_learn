@@ -6,11 +6,14 @@ import Link from 'next/link';
 import {
   ChevronUp, ChevronDown, ChevronsUpDown, MoreVertical,
   MessageCircle, Wallet, Copy, Check, ExternalLink, Phone,
+  PiggyBank, Clock,
 } from 'lucide-react';
 import {
-  SUPPORT_PLANS, PLAN_COLORS, formatAmount, getReminderMessage, getThankYouMessage,
+  SUPPORT_PLANS, PLAN_COLORS, formatAmount, getReminderMessage,
+  selectReminderRecipient, formatReminderAge,
 } from '@/entities/support/model/helpers';
 import { formatWhatsappLink } from '@/entities/family-contact/model/helpers';
+import { useAppStore } from '@/store/app-store';
 import { cn } from '@/shared/lib/cn';
 import type { SupportFamilyRow, SortKey, SortDir, ListPaymentStatus } from './types';
 
@@ -38,25 +41,26 @@ interface TableProps {
   allPageSelected: boolean;
   month: string;
   onPayment: (familyId: string) => void;
+  onApplyAdvance: (familyId: string) => void;
   sortKey: SortKey;
   sortDir: SortDir;
   onSort: (key: SortKey) => void;
 }
 
 export function SupportTable(props: TableProps) {
-  const { rows, selectedIds, onToggleSelect, onSelectAll, allPageSelected, month, onPayment, sortKey, sortDir, onSort } = props;
+  const {
+    rows, selectedIds, onToggleSelect, onSelectAll, allPageSelected,
+    month, onPayment, onApplyAdvance, sortKey, sortDir, onSort,
+  } = props;
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   function closeMenu() { setMenuOpenId(null); }
-  function toggleMenu(id: string) {
-    setMenuOpenId((prev) => (prev === id ? null : id));
-  }
+  function toggleMenu(id: string) { setMenuOpenId((prev) => (prev === id ? null : id)); }
 
   if (rows.length === 0) return null;
 
   return (
     <>
-      {/* Click-outside overlay for menus */}
       {menuOpenId && (
         <div className="fixed inset-0 z-10" onClick={closeMenu} aria-hidden="true" />
       )}
@@ -77,7 +81,7 @@ export function SupportTable(props: TableProps) {
               </th>
               <SortTh label="Семья" sortKey="name" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[160px]" />
               <th scope="col" className="px-3 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide min-w-[170px]">
-                Родитель
+                Контакт
               </th>
               <SortTh label="Дети" sortKey="students" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[130px] hidden lg:table-cell" />
               <th scope="col" className="px-3 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide min-w-[130px] hidden lg:table-cell">
@@ -102,6 +106,7 @@ export function SupportTable(props: TableProps) {
                 selected={selectedIds.has(row.familyId)}
                 onToggleSelect={onToggleSelect}
                 onPayment={onPayment}
+                onApplyAdvance={onApplyAdvance}
                 menuOpen={menuOpenId === row.familyId}
                 onMenuToggle={toggleMenu}
                 onMenuClose={closeMenu}
@@ -129,13 +134,7 @@ export function SupportTable(props: TableProps) {
 }
 
 function SortTh({
-  label,
-  sortKey,
-  current,
-  dir,
-  onSort,
-  className,
-  align = 'left',
+  label, sortKey, current, dir, onSort, className, align = 'left',
 }: {
   label: string;
   sortKey: SortKey;
@@ -158,13 +157,9 @@ function SortTh({
       aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
     >
       <span className="flex items-center gap-1 justify-inherit">
-        {align === 'right' && (
-          <SortIcon active={active} dir={dir} />
-        )}
+        {align === 'right' && <SortIcon active={active} dir={dir} />}
         {label}
-        {align === 'left' && (
-          <SortIcon active={active} dir={dir} />
-        )}
+        {align === 'left' && <SortIcon active={active} dir={dir} />}
       </span>
     </th>
   );
@@ -178,13 +173,15 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 }
 
 function DesktopRow({
-  row, month, selected, onToggleSelect, onPayment, menuOpen, onMenuToggle, onMenuClose,
+  row, month, selected, onToggleSelect, onPayment, onApplyAdvance,
+  menuOpen, onMenuToggle, onMenuClose,
 }: {
   row: SupportFamilyRow;
   month: string;
   selected: boolean;
   onToggleSelect: (id: string) => void;
   onPayment: (id: string) => void;
+  onApplyAdvance: (id: string) => void;
   menuOpen: boolean;
   onMenuToggle: (id: string) => void;
   onMenuClose: () => void;
@@ -192,12 +189,14 @@ function DesktopRow({
   const router = useRouter();
   const href = `/support/families/${row.familyId}`;
 
-  function handleRowClick() {
-    router.push(href);
-  }
+  const reminderContact = selectReminderRecipient(row.family, row.contacts);
+  const reminderAge = formatReminderAge(row.lastReminderAt);
 
   const twoStudents = row.studentNames.slice(0, 2).map((n) => n.split(' ')[0]).join(', ');
   const extraStudents = row.studentCount > 2 ? `+${row.studentCount - 2}` : null;
+
+  const displayContact = row.billingContact ?? row.parent;
+  const showBothContacts = row.billingContact && row.parent && row.billingContact.id !== row.parent.id;
 
   return (
     <tr
@@ -205,7 +204,7 @@ function DesktopRow({
         'group cursor-pointer hover:bg-slate-50 transition-colors',
         selected && 'bg-emerald-50/40'
       )}
-      onClick={handleRowClick}
+      onClick={() => router.push(href)}
     >
       {/* Checkbox */}
       <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
@@ -227,30 +226,40 @@ function DesktopRow({
         >
           {row.familyName}
         </Link>
+        {reminderAge && (
+          <p className="text-[10px] text-slate-400 flex items-center gap-0.5 mt-0.5">
+            <Clock className="size-2.5" /> {reminderAge}
+          </p>
+        )}
       </td>
 
-      {/* Родитель */}
+      {/* Контакт */}
       <td className="px-3 py-3">
-        {row.parent ? (
+        {displayContact ? (
           <div>
             <p className="text-slate-700 text-sm leading-snug truncate max-w-[160px]">
-              {row.parent.fullName}
+              {displayContact.fullName}
             </p>
+            {showBothContacts && (
+              <p className="text-[10px] text-slate-400 truncate max-w-[160px]">
+                Осн.: {row.parent!.fullName.split(' ')[0]}
+              </p>
+            )}
             <div className="flex items-center gap-1.5 mt-0.5">
-              {row.parent.phone && (
+              {displayContact.phone && (
                 <span className="text-xs text-slate-400 flex items-center gap-0.5">
                   <Phone className="size-2.5" />
-                  {row.parent.phone}
+                  {displayContact.phone}
                 </span>
               )}
-              {row.parent.whatsapp && (
+              {displayContact.whatsapp && (
                 <a
-                  href={formatWhatsappLink(row.parent.whatsapp)}
+                  href={formatWhatsappLink(displayContact.whatsapp)}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   className="text-green-600 hover:text-green-700"
-                  aria-label={`WhatsApp ${row.parent.fullName}`}
+                  aria-label={`WhatsApp ${displayContact.fullName}`}
                 >
                   <MessageCircle className="size-3.5" />
                 </a>
@@ -263,10 +272,7 @@ function DesktopRow({
       </td>
 
       {/* Дети */}
-      <td
-        className="px-3 py-3 hidden lg:table-cell"
-        title={row.studentNames.join('\n')}
-      >
+      <td className="px-3 py-3 hidden lg:table-cell" title={row.studentNames.join('\n')}>
         <p className="text-sm text-slate-700">
           {twoStudents}
           {extraStudents && <span className="text-slate-400"> {extraStudents}</span>}
@@ -277,10 +283,7 @@ function DesktopRow({
       </td>
 
       {/* Форматы */}
-      <td
-        className="px-3 py-3 hidden lg:table-cell"
-        title={row.planTooltip}
-      >
+      <td className="px-3 py-3 hidden lg:table-cell" title={row.planTooltip}>
         {row.hasMixedPlans ? (
           <span className="text-xs text-slate-500 italic">{row.plans.length} формата</span>
         ) : (
@@ -342,8 +345,7 @@ function DesktopRow({
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors whitespace-nowrap"
               aria-label={`Внести оплату за семью ${row.familyName}`}
             >
-              <Wallet className="size-3" />
-              Оплата
+              <Wallet className="size-3" /> Оплата
             </button>
           )}
           <div className="relative">
@@ -357,7 +359,14 @@ function DesktopRow({
               <MoreVertical className="size-4" />
             </button>
             {menuOpen && (
-              <RowMenu row={row} month={month} onPayment={onPayment} onClose={onMenuClose} />
+              <RowMenu
+                row={row}
+                month={month}
+                reminderContact={reminderContact}
+                onPayment={onPayment}
+                onApplyAdvance={onApplyAdvance}
+                onClose={onMenuClose}
+              />
             )}
           </div>
         </div>
@@ -367,35 +376,64 @@ function DesktopRow({
 }
 
 function RowMenu({
-  row, month, onPayment, onClose,
+  row, month, reminderContact, onPayment, onApplyAdvance, onClose,
 }: {
   row: SupportFamilyRow;
   month: string;
+  reminderContact: ReturnType<typeof selectReminderRecipient>;
   onPayment: (id: string) => void;
+  onApplyAdvance: (id: string) => void;
   onClose: () => void;
 }) {
   const [copiedReminder, setCopiedReminder] = useState(false);
+  const createSupportReminderLog = useAppStore((s) => s.createSupportReminderLog);
 
   function handleCopyReminder() {
+    const contact = reminderContact;
+    if (!contact?.whatsapp && !contact?.fullName) {
+      const msg = getReminderMessage(row.familyName, row.remainingAmount, month);
+      navigator.clipboard.writeText(msg).then(() => {
+        setCopiedReminder(true);
+        setTimeout(() => { setCopiedReminder(false); onClose(); }, 1500);
+      });
+      return;
+    }
     const msg = getReminderMessage(
-      row.parent?.fullName ?? row.familyName,
+      contact?.fullName ?? row.familyName,
       row.remainingAmount,
       month
     );
     navigator.clipboard.writeText(msg).then(() => {
+      createSupportReminderLog({
+        familyId: row.familyId,
+        month,
+        contactId: contact?.id,
+        contactNameSnapshot: contact?.fullName,
+        channel: 'copy',
+      });
       setCopiedReminder(true);
       setTimeout(() => { setCopiedReminder(false); onClose(); }, 1500);
     });
   }
 
+  const hasWhatsApp = !!reminderContact?.whatsapp;
+  const noWhatsAppWarning = row.remainingAmount > 0 && !hasWhatsApp && row.contacts.length > 0;
+
   return (
     <div
-      className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1.5 w-52 text-sm"
+      className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1.5 w-56 text-sm"
       role="menu"
     >
       <MenuLink href={`/support/families/${row.familyId}`} onClose={onClose} label="Открыть семью" icon={<ExternalLink className="size-3.5" />} />
       {row.paymentStatus !== 'no_charge' && (
         <MenuBtn onClick={() => { onPayment(row.familyId); onClose(); }} label="Внести оплату" icon={<Wallet className="size-3.5" />} />
+      )}
+      {row.availableAdvance > 0 && row.remainingAmount > 0 && (
+        <MenuBtn
+          onClick={() => { onApplyAdvance(row.familyId); onClose(); }}
+          label={`Применить аванс (${formatAmount(row.availableAdvance)})`}
+          icon={<PiggyBank className="size-3.5 text-blue-500" />}
+        />
       )}
       {row.remainingAmount > 0 && (
         <MenuBtn
@@ -404,17 +442,35 @@ function RowMenu({
           icon={copiedReminder ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
         />
       )}
-      {row.parent?.whatsapp && (
-        <MenuLink
-          href={formatWhatsappLink(row.parent.whatsapp)}
-          onClose={onClose}
-          label="Написать в WhatsApp"
-          icon={<MessageCircle className="size-3.5" />}
-          external
-        />
+      {noWhatsAppWarning && (
+        <div className="px-4 py-1.5 text-[10px] text-amber-600 bg-amber-50 border-t border-amber-100">
+          Нет WhatsApp у контактов семьи
+        </div>
+      )}
+      {reminderContact?.whatsapp && (
+        <a
+          href={formatWhatsappLink(reminderContact.whatsapp)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => {
+            createSupportReminderLog({
+              familyId: row.familyId,
+              month,
+              contactId: reminderContact.id,
+              contactNameSnapshot: reminderContact.fullName,
+              channel: 'whatsapp',
+            });
+            onClose();
+          }}
+          className="flex items-center gap-2.5 px-4 py-2 hover:bg-slate-50 text-slate-700 transition-colors"
+          role="menuitem"
+        >
+          <span className="text-slate-400"><MessageCircle className="size-3.5" /></span>
+          Написать в WhatsApp
+        </a>
       )}
       {row.parent && (
-        <MenuLink href={`/parents/${row.parent.id}`} onClose={onClose} label="Открыть родителя" icon={<ExternalLink className="size-3.5" />} />
+        <MenuLink href={`/parents/${row.parent.id}`} onClose={onClose} label="Открыть контакт" icon={<ExternalLink className="size-3.5" />} />
       )}
     </div>
   );
@@ -467,19 +523,32 @@ function MobileCard({
   onPayment: (id: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const createSupportReminderLog = useAppStore((s) => s.createSupportReminderLog);
+  const reminderContact = selectReminderRecipient(row.family, row.contacts);
+  const reminderAge = formatReminderAge(row.lastReminderAt);
 
   function handleCopyReminder(e: React.MouseEvent) {
     e.stopPropagation();
+    const contact = reminderContact;
     const msg = getReminderMessage(
-      row.parent?.fullName ?? row.familyName,
+      contact?.fullName ?? row.familyName,
       row.remainingAmount,
       month
     );
     navigator.clipboard.writeText(msg).then(() => {
+      createSupportReminderLog({
+        familyId: row.familyId,
+        month,
+        contactId: contact?.id,
+        contactNameSnapshot: contact?.fullName,
+        channel: 'copy',
+      });
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
   }
+
+  const displayContact = row.billingContact ?? row.parent;
 
   return (
     <div className={cn('bg-white rounded-2xl border border-slate-200 p-4', selected && 'border-emerald-400 bg-emerald-50/30')}>
@@ -504,12 +573,12 @@ function MobileCard({
               {STATUS_LABELS[row.paymentStatus]}
             </span>
           </div>
-          {row.parent && (
+          {displayContact && (
             <div className="flex items-center gap-1.5 mt-0.5">
-              <p className="text-sm text-slate-500 truncate">{row.parent.fullName}</p>
-              {row.parent.whatsapp && (
+              <p className="text-sm text-slate-500 truncate">{displayContact.fullName}</p>
+              {displayContact.whatsapp && (
                 <a
-                  href={formatWhatsappLink(row.parent.whatsapp)}
+                  href={formatWhatsappLink(displayContact.whatsapp)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-green-600 shrink-0"
@@ -525,6 +594,11 @@ function MobileCard({
             {row.studentCount > 2 && ` +${row.studentCount - 2}`}
             {' · '}{row.studentCount} {row.studentCount === 1 ? 'ученик' : row.studentCount < 5 ? 'ученика' : 'учеников'}
           </p>
+          {reminderAge && (
+            <p className="text-[10px] text-slate-400 flex items-center gap-0.5 mt-0.5">
+              <Clock className="size-2.5" /> {reminderAge}
+            </p>
+          )}
         </div>
       </div>
 
@@ -569,8 +643,7 @@ function MobileCard({
           href={`/support/families/${row.familyId}`}
           className="ml-auto flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50 transition-colors"
         >
-          Открыть
-          <ExternalLink className="size-3" />
+          Открыть <ExternalLink className="size-3" />
         </Link>
       </div>
     </div>

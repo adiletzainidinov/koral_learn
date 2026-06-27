@@ -1,7 +1,9 @@
 import type {
   SupportPlanType, PaymentStatus, SupportPlan, LessonType, LessonSelection, Family,
   SupportPayment, SupportPaymentDistribution, SupportPaymentAllocation,
+  SupportMonthlyCharge,
 } from './types';
+import type { FamilyContact } from '@/entities/family-contact/model/types';
 
 const MONTHS = [
   'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
@@ -326,4 +328,105 @@ export function getThankYouMessage(parentName: string, month: string): string {
   const [year, m] = month.split('-');
   const monthName = MONTHS[Number(m) - 1] ?? month;
   return `Ассаламу алейкум! Оплата за ${monthName} ${year} от ${parentName} получена. Пусть Аллах даст баракат вашей семье за поддержку обучения Корана. 🌿`;
+}
+
+// ─── Payment preparation ──────────────────────────────────────────────────────
+
+/**
+ * Pure calculation of how to split a received payment.
+ * Returns appliedAmount (goes to the month's debt), overpaidAmount (excess),
+ * and the distribution across students.
+ */
+export function prepareSupportPayment(
+  receivedAmount: number,
+  expectedAmount: number,
+  alreadyPaidAmount: number,
+  students: Array<{ id: string; expectedAmount: number; alreadyPaid: number }>
+): {
+  remainingAmount: number;
+  appliedAmount: number;
+  overpaidAmount: number;
+  distribution: SupportPaymentDistribution[];
+} {
+  const remainingAmount = Math.max(0, expectedAmount - alreadyPaidAmount);
+  const appliedAmount = Math.min(receivedAmount, remainingAmount);
+  const overpaidAmount = Math.max(0, receivedAmount - remainingAmount);
+  const distribution = students.length > 0 ? distributeAmongStudents(appliedAmount, students) : [];
+  return { remainingAmount, appliedAmount, overpaidAmount, distribution };
+}
+
+// ─── Monthly charge helpers ───────────────────────────────────────────────────
+
+/** Get expected amount: from snapshot if available, otherwise compute from current family state. */
+export function getExpectedForMonth(family: Family, charge: SupportMonthlyCharge | null): number {
+  if (charge) return charge.expectedAmount;
+  return calculateFamilyExpectedAmount(family);
+}
+
+/** Get per-student expected amount for a month. */
+export function getStudentExpectedForMonth(
+  studentId: string,
+  family: Family,
+  charge: SupportMonthlyCharge | null
+): number {
+  if (charge) {
+    const sc = charge.studentCharges.find((s) => s.studentId === studentId);
+    return sc?.expectedAmount ?? 0;
+  }
+  const sel = family.lessonSelections?.find((ls) => ls.studentId === studentId && ls.isActive);
+  return sel?.monthlyAmount ?? 0;
+}
+
+/** Build student charges array from current family state (for snapshot creation). */
+export function buildStudentChargesFromFamily(family: Family): SupportMonthlyCharge['studentCharges'] {
+  if (!family.lessonSelections || family.lessonSelections.length === 0) return [];
+  return family.lessonSelections
+    .filter((ls) => ls.isActive)
+    .map((ls) => ({
+      studentId: ls.studentId,
+      planType: ls.planType,
+      expectedAmount: ls.monthlyAmount,
+    }));
+}
+
+// ─── Reminder recipient ───────────────────────────────────────────────────────
+
+/**
+ * Select the best contact to send a reminder to.
+ * Priority: billingContactId → primaryContactId → first with WhatsApp → first active contact.
+ */
+export function selectReminderRecipient(
+  family: Family,
+  contacts: FamilyContact[]
+): FamilyContact | null {
+  const active = contacts.filter((c) => !c.isArchived);
+  if (family.billingContactId) {
+    const c = active.find((c) => c.id === family.billingContactId);
+    if (c) return c;
+  }
+  if (family.primaryContactId) {
+    const c = active.find((c) => c.id === family.primaryContactId);
+    if (c) return c;
+  }
+  const withWa = active.find((c) => c.whatsapp);
+  if (withWa) return withWa;
+  return active[0] ?? null;
+}
+
+/** Days since a given ISO date string. Returns null if dateStr is falsy. */
+export function daysSince(dateStr: string | null | undefined): number | null {
+  if (!dateStr) return null;
+  const ms = Date.now() - new Date(dateStr).getTime();
+  return Math.floor(ms / (1000 * 60 * 60 * 24));
+}
+
+/** Format relative time for last reminder. */
+export function formatReminderAge(dateStr: string | null | undefined): string | null {
+  const days = daysSince(dateStr);
+  if (days === null) return null;
+  if (days === 0) return 'Сегодня';
+  if (days === 1) return 'Вчера';
+  if (days < 7) return `${days} дн. назад`;
+  if (days < 30) return `${Math.floor(days / 7)} нед. назад`;
+  return `${Math.floor(days / 30)} мес. назад`;
 }

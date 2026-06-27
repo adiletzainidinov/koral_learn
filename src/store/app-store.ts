@@ -51,9 +51,11 @@ import type {
   Family, FamilyPayment, PaymentHistoryItem, CreateFamilyInput, UpdateFamilyInput,
   SupportPlanType, PaymentMethod, LessonSelection, StudentPaymentRecord,
   SupportPayment, CreateSupportPaymentInput, ApplyAdvanceInput,
+  SupportMonthlyCharge, SupportReminderLog, CreateReminderLogInput,
 } from '@/entities/support/model/types';
 import {
   calculateFamilyExpectedAmount, getPaymentStatus, formatMonth, derivePlanType,
+  buildStudentChargesFromFamily,
 } from '@/entities/support/model/helpers';
 
 interface AppState {
@@ -173,6 +175,20 @@ interface AppState {
   deleteSupportPayment: (id: string) => void;
   /** Apply available advance balance using the provided allocation plan. */
   applyAdvanceToMonth: (input: ApplyAdvanceInput) => void;
+
+  // ─── Monthly charge snapshots ─────────────────────────────────────────────
+  supportMonthlyCharges: SupportMonthlyCharge[];
+  /** Create snapshot if one doesn't exist; returns the existing or new charge. */
+  ensureMonthlyCharge: (familyId: string, month: string) => SupportMonthlyCharge | null;
+  /** Batch-create snapshots for all families missing a charge for the given month (single set() call). */
+  ensureMonthlyChargesForAll: (month: string) => void;
+  /** Force-recalculate a monthly charge (e.g. after correcting lesson plan). */
+  recalculateMonthlyCharge: (familyId: string, month: string) => void;
+
+  // ─── Reminder logs ────────────────────────────────────────────────────────
+  supportReminderLogs: SupportReminderLog[];
+  createSupportReminderLog: (input: CreateReminderLogInput) => string;
+  deleteSupportReminderLog: (id: string) => void;
 }
 
 // ─── point-history helper ─────────────────────────────────────────────────────
@@ -377,6 +393,8 @@ export const useAppStore = create<AppState>()(
       familyPayments: [],
       paymentHistory: [],
       supportPayments: [],
+      supportMonthlyCharges: [],
+      supportReminderLogs: [],
 
       _seed: () => {
         const { _seeded } = get();
@@ -1552,14 +1570,92 @@ export const useAppStore = create<AppState>()(
           }],
         }));
       },
+
+      ensureMonthlyCharge: (familyId, month) => {
+        const { families, supportMonthlyCharges } = get();
+        const existing = supportMonthlyCharges.find(
+          (c) => c.familyId === familyId && c.month === month
+        );
+        if (existing) return existing;
+        const family = families.find((f) => f.id === familyId);
+        if (!family) return null;
+        const now = new Date().toISOString();
+        const studentCharges = buildStudentChargesFromFamily(family);
+        const expectedAmount = calculateFamilyExpectedAmount(family);
+        const charge: SupportMonthlyCharge = {
+          id: generateId(),
+          familyId,
+          month,
+          expectedAmount,
+          studentCharges,
+          createdAt: now,
+        };
+        set((s) => ({ supportMonthlyCharges: [...s.supportMonthlyCharges, charge] }));
+        return charge;
+      },
+
+      ensureMonthlyChargesForAll: (month) => {
+        const { families, supportMonthlyCharges } = get();
+        const existingKeys = new Set(
+          supportMonthlyCharges.filter((c) => c.month === month).map((c) => c.familyId)
+        );
+        const now = new Date().toISOString();
+        const newCharges: SupportMonthlyCharge[] = [];
+        for (const family of families) {
+          if (existingKeys.has(family.id)) continue;
+          newCharges.push({
+            id: generateId(),
+            familyId: family.id,
+            month,
+            expectedAmount: calculateFamilyExpectedAmount(family),
+            studentCharges: buildStudentChargesFromFamily(family),
+            createdAt: now,
+          });
+        }
+        if (newCharges.length > 0) {
+          set((s) => ({ supportMonthlyCharges: [...s.supportMonthlyCharges, ...newCharges] }));
+        }
+      },
+
+      recalculateMonthlyCharge: (familyId, month) => {
+        const { families } = get();
+        const family = families.find((f) => f.id === familyId);
+        if (!family) return;
+        const now = new Date().toISOString();
+        const studentCharges = buildStudentChargesFromFamily(family);
+        const expectedAmount = calculateFamilyExpectedAmount(family);
+        set((s) => ({
+          supportMonthlyCharges: s.supportMonthlyCharges.map((c) =>
+            c.familyId === familyId && c.month === month
+              ? { ...c, expectedAmount, studentCharges, updatedAt: now }
+              : c
+          ),
+        }));
+      },
+
+      createSupportReminderLog: (input) => {
+        const id = generateId();
+        const now = new Date().toISOString();
+        const log: SupportReminderLog = { id, ...input, createdAt: now };
+        set((s) => ({ supportReminderLogs: [...s.supportReminderLogs, log] }));
+        return id;
+      },
+
+      deleteSupportReminderLog: (id) => {
+        set((s) => ({ supportReminderLogs: s.supportReminderLogs.filter((l) => l.id !== id) }));
+      },
     }),
     {
       name: 'quranlearn-v2',
-      version: 2,
+      version: 3,
       migrate: (persistedState, version) => {
-        const state = (persistedState as Record<string, unknown> | null | undefined) ?? {};
+        let state = (persistedState as Record<string, unknown> | null | undefined) ?? {};
         if (version < 2) {
-          return migrateV1ToV2(state) as unknown as AppState;
+          state = migrateV1ToV2(state) as Record<string, unknown>;
+        }
+        if (version < 3) {
+          if (!state.supportMonthlyCharges) state = { ...state, supportMonthlyCharges: [] };
+          if (!state.supportReminderLogs) state = { ...state, supportReminderLogs: [] };
         }
         return state as unknown as AppState;
       },
@@ -1788,3 +1884,26 @@ export const useSupportPaymentsByFamilyId = (familyId: string) =>
         .sort((a, b) => b.paidAt.localeCompare(a.paidAt))
     )
   );
+
+export const useMonthlyCharge = (familyId: string, month: string) =>
+  useAppStore((s) =>
+    s.supportMonthlyCharges.find((c) => c.familyId === familyId && c.month === month) ?? null
+  );
+
+export const useReminderLogsByFamily = (familyId: string) =>
+  useAppStore(
+    useShallow((s) =>
+      s.supportReminderLogs
+        .filter((l) => l.familyId === familyId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    )
+  );
+
+export const useLastReminderByFamily = (familyId: string, month: string) =>
+  useAppStore((s) => {
+    const logs = s.supportReminderLogs.filter((l) => l.familyId === familyId && l.month === month);
+    if (logs.length === 0) return null;
+    return logs.reduce((latest, l) => l.createdAt > latest.createdAt ? l : latest);
+  });
+
+export const useAllSupportReminderLogs = () => useAppStore((s) => s.supportReminderLogs);

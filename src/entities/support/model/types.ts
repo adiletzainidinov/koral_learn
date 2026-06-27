@@ -189,3 +189,45 @@ export interface CreateFamilyInput {
 }
 
 export type UpdateFamilyInput = Partial<Omit<Family, 'id' | 'createdAt'>>;
+
+// ─── Monthly charge snapshot ───────────────────────────────────────────────────
+
+/** Snapshot of expected charges for a family in a specific month. Created on first access
+ *  and not changed when lesson plans change later — ensures historical accuracy. */
+export interface SupportMonthlyCharge {
+  id: string;
+  familyId: string;
+  month: string; // YYYY-MM
+  /** Total expected amount for the family this month */
+  expectedAmount: number;
+  /** Per-student breakdown */
+  studentCharges: Array<{
+    studentId: string;
+    planType: SupportPlanType;
+    expectedAmount: number;
+  }>;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// ─── Reminder log ──────────────────────────────────────────────────────────────
+
+export interface SupportReminderLog {
+  id: string;
+  familyId: string;
+  month: string;
+  contactId?: string;
+  contactNameSnapshot?: string;
+  channel: 'whatsapp' | 'phone' | 'copy';
+  createdAt: string;
+  note?: string;
+}
+
+export interface CreateReminderLogInput {
+  familyId: string;
+  month: string;
+  contactId?: string;
+  contactNameSnapshot?: string;
+  channel: 'whatsapp' | 'phone' | 'copy';
+  note?: string;
+}

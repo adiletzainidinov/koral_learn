@@ -1,21 +1,24 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   Plus, Search, AlertTriangle, ChevronLeft, ChevronRight,
-  Check, SlidersHorizontal, X, Copy,
+  Check, SlidersHorizontal, X, Copy, Calendar, Download,
 } from 'lucide-react';
-import { useAppStore, useFamilies, useStudents, useAllFamilyContacts } from '@/store/app-store';
 import {
-  SUPPORT_PLANS, PLAN_COLORS,
-  calculateFamilyExpectedAmount,
+  useAppStore, useFamilies, useStudents, useAllFamilyContacts,
+  useAllSupportReminderLogs,
+} from '@/store/app-store';
+import {
+  SUPPORT_PLANS,
+  getExpectedForMonth,
   calculatePaidForMonth,
   calculateAvailableAdvance,
   calculateGiftTotal,
   getReminderMessage,
-  formatAmount, formatMonth, getCurrentMonth,
+  formatMonth, getCurrentMonth,
 } from '@/entities/support/model/helpers';
 import type { SupportPlanType } from '@/entities/support/model/types';
 import { cn } from '@/shared/lib/cn';
@@ -24,7 +27,7 @@ import { SupportSummary } from './support-summary';
 import { SupportTable } from './support-table';
 import { SupportPaymentModal } from './support-payment-modal';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function useHydrated() {
   const [h, setH] = useState(false);
@@ -32,8 +35,22 @@ function useHydrated() {
   return h;
 }
 
+function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number);
+  const date = new Date(y, m - 1 + delta, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
 type PlanFilter = 'all' | SupportPlanType | 'mixed';
 type StatusFilter = 'all' | ListPaymentStatus;
+
+const STATUS_LABELS_FILTER: Record<Exclude<StatusFilter, 'all'>, string> = {
+  unpaid: 'Не оплачено',
+  partial: 'Частично',
+  paid: 'Оплачено',
+  overpaid: 'Переплата',
+  no_charge: 'Нет начисления',
+};
 
 const STATUS_PRIORITY: Record<ListPaymentStatus, number> = {
   unpaid: 0, partial: 1, paid: 2, overpaid: 3, no_charge: 4,
@@ -65,8 +82,8 @@ export function SupportDashboard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showExtraFilters, setShowExtraFilters] = useState(false);
   const [copiedBulk, setCopiedBulk] = useState(false);
+  const [markedReminder, setMarkedReminder] = useState(false);
 
-  // Sync search input when URL q changes externally (back/forward nav)
   useEffect(() => { setSearchInput(qFromUrl); }, [qFromUrl]);
 
   // Debounce search → URL (300ms)
@@ -110,9 +127,7 @@ export function SupportDashboard() {
     updateParams({ extra: parts.join(',') || null, page: null });
   }
 
-  function hasExtra(filter: string) {
-    return extraStr.split(',').includes(filter);
-  }
+  function hasExtra(filter: string) { return extraStr.split(',').includes(filter); }
 
   function resetFilters() {
     updateParams({
@@ -127,7 +142,18 @@ export function SupportDashboard() {
   const students = useStudents();
   const contacts = useAllFamilyContacts();
   const allSupportPayments = useAppStore((s) => s.supportPayments);
+  const allMonthlyCharges = useAppStore((s) => s.supportMonthlyCharges);
+  const allReminderLogs = useAllSupportReminderLogs();
   const deduplicateSupportAccounts = useAppStore((s) => s.deduplicateSupportAccounts);
+  const ensureMonthlyChargesForAll = useAppStore((s) => s.ensureMonthlyChargesForAll);
+  const createSupportReminderLog = useAppStore((s) => s.createSupportReminderLog);
+
+  // Ensure monthly charge snapshots exist for all families when month changes
+  useEffect(() => {
+    if (families.length === 0) return;
+    ensureMonthlyChargesForAll(month);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month, families.length]);
 
   const duplicateParentCount = useMemo(() => {
     const seen = new Set<string>();
@@ -145,12 +171,23 @@ export function SupportDashboard() {
   const allRows = useMemo<SupportFamilyRow[]>(() => {
     return families.map((family) => {
       const familyPayments = allSupportPayments.filter((p) => p.familyId === family.id);
+      const charge = allMonthlyCharges.find((c) => c.familyId === family.id && c.month === month) ?? null;
+
+      // All active contacts for this family
+      const familyContacts = contacts.filter(
+        (c) => family.contactIds.includes(c.id) && !c.isArchived
+      );
+
       const primaryId = family.primaryContactId ?? family.contactIds[0];
-      const parent = primaryId ? (contacts.find((c) => c.id === primaryId) ?? null) : null;
+      const parent = primaryId ? (familyContacts.find((c) => c.id === primaryId) ?? null) : null;
+      const billingId = family.billingContactId;
+      const billingContact = billingId ? (familyContacts.find((c) => c.id === billingId) ?? null) : null;
+
       const familyStudents = students.filter((s) => family.studentIds.includes(s.id));
       const studentById = Object.fromEntries(familyStudents.map((s) => [s.id, s]));
 
-      const expectedAmount = calculateFamilyExpectedAmount(family);
+      // Use monthly charge snapshot for expectedAmount (historical accuracy)
+      const expectedAmount = getExpectedForMonth(family, charge);
       const paidAmount = calculatePaidForMonth(familyPayments, month);
       const remainingAmount = Math.max(0, expectedAmount - paidAmount);
       const availableAdvance = calculateAvailableAdvance(familyPayments);
@@ -176,10 +213,26 @@ export function SupportDashboard() {
               .join('\n')
           : SUPPORT_PLANS[family.supportPlanType].name;
 
+      // Last payment date
+      const familyAllPayments = allSupportPayments.filter((p) => p.familyId === family.id);
+      const lastPaymentAt = familyAllPayments.length > 0
+        ? familyAllPayments.reduce((latest, p) => p.paidAt > latest ? p.paidAt : latest, '')
+        : undefined;
+
+      // Last reminder log for this family+month
+      const familyReminderLogs = allReminderLogs.filter(
+        (l) => l.familyId === family.id && l.month === month
+      );
+      const lastReminderAt = familyReminderLogs.length > 0
+        ? familyReminderLogs.reduce((latest, l) => l.createdAt > latest ? l.createdAt : latest, '')
+        : undefined;
+
       return {
         familyId: family.id,
         familyName: family.name,
         parent,
+        billingContact,
+        contacts: familyContacts,
         studentCount: family.studentIds.length,
         studentNames: familyStudents.map((s) => s.fullName),
         plans,
@@ -192,9 +245,11 @@ export function SupportDashboard() {
         giftAmount,
         paymentStatus,
         family,
+        lastPaymentAt: lastPaymentAt || undefined,
+        lastReminderAt: lastReminderAt || undefined,
       };
     });
-  }, [families, allSupportPayments, contacts, students, month]);
+  }, [families, allSupportPayments, contacts, students, month, allMonthlyCharges, allReminderLogs]);
 
   // ── Filter ──
   const filteredRows = useMemo<SupportFamilyRow[]>(() => {
@@ -205,11 +260,18 @@ export function SupportDashboard() {
       const qPhone = q.replace(/[+\s\-()]/g, '');
       rows = rows.filter((row) => {
         if (row.familyName.toLowerCase().includes(q)) return true;
-        if (row.parent?.fullName.toLowerCase().includes(q)) return true;
-        const wa = (row.parent?.whatsapp ?? '').replace(/[+\s\-()]/g, '');
-        if (qPhone && wa.includes(qPhone)) return true;
-        const ph = (row.parent?.phone ?? '').replace(/[+\s\-()]/g, '');
-        if (qPhone && ph.includes(qPhone)) return true;
+        // Search across ALL contacts
+        for (const contact of row.contacts) {
+          if (contact.fullName.toLowerCase().includes(q)) return true;
+          if (qPhone) {
+            const wa = (contact.whatsapp ?? '').replace(/[+\s\-()]/g, '');
+            if (wa.includes(qPhone)) return true;
+            const ph = (contact.phone ?? '').replace(/[+\s\-()]/g, '');
+            if (ph.includes(qPhone)) return true;
+            if (contact.telegram?.toLowerCase().includes(q)) return true;
+            if (contact.instagram?.toLowerCase().includes(q)) return true;
+          }
+        }
         if (row.studentNames.some((n) => n.toLowerCase().includes(q))) return true;
         if (row.plans.some((p) => SUPPORT_PLANS[p].name.toLowerCase().includes(q))) return true;
         return false;
@@ -232,6 +294,8 @@ export function SupportDashboard() {
     if (hasExtra('hasAdvance')) rows = rows.filter((row) => row.availableAdvance > 0);
     if (hasExtra('hasGift')) rows = rows.filter((row) => row.giftAmount > 0);
     if (hasExtra('noCharge')) rows = rows.filter((row) => row.expectedAmount === 0);
+    if (hasExtra('noWhatsApp')) rows = rows.filter((row) => !row.contacts.some((c) => c.whatsapp));
+    if (hasExtra('notReminded')) rows = rows.filter((row) => !row.lastReminderAt);
 
     if (debtRange !== 'any') {
       rows = rows.filter((row) => {
@@ -307,7 +371,10 @@ export function SupportDashboard() {
   function copySelectedReminders() {
     const msgs = sortedRows
       .filter((r) => selectedIds.has(r.familyId) && r.remainingAmount > 0)
-      .map((r) => getReminderMessage(r.parent?.fullName ?? r.familyName, r.remainingAmount, month))
+      .map((r) => {
+        const contact = r.billingContact ?? r.parent;
+        return getReminderMessage(contact?.fullName ?? r.familyName, r.remainingAmount, month);
+      })
       .join('\n\n---\n\n');
     if (msgs) {
       navigator.clipboard.writeText(msgs).then(() => {
@@ -316,6 +383,60 @@ export function SupportDashboard() {
       });
     }
   }
+
+  function markSelectedAsReminded() {
+    const toMark = sortedRows.filter((r) => selectedIds.has(r.familyId) && r.remainingAmount > 0);
+    for (const row of toMark) {
+      const contact = row.billingContact ?? row.parent;
+      createSupportReminderLog({
+        familyId: row.familyId,
+        month,
+        contactId: contact?.id,
+        contactNameSnapshot: contact?.fullName,
+        channel: 'copy',
+      });
+    }
+    setMarkedReminder(true);
+    setTimeout(() => setMarkedReminder(false), 2000);
+  }
+
+  function exportSelectedToCSV() {
+    const rows = sortedRows.filter((r) => selectedIds.has(r.familyId));
+    const headers = ['Семья', 'Контакт', 'Телефон', 'WhatsApp', 'Ученики', 'Ожидается', 'Оплачено', 'Остаток', 'Аванс', 'Статус'];
+    const STATUS_LABELS_CSV: Record<ListPaymentStatus, string> = {
+      paid: 'Оплачено', partial: 'Частично', unpaid: 'Не оплачено',
+      overpaid: 'Переплата', no_charge: 'Нет начисления',
+    };
+    const data = rows.map((r) => {
+      const contact = r.billingContact ?? r.parent;
+      return [
+        r.familyName,
+        contact?.fullName ?? '',
+        contact?.phone ?? '',
+        contact?.whatsapp ?? '',
+        r.studentNames.join('; '),
+        r.expectedAmount,
+        r.paidAmount,
+        r.remainingAmount,
+        r.availableAdvance,
+        STATUS_LABELS_CSV[r.paymentStatus],
+      ];
+    });
+    const csv = [headers, ...data]
+      .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dolgi-${month}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const handleApplyAdvance = useCallback((familyId: string) => {
+    router.push(`/support/families/${familyId}?tab=payments`);
+  }, [router]);
 
   const hasActiveFilters =
     qFromUrl || statusFilter !== 'all' || planFilter !== 'all' ||
@@ -360,7 +481,7 @@ export function SupportDashboard() {
               Обнаружены дублирующиеся записи ({duplicateParentCount})
             </p>
             <p className="text-xs text-amber-700 mt-0.5">
-              Несколько записей поддержки привязаны к одному родителю.
+              Несколько записей поддержки привязаны к одному контакту.
             </p>
           </div>
           <button
@@ -382,23 +503,47 @@ export function SupportDashboard() {
 
       {/* ── Toolbar ── */}
       <div className="space-y-3 mb-4">
-        {/* Row 1: month + search */}
+        {/* Row 1: month navigation + search */}
         <div className="flex gap-3 flex-wrap">
-          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shrink-0">
-            <span className="text-xs text-slate-500 whitespace-nowrap">Месяц:</span>
+          {/* Month navigation */}
+          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-1 py-1 shrink-0">
+            <button
+              onClick={() => setMonth(shiftMonth(month, -1))}
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+              aria-label="Предыдущий месяц"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
             <input
               type="month"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              className="text-sm font-medium text-slate-700 focus:outline-none bg-transparent"
+              className="text-sm font-medium text-slate-700 focus:outline-none bg-transparent px-1"
               aria-label="Расчётный месяц"
             />
+            <button
+              onClick={() => setMonth(shiftMonth(month, 1))}
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+              aria-label="Следующий месяц"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+            {month !== getCurrentMonth() && (
+              <button
+                onClick={() => setMonth(getCurrentMonth())}
+                className="px-2 py-1 rounded-lg text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors whitespace-nowrap flex items-center gap-1"
+                aria-label="Текущий месяц"
+              >
+                <Calendar className="size-3" /> Сейчас
+              </button>
+            )}
           </div>
+
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Поиск по семье, родителю, телефону или ученику..."
+              placeholder="Поиск по семье, контакту, телефону, ученику..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
@@ -434,16 +579,16 @@ export function SupportDashboard() {
         <div className="flex gap-2 flex-wrap">
           {/* Status filter */}
           <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-medium">
-            {(['all', 'unpaid', 'partial', 'paid'] as const).map((v) => (
+            {(['all', 'unpaid', 'partial', 'paid', 'no_charge'] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => setStatusFilter(v)}
                 className={cn(
-                  'px-3 py-2 transition-colors',
+                  'px-3 py-2 transition-colors whitespace-nowrap',
                   statusFilter === v ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'
                 )}
               >
-                {v === 'all' ? 'Все' : v === 'unpaid' ? 'Не оплачено' : v === 'partial' ? 'Частично' : 'Оплачено'}
+                {v === 'all' ? 'Все' : STATUS_LABELS_FILTER[v]}
               </button>
             ))}
           </div>
@@ -466,7 +611,7 @@ export function SupportDashboard() {
                   planFilter === v ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
                 )}
               >
-                {SUPPORT_PLANS[v].emoji}
+                {SUPPORT_PLANS[v].emoji} <span className="hidden sm:inline">{SUPPORT_PLANS[v].name}</span>
               </button>
             ))}
             <button
@@ -503,6 +648,8 @@ export function SupportDashboard() {
                 { key: 'hasAdvance', label: 'Есть аванс' },
                 { key: 'hasGift', label: 'Есть хадия' },
                 { key: 'noCharge', label: 'Без начисления' },
+                { key: 'noWhatsApp', label: 'Нет WhatsApp' },
+                { key: 'notReminded', label: 'Не напоминали' },
               ].map(({ key, label }) => (
                 <label key={key} className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
                   <input
@@ -555,7 +702,23 @@ export function SupportDashboard() {
             )}
           >
             {copiedBulk ? <Check className="size-3" /> : <Copy className="size-3" />}
-            {copiedBulk ? 'Скопировано!' : 'Копировать напоминания'}
+            {copiedBulk ? 'Скопировано!' : 'Напоминания'}
+          </button>
+          <button
+            onClick={markSelectedAsReminded}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+              markedReminder ? 'bg-emerald-600' : 'bg-white/20 hover:bg-white/30'
+            )}
+          >
+            {markedReminder ? <Check className="size-3" /> : <Check className="size-3 opacity-50" />}
+            {markedReminder ? 'Отмечено!' : 'Отметить как напомнили'}
+          </button>
+          <button
+            onClick={exportSelectedToCSV}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/20 hover:bg-white/30 transition-colors"
+          >
+            <Download className="size-3" /> Экспорт CSV
           </button>
           <button
             onClick={() => setSelectedIds(new Set())}
@@ -587,6 +750,7 @@ export function SupportDashboard() {
             allPageSelected={allPageSelected}
             month={month}
             onPayment={setPaymentFamilyId}
+            onApplyAdvance={handleApplyAdvance}
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={toggleSort}
@@ -664,7 +828,7 @@ function EmptyState({ noFamilies, onReset }: { noFamilies: boolean; onReset?: ()
       </h3>
       <p className="text-sm text-slate-400 mb-4">
         {noFamilies
-          ? 'Добавьте родителя и настройте поддержку его детей'
+          ? 'Добавьте семью и настройте поддержку детей'
           : 'По заданным условиям семьи не найдены'}
       </p>
       {noFamilies ? (
