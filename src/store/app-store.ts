@@ -137,6 +137,12 @@ interface AppState {
 
   setFamilyPrimaryContact: (familyId: string, contactId: string) => void;
   setFamilyBillingContact: (familyId: string, contactId: string) => void;
+  createFamilyContactWithLinks: (input: {
+    contact: CreateFamilyContactInput;
+    links: Array<Omit<CreateStudentContactLinkInput, 'contactId' | 'familyId'>>;
+    setAsFamilyPrimary?: boolean;
+    setAsFamilyBilling?: boolean;
+  }) => string;
 
   // ─── Support / Families ──────────────────────────────────────────────────
   families: Family[];
@@ -1148,6 +1154,17 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      createFamilyContactWithLinks: (input) => {
+        const id = get().createFamilyContact(input.contact);
+        const { familyId } = input.contact;
+        for (const link of input.links) {
+          get().linkContactToStudent({ ...link, contactId: id, familyId });
+        }
+        if (input.setAsFamilyPrimary) get().setFamilyPrimaryContact(familyId, id);
+        if (input.setAsFamilyBilling) get().setFamilyBillingContact(familyId, id);
+        return id;
+      },
+
       // ─── Support / Families ────────────────────────────────────────────────
 
       createFamily: (input) => {
@@ -1680,6 +1697,9 @@ export const useFamilyContacts = (familyId: string) =>
 
 export const useAllFamilyContacts = () =>
   useAppStore((s) => s.familyContacts);
+
+export const useAllStudentContactLinks = () =>
+  useAppStore((s) => s.studentFamilyContactLinks);
 
 export const useFamilyContactById = (id: string) =>
   useAppStore((s) => s.familyContacts.find((c) => c.id === id));

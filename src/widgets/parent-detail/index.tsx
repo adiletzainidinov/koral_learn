@@ -53,6 +53,8 @@ export function ParentDetail({ contactId }: Props) {
       .filter((row): row is { link: typeof links[number]; student: typeof students[number] } => !!row.student);
   }, [links, students]);
 
+  const family = useFamilyById(contact?.familyId ?? '');
+
   const [tab, setTab] = useState<Tab>('children');
   const [confirmArchive, setConfirmArchive] = useState(false);
 
@@ -86,8 +88,9 @@ export function ParentDetail({ contactId }: Props) {
     { id: 'notes', label: 'Заметки' },
   ];
 
-  // Determine the family this contact belongs to (for the "primary" badge label)
   const familyId = contact.familyId;
+  const isFamilyPrimary = family?.primaryContactId === contactId;
+  const isFamilyBilling = family?.billingContactId === contactId;
 
   return (
     <div className="flex flex-col gap-6">
@@ -154,6 +157,8 @@ export function ParentDetail({ contactId }: Props) {
           <h2 className="text-lg font-bold text-slate-900">{contact.fullName}</h2>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             {contact.isArchived && <Badge variant="slate">В архиве</Badge>}
+            {isFamilyPrimary && <Badge variant="emerald">Основной контакт</Badge>}
+            {isFamilyBilling && <Badge variant="info">Плательщик</Badge>}
             {contact.preferredContact && (
               <Badge variant="slate">
                 Предпочитает: {PREFERRED_CONTACT_METHOD_LABELS[contact.preferredContact]}
@@ -194,7 +199,7 @@ export function ParentDetail({ contactId }: Props) {
 
       {/* Tab content */}
       {tab === 'children' && (
-        <ChildrenTab rows={childRows} />
+        <ChildrenTab rows={childRows} contactId={contactId} />
       )}
       {tab === 'support' && (
         <SupportTab familyId={familyId} />
@@ -256,7 +261,9 @@ interface ChildRow {
   };
 }
 
-function ChildrenTab({ rows }: { rows: ChildRow[] }) {
+function ChildrenTab({ rows, contactId }: { rows: ChildRow[]; contactId: string }) {
+  const router = useRouter();
+
   if (rows.length === 0) {
     return (
       <EmptyState
@@ -274,10 +281,10 @@ function ChildrenTab({ rows }: { rows: ChildRow[] }) {
           const initials = student.fullName.slice(0, 2).toUpperCase();
           const relationText = formatContactRelation(link);
           return (
-            <Link
+            <div
               key={link.id}
-              href={`/students/${student.id}`}
-              className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors group"
+              onClick={() => router.push(`/students/${student.id}`)}
+              className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer"
             >
               <div className="size-9 rounded-full overflow-hidden bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold shrink-0">
                 {student.avatar ? (
@@ -303,8 +310,14 @@ function ChildrenTab({ rows }: { rows: ChildRow[] }) {
                   {link.isBillingContact && <Badge variant="info" className="text-[10px]">Платит</Badge>}
                 </div>
               </div>
-              <ChevronRight className="size-3.5 text-slate-300 group-hover:text-emerald-500 transition-colors" />
-            </Link>
+              <Link
+                href={`/parents/${contactId}/edit`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors shrink-0 self-start mt-0.5"
+              >
+                <Pencil className="size-3" />Роли
+              </Link>
+            </div>
           );
         })}
       </div>
