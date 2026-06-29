@@ -1060,6 +1060,7 @@ export const useAppStore = create<AppState>()(
           familyRelation: input.familyRelation,
           customFamilyRelation: input.customFamilyRelation,
           roles: input.roles,
+          customRoles: input.customRoles,
           usesFamilyAddress: input.usesFamilyAddress,
           address: input.address,
           notes: input.notes,
@@ -1210,12 +1211,13 @@ export const useAppStore = create<AppState>()(
           familyRelation: c.familyRelation,
           customFamilyRelation: c.customFamilyRelation,
           roles: c.roles,
+          customRoles: c.customRoles,
           usesFamilyAddress: c.usesFamilyAddress,
           address: c.address,
           notes: c.notes,
           createdAt: now,
         }));
-        const primaryId = primaryContactIndex !== undefined ? ids[primaryContactIndex] : ids[0];
+        const primaryId = primaryContactIndex !== undefined ? ids[primaryContactIndex] : undefined;
         set((state) => ({
           familyContacts: [...state.familyContacts, ...newContacts],
           families: state.families.map((f) => {
@@ -1224,8 +1226,8 @@ export const useAppStore = create<AppState>()(
             return {
               ...f,
               contactIds: merged,
-              primaryContactId: f.primaryContactId ?? primaryId,
-              billingContactId: f.billingContactId ?? primaryId,
+              primaryContactId: primaryId !== undefined ? (f.primaryContactId ?? primaryId) : f.primaryContactId,
+              billingContactId: primaryId !== undefined ? (f.billingContactId ?? primaryId) : f.billingContactId,
             };
           }),
         }));
@@ -1699,7 +1701,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'quranlearn-v2',
-      version: 4,
+      version: 5,
       migrate: (persistedState, version) => {
         let state = (persistedState as Record<string, unknown> | null | undefined) ?? {};
         if (version < 2) {
@@ -1713,6 +1715,21 @@ export const useAppStore = create<AppState>()(
           // Backfill FamilyContact new optional fields (already optional — no action needed for existing contacts)
           // Backfill Family.fatherFullName — leave undefined; existing families keep their existing name
           state = { ...state };
+        }
+        if (version < 5) {
+          // Backfill payer role on contacts that are the billingContactId for their family
+          const families = (state.families as Array<Record<string, unknown>> | undefined) ?? [];
+          const contacts = (state.familyContacts as Array<Record<string, unknown>> | undefined) ?? [];
+          const billingIds = new Set(families.map((f) => f.billingContactId).filter(Boolean));
+          state = {
+            ...state,
+            familyContacts: contacts.map((c) => {
+              if (!billingIds.has(c.id)) return c;
+              const roles = (c.roles as string[] | undefined) ?? [];
+              if (roles.includes('payer')) return c;
+              return { ...c, roles: [...roles, 'payer'] };
+            }),
+          };
         }
         return state as unknown as AppState;
       },

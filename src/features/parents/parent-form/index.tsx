@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Save, User, Phone, FileText, AlertTriangle, UserRound,
-  Plus, Users, Check, X, ChevronDown, ChevronUp, MapPin, CheckCircle,
+  Plus, Users, Check, X, ChevronDown, ChevronUp, MapPin, CheckCircle, Tag,
 } from 'lucide-react';
 import { Breadcrumb } from '@/shared/ui/breadcrumb';
 import { Button } from '@/shared/ui/button';
@@ -12,6 +12,7 @@ import { Input } from '@/shared/ui/input';
 import { Select } from '@/shared/ui/select';
 import { Card } from '@/shared/ui/card';
 import { Modal } from '@/shared/ui/modal';
+import { CreatableCombobox } from '@/shared/ui/creatable-combobox';
 import {
   useAppStore, useAllFamilyContacts, useFamilies, useStudents,
   useContactStudentLinks, useAllStudentContactLinks,
@@ -21,6 +22,7 @@ import {
   FAMILY_RELATION_LABELS,
   FAMILY_RELATION_OPTIONS,
   FAMILY_CONTACT_ROLE_LABELS,
+  ALL_FAMILY_CONTACT_ROLES,
   type FamilyRelationType,
   type PreferredContactMethod,
   type FamilyContactRole,
@@ -69,10 +71,12 @@ interface DraftFamilyContact {
   familyRelation: FamilyRelationType | '';
   customFamilyRelation: string;
   roles: FamilyContactRole[];
+  customRoles: string[];
   usesFamilyAddress: boolean;
   address: string;
   notes: string;
   collapsed: boolean;
+  isPrimaryContact: boolean;
 }
 
 function emptyDraft(): DraftFamilyContact {
@@ -87,10 +91,12 @@ function emptyDraft(): DraftFamilyContact {
     familyRelation: '',
     customFamilyRelation: '',
     roles: [],
+    customRoles: [],
     usesFamilyAddress: true,
     address: '',
     notes: '',
     collapsed: false,
+    isPrimaryContact: false,
   };
 }
 
@@ -106,6 +112,7 @@ interface EditFormState {
   familyRelation: FamilyRelationType | '';
   customFamilyRelation: string;
   roles: FamilyContactRole[];
+  customRoles: string[];
   usesFamilyAddress: boolean;
   address: string;
   notes: string;
@@ -115,7 +122,7 @@ interface EditFormState {
 const EDIT_INITIAL: EditFormState = {
   fullName: '', whatsapp: '', phone: '', telegram: '', instagram: '',
   preferredContact: '', familyRelation: '', customFamilyRelation: '',
-  roles: [], usesFamilyAddress: true, address: '', notes: '', familyId: '',
+  roles: [], customRoles: [], usesFamilyAddress: true, address: '', notes: '', familyId: '',
 };
 
 interface EditFormErrors {
@@ -132,13 +139,17 @@ const ROLE_PRESETS: { label: string; patch: Partial<StudentLinkConfig> }[] = [
   { label: 'Уведомления', patch: { canReceiveNotifications: true, isPrimaryContact: false, canDecideEducation: false, isEmergencyContact: false, isBillingContact: false } },
 ];
 
-const FAMILY_CONTACT_ROLES: FamilyContactRole[] = ['payer', 'education_decision_maker', 'notification_recipient', 'emergency_contact'];
-
 const PREFERRED_CONTACT_OPTIONS = [
   { value: '', label: 'Не указано' },
   ...Object.entries(PREFERRED_CONTACT_METHOD_LABELS).map(([value, label]) => ({ value, label })),
 ];
 
+// Combobox options — exclude 'other' (it maps to custom input)
+const RELATION_COMBOBOX_OPTIONS = FAMILY_RELATION_OPTIONS
+  .filter((r) => r !== 'other')
+  .map((r) => ({ value: r, label: FAMILY_RELATION_LABELS[r] }));
+
+// Student link row select options (keep native select for student link row)
 const RELATION_SELECT_OPTIONS = [
   { value: '', label: 'Выберите родство...' },
   ...FAMILY_RELATION_OPTIONS.map((r) => ({ value: r, label: FAMILY_RELATION_LABELS[r] })),
@@ -279,21 +290,95 @@ function StudentLinkRow({
   );
 }
 
+// ─── Custom roles sub-component ───────────────────────────────────────────────
+
+function CustomRolesInput({
+  customRoles,
+  onChange,
+}: {
+  customRoles: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [inputValue, setInputValue] = useState('');
+
+  function addRole() {
+    const trimmed = inputValue.trim();
+    if (!trimmed || customRoles.includes(trimmed)) return;
+    onChange([...customRoles, trimmed]);
+    setInputValue('');
+  }
+
+  function removeRole(role: string) {
+    onChange(customRoles.filter((r) => r !== role));
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {customRoles.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {customRoles.map((role) => (
+            <span
+              key={role}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200"
+            >
+              {role}
+              <button
+                type="button"
+                onClick={() => removeRole(role)}
+                className="text-violet-400 hover:text-violet-600 ml-0.5"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRole(); } }}
+          placeholder="Своя роль..."
+          className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+        />
+        <button
+          type="button"
+          onClick={addRole}
+          disabled={!inputValue.trim()}
+          className="px-3 py-2 rounded-lg text-xs font-medium border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          <Plus className="size-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Draft card for batch create ─────────────────────────────────────────────
 
 interface DraftCardProps {
   draft: DraftFamilyContact;
   index: number;
-  isPrimary: boolean;
   familyAddress?: string;
   errors: Record<string, string>;
   onUpdate: (patch: Partial<DraftFamilyContact>) => void;
   onRemove: () => void;
-  onSetPrimary: () => void;
+  onPrimaryChange: (value: boolean) => void;
 }
 
-function DraftCard({ draft, index, isPrimary, familyAddress, errors, onUpdate, onRemove, onSetPrimary }: DraftCardProps) {
+function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, onPrimaryChange }: DraftCardProps) {
   const hasErrors = Object.keys(errors).length > 0;
+  const hasNoRoles = draft.roles.length === 0 && draft.customRoles.length === 0;
+
+  const relationLabel = draft.familyRelation === 'other'
+    ? (draft.customFamilyRelation || 'Другое')
+    : (draft.familyRelation ? FAMILY_RELATION_LABELS[draft.familyRelation] : '');
+
+  const allRoleLabels = [
+    ...draft.roles.map((r) => FAMILY_CONTACT_ROLE_LABELS[r]),
+    ...draft.customRoles,
+  ];
 
   return (
     <Card padding="none" className={cn(hasErrors && 'border-red-300')}>
@@ -301,7 +386,7 @@ function DraftCard({ draft, index, isPrimary, familyAddress, errors, onUpdate, o
       <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
         <div className={cn(
           'size-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0',
-          isPrimary ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+          draft.isPrimaryContact ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
         )}>
           {draft.fullName ? draft.fullName.slice(0, 2).toUpperCase() : (index + 1)}
         </div>
@@ -309,7 +394,29 @@ function DraftCard({ draft, index, isPrimary, familyAddress, errors, onUpdate, o
           <p className="text-sm font-semibold text-slate-900 truncate">
             {draft.fullName || `Представитель ${index + 1}`}
           </p>
-          {isPrimary && <p className="text-[10px] text-emerald-600 font-medium">Основной контакт</p>}
+          {draft.collapsed ? (
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              {draft.isPrimaryContact && (
+                <span className="text-[10px] text-emerald-600 font-semibold">● Основной</span>
+              )}
+              {relationLabel && (
+                <span className="text-[10px] text-slate-500">{relationLabel}</span>
+              )}
+              {allRoleLabels.slice(0, 2).map((lbl) => (
+                <span key={lbl} className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{lbl}</span>
+              ))}
+              {allRoleLabels.length > 2 && (
+                <span className="text-[10px] text-slate-400">+{allRoleLabels.length - 2}</span>
+              )}
+              {draft.whatsapp && (
+                <span className="text-[10px] text-slate-400">{draft.whatsapp}</span>
+              )}
+            </div>
+          ) : (
+            draft.isPrimaryContact && (
+              <p className="text-[10px] text-emerald-600 font-medium">Основной контакт</p>
+            )
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -333,7 +440,7 @@ function DraftCard({ draft, index, isPrimary, familyAddress, errors, onUpdate, o
 
       {!draft.collapsed && (
         <div className="p-4 flex flex-col gap-4">
-          {/* name + relation */}
+          {/* 1 — Name + Relation */}
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Полное имя *"
@@ -342,23 +449,70 @@ function DraftCard({ draft, index, isPrimary, familyAddress, errors, onUpdate, o
               onChange={(e) => onUpdate({ fullName: e.target.value })}
               error={errors.fullName}
             />
-            <Select
+            <CreatableCombobox
               label="Кем является в семье"
-              options={RELATION_SELECT_OPTIONS}
-              value={draft.familyRelation}
-              onChange={(e) => onUpdate({ familyRelation: e.target.value as FamilyRelationType | '' })}
+              placeholder="Выберите или введите..."
+              options={RELATION_COMBOBOX_OPTIONS}
+              value={draft.familyRelation !== 'other' ? draft.familyRelation : ''}
+              customValue={draft.customFamilyRelation}
+              isCustom={draft.familyRelation === 'other'}
+              onChange={(v, isCustom) => {
+                if (isCustom) {
+                  onUpdate({ familyRelation: 'other', customFamilyRelation: v });
+                } else {
+                  onUpdate({ familyRelation: v as FamilyRelationType | '', customFamilyRelation: '' });
+                }
+              }}
             />
           </div>
-          {draft.familyRelation === 'other' && (
-            <Input
-              label="Уточнение родства *"
-              placeholder="Напр. «Дядя по маме»"
-              value={draft.customFamilyRelation}
-              onChange={(e) => onUpdate({ customFamilyRelation: e.target.value })}
-            />
-          )}
 
-          {/* contacts */}
+          {/* 2 — Primary contact checkbox */}
+          <label className="flex items-center gap-2.5 cursor-pointer px-3 py-2.5 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
+            <input
+              type="checkbox"
+              checked={draft.isPrimaryContact}
+              onChange={(e) => onPrimaryChange(e.target.checked)}
+              className="size-4 rounded accent-emerald-600"
+            />
+            <span className="text-sm text-slate-700 font-medium">Основной контакт семьи</span>
+            {draft.isPrimaryContact && <Check className="size-4 text-emerald-600 ml-auto" />}
+          </label>
+
+          {/* 3 — Roles */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-xs font-semibold text-slate-500">Роли в семье</p>
+              {hasNoRoles && (
+                <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                  Не указаны
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 mb-3">
+              {ALL_FAMILY_CONTACT_ROLES.map((role) => (
+                <label key={role} className="flex items-center gap-2 cursor-pointer py-1">
+                  <input
+                    type="checkbox"
+                    checked={draft.roles.includes(role)}
+                    onChange={(e) => {
+                      const next = e.target.checked
+                        ? [...draft.roles, role]
+                        : draft.roles.filter((r) => r !== role);
+                      onUpdate({ roles: next });
+                    }}
+                    className="size-4 rounded accent-emerald-600 shrink-0"
+                  />
+                  <span className="text-xs text-slate-700 leading-tight">{FAMILY_CONTACT_ROLE_LABELS[role]}</span>
+                </label>
+              ))}
+            </div>
+            <CustomRolesInput
+              customRoles={draft.customRoles}
+              onChange={(next) => onUpdate({ customRoles: next })}
+            />
+          </div>
+
+          {/* 4 — Contacts */}
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="WhatsApp *"
@@ -386,8 +540,6 @@ function DraftCard({ draft, index, isPrimary, familyAddress, errors, onUpdate, o
               onChange={(e) => onUpdate({ instagram: e.target.value })}
             />
           </div>
-
-          {/* preferred contact */}
           <Select
             label="Предпочтительный контакт"
             options={PREFERRED_CONTACT_OPTIONS}
@@ -395,7 +547,7 @@ function DraftCard({ draft, index, isPrimary, familyAddress, errors, onUpdate, o
             onChange={(e) => onUpdate({ preferredContact: e.target.value as PreferredContactMethod | '' })}
           />
 
-          {/* address */}
+          {/* 5 — Address */}
           <div>
             <label className="flex items-center gap-2 cursor-pointer mb-2">
               <input
@@ -417,43 +569,7 @@ function DraftCard({ draft, index, isPrimary, familyAddress, errors, onUpdate, o
             )}
           </div>
 
-          {/* family-level roles */}
-          <div>
-            <p className="text-xs font-semibold text-slate-500 mb-2">Роли в семье</p>
-            <div className="flex flex-col gap-1.5">
-              {FAMILY_CONTACT_ROLES.map((role) => (
-                <label key={role} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={draft.roles.includes(role)}
-                    onChange={(e) => {
-                      const next = e.target.checked
-                        ? [...draft.roles, role]
-                        : draft.roles.filter((r) => r !== role);
-                      onUpdate({ roles: next });
-                    }}
-                    className="size-4 rounded accent-emerald-600"
-                  />
-                  <span className="text-sm text-slate-700">{FAMILY_CONTACT_ROLE_LABELS[role]}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* primary contact radio */}
-          <div className="pt-1 border-t border-slate-100">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                checked={isPrimary}
-                onChange={() => onSetPrimary()}
-                className="size-4 accent-emerald-600"
-              />
-              <span className="text-sm text-slate-700 font-medium">Основной контакт семьи</span>
-            </label>
-          </div>
-
-          {/* notes */}
+          {/* 6 — Notes */}
           <textarea
             placeholder="Заметки о представителе..."
             value={draft.notes}
@@ -496,16 +612,17 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
 
   // ── Create mode state ────────────────────────────────────────────────────
   const [drafts, setDrafts] = useState<DraftFamilyContact[]>([emptyDraft()]);
-  const [primaryIndex, setPrimaryIndex] = useState(0);
   const [batchFamilyId, setBatchFamilyId] = useState(initialFamilyId ?? '');
   const [batchErrors, setBatchErrors] = useState<Record<string, Record<string, string>>>({});
   const [batchFamilyError, setBatchFamilyError] = useState('');
   const [batchSaving, setBatchSaving] = useState(false);
   const [batchSuccess, setBatchSuccess] = useState(false);
   const [successFamilyId, setSuccessFamilyId] = useState('');
+  const [primaryConfirm, setPrimaryConfirm] = useState<{ clientId: string; existingName: string } | null>(null);
 
   // ── Edit mode state ──────────────────────────────────────────────────────
   const [form, setForm] = useState<EditFormState>(EDIT_INITIAL);
+  const [editCustomRoleInput, setEditCustomRoleInput] = useState('');
   const [errors, setErrors] = useState<EditFormErrors>({});
   const [linkErrors, setLinkErrors] = useState<Record<string, string>>({});
   const [linkConfigs, setLinkConfigs] = useState<Record<string, StudentLinkConfig>>({});
@@ -540,6 +657,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       familyRelation: contact.familyRelation ?? '',
       customFamilyRelation: contact.customFamilyRelation ?? '',
       roles: contact.roles ?? [],
+      customRoles: contact.customRoles ?? [],
       usesFamilyAddress: contact.usesFamilyAddress ?? true,
       address: contact.address ?? '',
       notes: contact.notes ?? '',
@@ -643,6 +761,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       familyRelation: (form.familyRelation || undefined) as FamilyRelationType | undefined,
       customFamilyRelation: form.familyRelation === 'other' ? form.customFamilyRelation.trim() || undefined : undefined,
       roles: form.roles.length > 0 ? form.roles : undefined,
+      customRoles: form.customRoles.length > 0 ? form.customRoles : undefined,
       usesFamilyAddress: form.usesFamilyAddress,
       address: form.usesFamilyAddress ? undefined : form.address.trim() || undefined,
       notes: form.notes.trim() || undefined,
@@ -756,7 +875,26 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       const next = prev.filter((d) => d.clientId !== clientId);
       return next.length > 0 ? next : [emptyDraft()];
     });
-    setPrimaryIndex((prev) => Math.max(0, prev - 1));
+  }
+
+  function handlePrimaryChange(clientId: string, value: boolean) {
+    if (!value) {
+      updateDraft(clientId, { isPrimaryContact: false });
+      return;
+    }
+    const existingPrimary = drafts.find((d) => d.isPrimaryContact && d.clientId !== clientId);
+    if (existingPrimary) {
+      setPrimaryConfirm({ clientId, existingName: existingPrimary.fullName || `Представитель ${drafts.indexOf(existingPrimary) + 1}` });
+    } else {
+      updateDraft(clientId, { isPrimaryContact: true });
+    }
+  }
+
+  function confirmReplacePrimary() {
+    if (!primaryConfirm) return;
+    const targetId = primaryConfirm.clientId;
+    setDrafts((prev) => prev.map((d) => ({ ...d, isPrimaryContact: d.clientId === targetId })));
+    setPrimaryConfirm(null);
   }
 
   function validateBatch(): boolean {
@@ -787,15 +925,23 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       familyRelation: (d.familyRelation || undefined) as FamilyRelationType | undefined,
       customFamilyRelation: d.familyRelation === 'other' ? d.customFamilyRelation.trim() || undefined : undefined,
       roles: d.roles.length > 0 ? d.roles : undefined,
+      customRoles: d.customRoles.length > 0 ? d.customRoles : undefined,
       usesFamilyAddress: d.usesFamilyAddress,
       address: d.usesFamilyAddress ? undefined : d.address.trim() || undefined,
       notes: d.notes.trim() || undefined,
     }));
-    createFamilyContactsBatch({ familyId: batchFamilyId, contacts: contactInputs, primaryContactIndex: primaryIndex });
+    const primaryIndex = drafts.findIndex((d) => d.isPrimaryContact);
+    createFamilyContactsBatch({
+      familyId: batchFamilyId,
+      contacts: contactInputs,
+      primaryContactIndex: primaryIndex >= 0 ? primaryIndex : undefined,
+    });
     setSuccessFamilyId(batchFamilyId);
     setBatchSuccess(true);
     setBatchSaving(false);
   }
+
+  const noPrimaryWarning = drafts.length > 0 && !drafts.some((d) => d.isPrimaryContact);
 
   // ── Not found ────────────────────────────────────────────────────────────
   if (notFound) {
@@ -835,7 +981,6 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => {
                 setDrafts([emptyDraft()]);
-                setPrimaryIndex(0);
                 setBatchSuccess(false);
                 setBatchErrors({});
               }}>
@@ -898,12 +1043,11 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
               key={draft.clientId}
               draft={draft}
               index={index}
-              isPrimary={primaryIndex === index}
               familyAddress={batchFamily?.address}
               errors={batchErrors[draft.clientId] ?? {}}
               onUpdate={(patch) => updateDraft(draft.clientId, patch)}
               onRemove={() => removeDraft(draft.clientId)}
-              onSetPrimary={() => setPrimaryIndex(index)}
+              onPrimaryChange={(value) => handlePrimaryChange(draft.clientId, value)}
             />
           ))}
         </div>
@@ -918,6 +1062,16 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
           Добавить ещё представителя
         </button>
 
+        {/* Soft warning: no primary */}
+        {noPrimaryWarning && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
+            <AlertTriangle className="size-4 text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-700">
+              Не указан основной контакт — рекомендуем отметить одного из представителей
+            </p>
+          </div>
+        )}
+
         {/* bottom bar */}
         <div className="flex items-center justify-end gap-3 py-4 border-t border-slate-200 mt-2">
           <Button variant="outline" onClick={() => router.push('/families?tab=representatives')}>Отмена</Button>
@@ -926,6 +1080,24 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
             {drafts.length === 1 ? 'Сохранить' : `Сохранить (${drafts.length})`}
           </Button>
         </div>
+
+        {/* Confirm replace primary modal */}
+        <Modal
+          isOpen={primaryConfirm !== null}
+          onClose={() => setPrimaryConfirm(null)}
+          size="sm"
+          title="Заменить основной контакт?"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setPrimaryConfirm(null)}>Отмена</Button>
+              <Button onClick={confirmReplacePrimary}>Заменить</Button>
+            </>
+          }
+        >
+          <p className="text-sm text-slate-600">
+            Основным уже отмечен: <strong>{primaryConfirm?.existingName}</strong>. Заменить на нового?
+          </p>
+        </Modal>
 
         {/* Quick-create family modal */}
         <Modal
@@ -961,6 +1133,13 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
   const hasFormErrors = hasAttemptedSubmit && (Object.keys(errors).length > 0 || Object.keys(linkErrors).length > 0);
   const currentPrimaryName = selectedFamily ? contacts.find((c) => c.id === selectedFamily.primaryContactId)?.fullName : undefined;
   const currentBillingName = selectedFamily ? contacts.find((c) => c.id === selectedFamily.billingContactId)?.fullName : undefined;
+
+  function addEditCustomRole() {
+    const trimmed = editCustomRoleInput.trim();
+    if (!trimmed || form.customRoles.includes(trimmed)) return;
+    upd('customRoles', [...form.customRoles, trimmed]);
+    setEditCustomRoleInput('');
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -1071,21 +1250,24 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
               onChange={(e) => { upd('fullName', e.target.value); clearError('fullName'); }}
               error={errors.fullName}
             />
-            <Select
+            <CreatableCombobox
               label="Кем является в семье"
-              options={RELATION_SELECT_OPTIONS}
-              value={form.familyRelation}
-              onChange={(e) => upd('familyRelation', e.target.value as FamilyRelationType | '')}
+              placeholder="Выберите или введите..."
+              options={RELATION_COMBOBOX_OPTIONS}
+              value={form.familyRelation !== 'other' ? form.familyRelation : ''}
+              customValue={form.customFamilyRelation}
+              isCustom={form.familyRelation === 'other'}
+              onChange={(v, isCustom) => {
+                if (isCustom) {
+                  upd('familyRelation', 'other');
+                  upd('customFamilyRelation', v);
+                } else {
+                  upd('familyRelation', v as FamilyRelationType | '');
+                  upd('customFamilyRelation', '');
+                }
+              }}
             />
           </div>
-          {form.familyRelation === 'other' && (
-            <Input
-              label="Уточнение родства"
-              placeholder="Напр. «Дядя по маме»"
-              value={form.customFamilyRelation}
-              onChange={(e) => upd('customFamilyRelation', e.target.value)}
-            />
-          )}
           <Select
             label="Предпочтительный контакт"
             options={PREFERRED_CONTACT_OPTIONS}
@@ -1096,22 +1278,58 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       </Section>
 
       {/* Family-level roles */}
-      <Section icon={<UserRound className="size-4" />} title="Роли в семье" description="Функциональные роли этого представителя">
-        <div className="flex flex-col gap-2">
-          {FAMILY_CONTACT_ROLES.map((role) => (
-            <label key={role} className="flex items-center gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.roles.includes(role)}
-                onChange={(e) => {
-                  const next = e.target.checked ? [...form.roles, role] : form.roles.filter((r) => r !== role);
-                  upd('roles', next);
-                }}
-                className="size-4 rounded accent-emerald-600"
-              />
-              <span className="text-sm text-slate-700">{FAMILY_CONTACT_ROLE_LABELS[role]}</span>
-            </label>
-          ))}
+      <Section icon={<Tag className="size-4" />} title="Роли в семье" description="Функциональные роли этого представителя">
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-1.5">
+            {ALL_FAMILY_CONTACT_ROLES.map((role) => (
+              <label key={role} className="flex items-center gap-2.5 cursor-pointer py-1">
+                <input
+                  type="checkbox"
+                  checked={form.roles.includes(role)}
+                  onChange={(e) => {
+                    const next = e.target.checked ? [...form.roles, role] : form.roles.filter((r) => r !== role);
+                    upd('roles', next);
+                  }}
+                  className="size-4 rounded accent-emerald-600"
+                />
+                <span className="text-sm text-slate-700">{FAMILY_CONTACT_ROLE_LABELS[role]}</span>
+              </label>
+            ))}
+          </div>
+          {form.customRoles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {form.customRoles.map((role) => (
+                <span key={role} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
+                  {role}
+                  <button
+                    type="button"
+                    onClick={() => upd('customRoles', form.customRoles.filter((r) => r !== role))}
+                    className="text-violet-400 hover:text-violet-600 ml-0.5"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={editCustomRoleInput}
+              onChange={(e) => setEditCustomRoleInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEditCustomRole(); } }}
+              placeholder="Своя роль..."
+              className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+            />
+            <button
+              type="button"
+              onClick={addEditCustomRole}
+              disabled={!editCustomRoleInput.trim()}
+              className="px-3 py-2 rounded-lg text-xs font-medium border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Plus className="size-4" />
+            </button>
+          </div>
         </div>
       </Section>
 

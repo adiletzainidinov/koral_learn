@@ -172,6 +172,11 @@ export function ParentDetail({ contactId }: Props) {
                 {FAMILY_CONTACT_ROLE_LABELS[role]}
               </Badge>
             ))}
+            {contact.customRoles?.map((role) => (
+              <Badge key={role} variant="slate" className="text-[10px]">
+                {role}
+              </Badge>
+            ))}
             {contact.preferredContact && (
               <Badge variant="slate">
                 Предпочитает: {PREFERRED_CONTACT_METHOD_LABELS[contact.preferredContact]}

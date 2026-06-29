@@ -64,14 +64,33 @@ export type FamilyContactRole =
   | 'payer'
   | 'education_decision_maker'
   | 'notification_recipient'
-  | 'emergency_contact';
+  | 'emergency_contact'
+  | 'pickup_allowed'
+  | 'attendance_responsible'
+  | 'homework_responsible'
+  | 'urgent_only';
 
 export const FAMILY_CONTACT_ROLE_LABELS: Record<FamilyContactRole, string> = {
   payer: 'Плательщик',
   education_decision_maker: 'Принимает решения об обучении',
   notification_recipient: 'Получает уведомления',
   emergency_contact: 'Экстренный контакт',
+  pickup_allowed: 'Может забирать ребёнка',
+  attendance_responsible: 'Ответственный за посещаемость',
+  homework_responsible: 'Ответственный за домашние задания',
+  urgent_only: 'Только срочные уведомления',
 };
+
+export const ALL_FAMILY_CONTACT_ROLES: FamilyContactRole[] = [
+  'payer',
+  'education_decision_maker',
+  'notification_recipient',
+  'emergency_contact',
+  'pickup_allowed',
+  'attendance_responsible',
+  'homework_responsible',
+  'urgent_only',
+];
 
 export interface FamilyContact {
   id: string;
@@ -87,6 +106,8 @@ export interface FamilyContact {
   customFamilyRelation?: string;
   /** Functional roles this contact has for the whole family */
   roles?: FamilyContactRole[];
+  /** Free-form custom roles not covered by presets */
+  customRoles?: string[];
   /** When true, contact inherits the family's address instead of having their own */
   usesFamilyAddress?: boolean;
   address?: string;
@@ -124,6 +145,7 @@ export interface CreateFamilyContactInput {
   familyRelation?: FamilyRelationType;
   customFamilyRelation?: string;
   roles?: FamilyContactRole[];
+  customRoles?: string[];
   usesFamilyAddress?: boolean;
   address?: string;
   notes?: string;
