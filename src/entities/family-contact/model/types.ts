@@ -60,6 +60,19 @@ export const PREFERRED_CONTACT_METHOD_LABELS: Record<PreferredContactMethod, str
   instagram: 'Instagram',
 };
 
+export type FamilyContactRole =
+  | 'payer'
+  | 'education_decision_maker'
+  | 'notification_recipient'
+  | 'emergency_contact';
+
+export const FAMILY_CONTACT_ROLE_LABELS: Record<FamilyContactRole, string> = {
+  payer: 'Плательщик',
+  education_decision_maker: 'Принимает решения об обучении',
+  notification_recipient: 'Получает уведомления',
+  emergency_contact: 'Экстренный контакт',
+};
+
 export interface FamilyContact {
   id: string;
   familyId: string;
@@ -69,6 +82,14 @@ export interface FamilyContact {
   telegram?: string;
   instagram?: string;
   preferredContact?: PreferredContactMethod;
+  /** Family-level relation (e.g. 'mother', 'father') — describes who this person is in the family */
+  familyRelation?: FamilyRelationType;
+  customFamilyRelation?: string;
+  /** Functional roles this contact has for the whole family */
+  roles?: FamilyContactRole[];
+  /** When true, contact inherits the family's address instead of having their own */
+  usesFamilyAddress?: boolean;
+  address?: string;
   notes?: string;
   isArchived?: boolean;
   archivedAt?: string;
@@ -100,6 +121,11 @@ export interface CreateFamilyContactInput {
   telegram?: string;
   instagram?: string;
   preferredContact?: PreferredContactMethod;
+  familyRelation?: FamilyRelationType;
+  customFamilyRelation?: string;
+  roles?: FamilyContactRole[];
+  usesFamilyAddress?: boolean;
+  address?: string;
   notes?: string;
 }
 

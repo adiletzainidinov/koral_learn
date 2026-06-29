@@ -145,6 +145,12 @@ interface AppState {
     setAsFamilyPrimary?: boolean;
     setAsFamilyBilling?: boolean;
   }) => string;
+  /** Atomically create multiple contacts for a family in a single store update. Returns array of new contact ids. */
+  createFamilyContactsBatch: (input: {
+    familyId: string;
+    contacts: Array<Omit<CreateFamilyContactInput, 'familyId'>>;
+    primaryContactIndex?: number;
+  }) => string[];
 
   // ─── Support / Families ──────────────────────────────────────────────────
   families: Family[];
@@ -1051,6 +1057,11 @@ export const useAppStore = create<AppState>()(
           telegram: input.telegram,
           instagram: input.instagram,
           preferredContact: input.preferredContact,
+          familyRelation: input.familyRelation,
+          customFamilyRelation: input.customFamilyRelation,
+          roles: input.roles,
+          usesFamilyAddress: input.usesFamilyAddress,
+          address: input.address,
           notes: input.notes,
           createdAt: now,
         };
@@ -1183,6 +1194,44 @@ export const useAppStore = create<AppState>()(
         return id;
       },
 
+      createFamilyContactsBatch: (input) => {
+        const { familyId, contacts, primaryContactIndex } = input;
+        const now = new Date().toISOString();
+        const ids: string[] = contacts.map(() => generateId());
+        const newContacts: FamilyContact[] = contacts.map((c, i) => ({
+          id: ids[i],
+          familyId,
+          fullName: c.fullName,
+          whatsapp: c.whatsapp,
+          phone: c.phone,
+          telegram: c.telegram,
+          instagram: c.instagram,
+          preferredContact: c.preferredContact,
+          familyRelation: c.familyRelation,
+          customFamilyRelation: c.customFamilyRelation,
+          roles: c.roles,
+          usesFamilyAddress: c.usesFamilyAddress,
+          address: c.address,
+          notes: c.notes,
+          createdAt: now,
+        }));
+        const primaryId = primaryContactIndex !== undefined ? ids[primaryContactIndex] : ids[0];
+        set((state) => ({
+          familyContacts: [...state.familyContacts, ...newContacts],
+          families: state.families.map((f) => {
+            if (f.id !== familyId) return f;
+            const merged = Array.from(new Set([...f.contactIds, ...ids]));
+            return {
+              ...f,
+              contactIds: merged,
+              primaryContactId: f.primaryContactId ?? primaryId,
+              billingContactId: f.billingContactId ?? primaryId,
+            };
+          }),
+        }));
+        return ids;
+      },
+
       // ─── Support / Families ────────────────────────────────────────────────
 
       createFamily: (input) => {
@@ -1193,10 +1242,13 @@ export const useAppStore = create<AppState>()(
         const billingContactId = input.billingContactId ?? primaryContactId;
         const primaryContact = familyContacts.find((c) => c.id === primaryContactId);
         const id = generateId();
-        const name = input.name?.trim() || (primaryContact ? `Семья ${primaryContact.fullName}` : 'Семья');
+        const name = input.name?.trim()
+          || (input.fatherFullName?.trim() ? `Семья: ${input.fatherFullName.trim()}` : undefined)
+          || (primaryContact ? `Семья ${primaryContact.fullName}` : 'Семья');
         const family: Family = {
           id,
           name,
+          fatherFullName: input.fatherFullName?.trim() || undefined,
           studentIds,
           contactIds,
           primaryContactId,
@@ -1647,7 +1699,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'quranlearn-v2',
-      version: 3,
+      version: 4,
       migrate: (persistedState, version) => {
         let state = (persistedState as Record<string, unknown> | null | undefined) ?? {};
         if (version < 2) {
@@ -1656,6 +1708,11 @@ export const useAppStore = create<AppState>()(
         if (version < 3) {
           if (!state.supportMonthlyCharges) state = { ...state, supportMonthlyCharges: [] };
           if (!state.supportReminderLogs) state = { ...state, supportReminderLogs: [] };
+        }
+        if (version < 4) {
+          // Backfill FamilyContact new optional fields (already optional — no action needed for existing contacts)
+          // Backfill Family.fatherFullName — leave undefined; existing families keep their existing name
+          state = { ...state };
         }
         return state as unknown as AppState;
       },

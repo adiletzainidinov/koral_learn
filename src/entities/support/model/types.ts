@@ -156,12 +156,14 @@ export interface Family {
   /** @deprecated kept only for legacy data migration; new code uses contactIds + primaryContactId */
   parentId?: string;
   name: string;
+  /** Father's full name — used as the family identity. name is auto-generated from this. */
+  fatherFullName?: string;
   studentIds: string[];
   /** IDs of FamilyContact entries linked to this family */
   contactIds: string[];
   /** Primary representative for this family (must be in contactIds) */
   primaryContactId?: string;
-  /** Default payer for billing (must be in contactIds) */
+  /** Preferred/compat payer field. Multiple contacts may have role 'payer' via FamilyContact.roles. */
   billingContactId?: string;
   lessonSelections?: LessonSelection[];
   supportPlanType: SupportPlanType;
@@ -176,8 +178,10 @@ export interface Family {
 }
 
 export interface CreateFamilyInput {
-  /** Optional name; if omitted falls back to "Семья {primaryContact.fullName}" */
+  /** Optional explicit name; if omitted, auto-generated from fatherFullName or primaryContact */
   name?: string;
+  /** Father's full name — primary identity field for the family */
+  fatherFullName?: string;
   studentIds?: string[];
   contactIds?: string[];
   primaryContactId?: string;

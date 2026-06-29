@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Save, User, Phone, FileText, AlertTriangle, UserRound,
-  Plus, Users, Check, X,
+  Plus, Users, Check, X, ChevronDown, ChevronUp, MapPin, CheckCircle,
 } from 'lucide-react';
 import { Breadcrumb } from '@/shared/ui/breadcrumb';
 import { Button } from '@/shared/ui/button';
@@ -20,35 +20,16 @@ import {
   PREFERRED_CONTACT_METHOD_LABELS,
   FAMILY_RELATION_LABELS,
   FAMILY_RELATION_OPTIONS,
+  FAMILY_CONTACT_ROLE_LABELS,
   type FamilyRelationType,
   type PreferredContactMethod,
+  type FamilyContactRole,
 } from '@/entities/family-contact/model/types';
 import { normalizePhone, getContactInitials } from '@/entities/family-contact/model/helpers';
+import { generateId } from '@/shared/lib/ids';
 import { cn } from '@/shared/lib/cn';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface FormState {
-  fullName: string;
-  whatsapp: string;
-  phone: string;
-  telegram: string;
-  instagram: string;
-  preferredContact: PreferredContactMethod | '';
-  notes: string;
-  familyId: string;
-}
-
-const INITIAL: FormState = {
-  fullName: '',
-  whatsapp: '',
-  phone: '',
-  telegram: '',
-  instagram: '',
-  preferredContact: '',
-  notes: '',
-  familyId: '',
-};
+// ─── Shared types ─────────────────────────────────────────────────────────────
 
 interface StudentLinkConfig {
   selected: boolean;
@@ -75,44 +56,83 @@ function defaultLinkConfig(): StudentLinkConfig {
   };
 }
 
-interface FormErrors {
+// ─── Draft contact (create mode batch) ───────────────────────────────────────
+
+interface DraftFamilyContact {
+  clientId: string;
+  fullName: string;
+  whatsapp: string;
+  phone: string;
+  telegram: string;
+  instagram: string;
+  preferredContact: PreferredContactMethod | '';
+  familyRelation: FamilyRelationType | '';
+  customFamilyRelation: string;
+  roles: FamilyContactRole[];
+  usesFamilyAddress: boolean;
+  address: string;
+  notes: string;
+  collapsed: boolean;
+}
+
+function emptyDraft(): DraftFamilyContact {
+  return {
+    clientId: generateId(),
+    fullName: '',
+    whatsapp: '',
+    phone: '',
+    telegram: '',
+    instagram: '',
+    preferredContact: '',
+    familyRelation: '',
+    customFamilyRelation: '',
+    roles: [],
+    usesFamilyAddress: true,
+    address: '',
+    notes: '',
+    collapsed: false,
+  };
+}
+
+// ─── Edit-mode form state ─────────────────────────────────────────────────────
+
+interface EditFormState {
+  fullName: string;
+  whatsapp: string;
+  phone: string;
+  telegram: string;
+  instagram: string;
+  preferredContact: PreferredContactMethod | '';
+  familyRelation: FamilyRelationType | '';
+  customFamilyRelation: string;
+  roles: FamilyContactRole[];
+  usesFamilyAddress: boolean;
+  address: string;
+  notes: string;
+  familyId: string;
+}
+
+const EDIT_INITIAL: EditFormState = {
+  fullName: '', whatsapp: '', phone: '', telegram: '', instagram: '',
+  preferredContact: '', familyRelation: '', customFamilyRelation: '',
+  roles: [], usesFamilyAddress: true, address: '', notes: '', familyId: '',
+};
+
+interface EditFormErrors {
   fullName?: string;
   whatsapp?: string;
-  familyId?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ROLE_PRESETS: { label: string; patch: Partial<StudentLinkConfig> }[] = [
-  {
-    label: 'Основной родитель',
-    patch: {
-      isPrimaryContact: true,
-      canDecideEducation: true,
-      canReceiveNotifications: true,
-      isEmergencyContact: false,
-      isBillingContact: false,
-    },
-  },
-  {
-    label: 'Плательщик',
-    patch: { isBillingContact: true, canReceiveNotifications: true },
-  },
-  {
-    label: 'Экстренный',
-    patch: { isEmergencyContact: true, canReceiveNotifications: true },
-  },
-  {
-    label: 'Уведомления',
-    patch: {
-      canReceiveNotifications: true,
-      isPrimaryContact: false,
-      canDecideEducation: false,
-      isEmergencyContact: false,
-      isBillingContact: false,
-    },
-  },
+  { label: 'Основной родитель', patch: { isPrimaryContact: true, canDecideEducation: true, canReceiveNotifications: true, isEmergencyContact: false, isBillingContact: false } },
+  { label: 'Плательщик', patch: { isBillingContact: true, canReceiveNotifications: true } },
+  { label: 'Экстренный', patch: { isEmergencyContact: true, canReceiveNotifications: true } },
+  { label: 'Уведомления', patch: { canReceiveNotifications: true, isPrimaryContact: false, canDecideEducation: false, isEmergencyContact: false, isBillingContact: false } },
 ];
+
+const FAMILY_CONTACT_ROLES: FamilyContactRole[] = ['payer', 'education_decision_maker', 'notification_recipient', 'emergency_contact'];
 
 const PREFERRED_CONTACT_OPTIONS = [
   { value: '', label: 'Не указано' },
@@ -217,65 +237,40 @@ function StudentLinkRow({
           </span>
         )}
       </div>
-
       {config.selected && (
         <div className="border-t border-emerald-100 px-4 pb-4 pt-3 flex flex-col gap-3">
           <div className="flex items-start gap-3">
             <div className="flex-1">
-              <Select
-                label="Степень родства *"
-                options={RELATION_SELECT_OPTIONS}
-                value={config.relation}
-                onChange={(e) => onChange({ relation: e.target.value as FamilyRelationType | '' })}
-              />
+              <Select label="Степень родства *" options={RELATION_SELECT_OPTIONS} value={config.relation}
+                onChange={(e) => onChange({ relation: e.target.value as FamilyRelationType | '' })} />
               {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
             </div>
             {config.relation === 'other' && (
               <div className="flex-1">
-                <Input
-                  label="Уточнение *"
-                  placeholder="Напр. «Дядя по маме»"
-                  value={config.customRelation}
-                  onChange={(e) => onChange({ customRelation: e.target.value })}
-                />
+                <Input label="Уточнение *" placeholder="Напр. «Дядя по маме»" value={config.customRelation}
+                  onChange={(e) => onChange({ customRelation: e.target.value })} />
               </div>
             )}
           </div>
-
           <div>
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Быстрые роли</p>
             <div className="flex flex-wrap gap-1.5">
               {ROLE_PRESETS.map((preset) => (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => onChange(preset.patch)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white text-slate-600 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-colors"
-                >
+                <button key={preset.label} type="button" onClick={() => onChange(preset.patch)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white text-slate-600 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-colors">
                   {preset.label}
                 </button>
               ))}
             </div>
           </div>
-
           <div>
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Права</p>
             <div className="flex flex-wrap gap-1.5">
-              <ToggleChip checked={config.isPrimaryContact} onChange={(v) => onChange({ isPrimaryContact: v })} variant="primary">
-                Основной контакт
-              </ToggleChip>
-              <ToggleChip checked={config.canDecideEducation} onChange={(v) => onChange({ canDecideEducation: v })}>
-                Решает за обучение
-              </ToggleChip>
-              <ToggleChip checked={config.canReceiveNotifications} onChange={(v) => onChange({ canReceiveNotifications: v })}>
-                Уведомления
-              </ToggleChip>
-              <ToggleChip checked={config.isEmergencyContact} onChange={(v) => onChange({ isEmergencyContact: v })} variant="emergency">
-                Экстренный
-              </ToggleChip>
-              <ToggleChip checked={config.isBillingContact} onChange={(v) => onChange({ isBillingContact: v })} variant="billing">
-                Плательщик
-              </ToggleChip>
+              <ToggleChip checked={config.isPrimaryContact} onChange={(v) => onChange({ isPrimaryContact: v })} variant="primary">Основной контакт</ToggleChip>
+              <ToggleChip checked={config.canDecideEducation} onChange={(v) => onChange({ canDecideEducation: v })}>Решает за обучение</ToggleChip>
+              <ToggleChip checked={config.canReceiveNotifications} onChange={(v) => onChange({ canReceiveNotifications: v })}>Уведомления</ToggleChip>
+              <ToggleChip checked={config.isEmergencyContact} onChange={(v) => onChange({ isEmergencyContact: v })} variant="emergency">Экстренный</ToggleChip>
+              <ToggleChip checked={config.isBillingContact} onChange={(v) => onChange({ isBillingContact: v })} variant="billing">Плательщик</ToggleChip>
             </div>
           </div>
         </div>
@@ -284,13 +279,199 @@ function StudentLinkRow({
   );
 }
 
+// ─── Draft card for batch create ─────────────────────────────────────────────
+
+interface DraftCardProps {
+  draft: DraftFamilyContact;
+  index: number;
+  isPrimary: boolean;
+  familyAddress?: string;
+  errors: Record<string, string>;
+  onUpdate: (patch: Partial<DraftFamilyContact>) => void;
+  onRemove: () => void;
+  onSetPrimary: () => void;
+}
+
+function DraftCard({ draft, index, isPrimary, familyAddress, errors, onUpdate, onRemove, onSetPrimary }: DraftCardProps) {
+  const hasErrors = Object.keys(errors).length > 0;
+
+  return (
+    <Card padding="none" className={cn(hasErrors && 'border-red-300')}>
+      {/* card header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
+        <div className={cn(
+          'size-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0',
+          isPrimary ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+        )}>
+          {draft.fullName ? draft.fullName.slice(0, 2).toUpperCase() : (index + 1)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-900 truncate">
+            {draft.fullName || `Представитель ${index + 1}`}
+          </p>
+          {isPrimary && <p className="text-[10px] text-emerald-600 font-medium">Основной контакт</p>}
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onUpdate({ collapsed: !draft.collapsed })}
+            className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors"
+          >
+            {draft.collapsed ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
+          </button>
+          {index > 0 && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+            >
+              <X className="size-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {!draft.collapsed && (
+        <div className="p-4 flex flex-col gap-4">
+          {/* name + relation */}
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Полное имя *"
+              placeholder="Маматова Жылдыз"
+              value={draft.fullName}
+              onChange={(e) => onUpdate({ fullName: e.target.value })}
+              error={errors.fullName}
+            />
+            <Select
+              label="Кем является в семье"
+              options={RELATION_SELECT_OPTIONS}
+              value={draft.familyRelation}
+              onChange={(e) => onUpdate({ familyRelation: e.target.value as FamilyRelationType | '' })}
+            />
+          </div>
+          {draft.familyRelation === 'other' && (
+            <Input
+              label="Уточнение родства *"
+              placeholder="Напр. «Дядя по маме»"
+              value={draft.customFamilyRelation}
+              onChange={(e) => onUpdate({ customFamilyRelation: e.target.value })}
+            />
+          )}
+
+          {/* contacts */}
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="WhatsApp *"
+              placeholder="+996700000000"
+              value={draft.whatsapp}
+              onChange={(e) => onUpdate({ whatsapp: e.target.value })}
+              error={errors.whatsapp}
+            />
+            <Input
+              label="Телефон"
+              placeholder="+996 700 000 000"
+              value={draft.phone}
+              onChange={(e) => onUpdate({ phone: e.target.value })}
+            />
+            <Input
+              label="Telegram"
+              placeholder="@username"
+              value={draft.telegram}
+              onChange={(e) => onUpdate({ telegram: e.target.value })}
+            />
+            <Input
+              label="Instagram"
+              placeholder="@username"
+              value={draft.instagram}
+              onChange={(e) => onUpdate({ instagram: e.target.value })}
+            />
+          </div>
+
+          {/* preferred contact */}
+          <Select
+            label="Предпочтительный контакт"
+            options={PREFERRED_CONTACT_OPTIONS}
+            value={draft.preferredContact}
+            onChange={(e) => onUpdate({ preferredContact: e.target.value as PreferredContactMethod | '' })}
+          />
+
+          {/* address */}
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer mb-2">
+              <input
+                type="checkbox"
+                checked={draft.usesFamilyAddress}
+                onChange={(e) => onUpdate({ usesFamilyAddress: e.target.checked })}
+                className="size-4 rounded accent-emerald-600"
+              />
+              <span className="text-sm text-slate-700">Использовать адрес семьи</span>
+              {familyAddress && <span className="text-xs text-slate-400 truncate ml-1">({familyAddress})</span>}
+            </label>
+            {!draft.usesFamilyAddress && (
+              <Input
+                label="Адрес"
+                placeholder="г. Бишкек, ул. Токтогула, д. 14"
+                value={draft.address}
+                onChange={(e) => onUpdate({ address: e.target.value })}
+              />
+            )}
+          </div>
+
+          {/* family-level roles */}
+          <div>
+            <p className="text-xs font-semibold text-slate-500 mb-2">Роли в семье</p>
+            <div className="flex flex-col gap-1.5">
+              {FAMILY_CONTACT_ROLES.map((role) => (
+                <label key={role} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={draft.roles.includes(role)}
+                    onChange={(e) => {
+                      const next = e.target.checked
+                        ? [...draft.roles, role]
+                        : draft.roles.filter((r) => r !== role);
+                      onUpdate({ roles: next });
+                    }}
+                    className="size-4 rounded accent-emerald-600"
+                  />
+                  <span className="text-sm text-slate-700">{FAMILY_CONTACT_ROLE_LABELS[role]}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* primary contact radio */}
+          <div className="pt-1 border-t border-slate-100">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                checked={isPrimary}
+                onChange={() => onSetPrimary()}
+                className="size-4 accent-emerald-600"
+              />
+              <span className="text-sm text-slate-700 font-medium">Основной контакт семьи</span>
+            </label>
+          </div>
+
+          {/* notes */}
+          <textarea
+            placeholder="Заметки о представителе..."
+            value={draft.notes}
+            onChange={(e) => onUpdate({ notes: e.target.value })}
+            rows={2}
+            className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 resize-none outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+          />
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
   mode?: 'create' | 'edit';
-  /** ID of FamilyContact (URL still uses `parentId` slug) */
   contactId?: string;
-  /** Preset family for new contacts (e.g. from family detail page) */
   initialFamilyId?: string;
 }
 
@@ -303,7 +484,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
   const allStudents = useStudents();
   const existingLinks = useContactStudentLinks(contactId ?? '');
   const allLinks = useAllStudentContactLinks();
-
+  const createFamilyContactsBatch = useAppStore((s) => s.createFamilyContactsBatch);
   const createFamilyContactWithLinks = useAppStore((s) => s.createFamilyContactWithLinks);
   const updateFamilyContact = useAppStore((s) => s.updateFamilyContact);
   const linkContactToStudent = useAppStore((s) => s.linkContactToStudent);
@@ -313,8 +494,19 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
   const setFamilyBillingContact = useAppStore((s) => s.setFamilyBillingContact);
   const createFamily = useAppStore((s) => s.createFamily);
 
-  const [form, setForm] = useState<FormState>({ ...INITIAL, familyId: initialFamilyId ?? '' });
-  const [errors, setErrors] = useState<FormErrors>({});
+  // ── Create mode state ────────────────────────────────────────────────────
+  const [drafts, setDrafts] = useState<DraftFamilyContact[]>([emptyDraft()]);
+  const [primaryIndex, setPrimaryIndex] = useState(0);
+  const [batchFamilyId, setBatchFamilyId] = useState(initialFamilyId ?? '');
+  const [batchErrors, setBatchErrors] = useState<Record<string, Record<string, string>>>({});
+  const [batchFamilyError, setBatchFamilyError] = useState('');
+  const [batchSaving, setBatchSaving] = useState(false);
+  const [batchSuccess, setBatchSuccess] = useState(false);
+  const [successFamilyId, setSuccessFamilyId] = useState('');
+
+  // ── Edit mode state ──────────────────────────────────────────────────────
+  const [form, setForm] = useState<EditFormState>(EDIT_INITIAL);
+  const [errors, setErrors] = useState<EditFormErrors>({});
   const [linkErrors, setLinkErrors] = useState<Record<string, string>>({});
   const [linkConfigs, setLinkConfigs] = useState<Record<string, StudentLinkConfig>>({});
   const [setAsFamilyPrimary, setSetAsFamilyPrimary] = useState(false);
@@ -330,15 +522,14 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
 
   const hasLoaded = useRef(false);
   const fullNameRef = useRef<HTMLInputElement>(null);
-  const whatsappRef = useRef<HTMLInputElement>(null);
 
-  // ── Load edit data ─────────────────────────────────────────────────────────
-
+  // ── Load edit data ─────────────────────────────────────────────────────
   useEffect(() => {
     if (mode !== 'edit' || !contactId || hasLoaded.current) return;
     const contact = contacts.find((c) => c.id === contactId);
-    if (!contact) { setNotFound(true); return; }
+    if (!contact) { setTimeout(() => setNotFound(true), 0); return; }
     hasLoaded.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm({
       fullName: contact.fullName,
       whatsapp: contact.whatsapp,
@@ -346,6 +537,11 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       telegram: contact.telegram ?? '',
       instagram: contact.instagram ?? '',
       preferredContact: contact.preferredContact ?? '',
+      familyRelation: contact.familyRelation ?? '',
+      customFamilyRelation: contact.customFamilyRelation ?? '',
+      roles: contact.roles ?? [],
+      usesFamilyAddress: contact.usesFamilyAddress ?? true,
+      address: contact.address ?? '',
       notes: contact.notes ?? '',
       familyId: contact.familyId,
     });
@@ -367,17 +563,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
     setIsDirty(false);
   }, [mode, contactId, contacts, existingLinks]);
 
-  // ── Reset link configs when family changes (create mode only) ─────────────
-
-  useEffect(() => {
-    if (mode !== 'create') return;
-    setLinkConfigs({});
-    setSetAsFamilyPrimary(false);
-    setSetAsFamilyBilling(false);
-  }, [form.familyId, mode]);
-
-  // ── Dirty guard ───────────────────────────────────────────────────────────
-
+  // ── Dirty guard ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isDirty) return;
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
@@ -385,9 +571,8 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirty]);
 
-  // ── Derived data ──────────────────────────────────────────────────────────
-
-  const upd = useCallback(<K extends keyof FormState>(field: K, value: FormState[K]) => {
+  // ── Edit derived data ────────────────────────────────────────────────────
+  const upd = useCallback(<K extends keyof EditFormState>(field: K, value: EditFormState[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setIsDirty(true);
   }, []);
@@ -398,17 +583,12 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
   );
 
   const familyStudents = useMemo(
-    () => selectedFamily
-      ? allStudents.filter((s) => selectedFamily.studentIds.includes(s.id))
-      : [],
+    () => selectedFamily ? allStudents.filter((s) => selectedFamily.studentIds.includes(s.id)) : [],
     [selectedFamily, allStudents]
   );
 
   const familyOptions = useMemo(
-    () => [
-      { value: '', label: 'Выберите семью...' },
-      ...families.map((f) => ({ value: f.id, label: f.name })),
-    ],
+    () => [{ value: '', label: 'Выберите семью...' }, ...families.map((f) => ({ value: f.id, label: f.name }))],
     [families]
   );
 
@@ -419,59 +599,40 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
 
   const studentLinkCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const link of allLinks) {
-      counts[link.studentId] = (counts[link.studentId] ?? 0) + 1;
-    }
+    for (const link of allLinks) counts[link.studentId] = (counts[link.studentId] ?? 0) + 1;
     return counts;
   }, [allLinks]);
 
   const updateLink = useCallback((studentId: string, patch: Partial<StudentLinkConfig>) => {
-    setLinkConfigs((prev) => ({
-      ...prev,
-      [studentId]: { ...(prev[studentId] ?? defaultLinkConfig()), ...patch },
-    }));
+    setLinkConfigs((prev) => ({ ...prev, [studentId]: { ...(prev[studentId] ?? defaultLinkConfig()), ...patch } }));
     setIsDirty(true);
   }, []);
 
-  // ── Validation ────────────────────────────────────────────────────────────
-
-  function validate(): boolean {
-    const errs: FormErrors = {};
+  // ── Edit validation ──────────────────────────────────────────────────────
+  function validateEdit(): boolean {
+    const errs: EditFormErrors = {};
     if (!form.fullName.trim()) errs.fullName = 'Введите имя представителя';
     if (!form.whatsapp.trim()) errs.whatsapp = 'Введите WhatsApp номер';
-    if (mode === 'create' && !form.familyId) errs.familyId = 'Выберите семью';
     setErrors(errs);
 
     const lErrs: Record<string, string> = {};
     for (const [studentId, cfg] of Object.entries(linkConfigs)) {
       if (!cfg.selected) continue;
-      if (!cfg.relation) {
-        lErrs[studentId] = 'Укажите степень родства';
-      } else if (cfg.relation === 'other' && !cfg.customRelation.trim()) {
-        lErrs[studentId] = 'Уточните степень родства';
-      }
+      if (!cfg.relation) lErrs[studentId] = 'Укажите степень родства';
+      else if (cfg.relation === 'other' && !cfg.customRelation.trim()) lErrs[studentId] = 'Уточните степень родства';
     }
     setLinkErrors(lErrs);
 
     if (errs.fullName) fullNameRef.current?.focus();
-    else if (errs.whatsapp) whatsappRef.current?.focus();
     return Object.keys(errs).length === 0 && Object.keys(lErrs).length === 0;
   }
 
-  function clearError(field: keyof FormErrors) {
+  function clearError(field: keyof EditFormErrors) {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   }
 
-  function findDuplicate() {
-    const normWA = normalizePhone(form.whatsapp);
-    if (!normWA) return null;
-    const match = contacts.find((c) => c.id !== contactId && normalizePhone(c.whatsapp) === normWA);
-    return match ? { id: match.id, fullName: match.fullName } : null;
-  }
-
-  // ── Submit helpers ────────────────────────────────────────────────────────
-
-  function buildPayload() {
+  // ── Edit submit ──────────────────────────────────────────────────────────
+  function buildEditPayload() {
     return {
       fullName: form.fullName.trim(),
       whatsapp: form.whatsapp.trim(),
@@ -479,6 +640,11 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       telegram: form.telegram.trim() || undefined,
       instagram: form.instagram.trim() || undefined,
       preferredContact: (form.preferredContact || undefined) as PreferredContactMethod | undefined,
+      familyRelation: (form.familyRelation || undefined) as FamilyRelationType | undefined,
+      customFamilyRelation: form.familyRelation === 'other' ? form.customFamilyRelation.trim() || undefined : undefined,
+      roles: form.roles.length > 0 ? form.roles : undefined,
+      usesFamilyAddress: form.usesFamilyAddress,
+      address: form.usesFamilyAddress ? undefined : form.address.trim() || undefined,
       notes: form.notes.trim() || undefined,
     };
   }
@@ -500,8 +666,11 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
 
   function doCreate() {
     setSaving(true);
+    const normWA = normalizePhone(form.whatsapp);
+    const dupContact = contacts.find((c) => c.id !== contactId && normalizePhone(c.whatsapp) === normWA);
+    if (dupContact) { setDuplicateMatch({ id: dupContact.id, fullName: dupContact.fullName }); setSaving(false); return; }
     const id = createFamilyContactWithLinks({
-      contact: { familyId: form.familyId, ...buildPayload() },
+      contact: { familyId: form.familyId, ...buildEditPayload() },
       links: buildLinkInputs(),
       setAsFamilyPrimary,
       setAsFamilyBilling,
@@ -514,8 +683,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
     if (!contactId) return;
     setSaving(true);
     const familyId = form.familyId;
-    updateFamilyContact(contactId, buildPayload());
-
+    updateFamilyContact(contactId, buildEditPayload());
     for (const [studentId, cfg] of Object.entries(linkConfigs)) {
       if (!cfg.selected) continue;
       if (cfg.existingLinkId) {
@@ -530,9 +698,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
         });
       } else {
         linkContactToStudent({
-          familyId,
-          studentId,
-          contactId,
+          familyId, studentId, contactId,
           relation: cfg.relation as FamilyRelationType,
           customRelation: cfg.relation === 'other' ? cfg.customRelation.trim() || undefined : undefined,
           isPrimaryContact: cfg.isPrimaryContact,
@@ -543,29 +709,23 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
         });
       }
     }
-
     if (setAsFamilyPrimary) setFamilyPrimaryContact(familyId, contactId);
     if (setAsFamilyBilling) setFamilyBillingContact(familyId, contactId);
-
     setIsDirty(false);
     router.push(`/parents/${contactId}`);
   }
 
   function handleConfirmRemoveLinks() {
-    for (const item of removeLinksConfirm) {
-      unlinkContactFromStudent(item.linkId);
-    }
+    for (const item of removeLinksConfirm) unlinkContactFromStudent(item.linkId);
     setRemoveLinksConfirm([]);
     doEdit();
   }
 
-  function handleSubmit() {
+  function handleEditSubmit() {
     setHasAttemptedSubmit(true);
-    if (!validate()) return;
+    if (!validateEdit()) return;
 
     if (mode === 'create') {
-      const dup = findDuplicate();
-      if (dup) { setDuplicateMatch(dup); return; }
       doCreate();
       return;
     }
@@ -576,12 +736,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
         const student = allStudents.find((s) => s.id === studentId);
         return { linkId: cfg.existingLinkId!, studentName: student?.fullName ?? studentId };
       });
-
-    if (toRemove.length > 0) {
-      setRemoveLinksConfirm(toRemove);
-      return;
-    }
-
+    if (toRemove.length > 0) { setRemoveLinksConfirm(toRemove); return; }
     doEdit();
   }
 
@@ -591,6 +746,58 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
     else router.push('/families?tab=representatives');
   }
 
+  // ── Batch create helpers ─────────────────────────────────────────────────
+  function updateDraft(clientId: string, patch: Partial<DraftFamilyContact>) {
+    setDrafts((prev) => prev.map((d) => d.clientId === clientId ? { ...d, ...patch } : d));
+  }
+
+  function removeDraft(clientId: string) {
+    setDrafts((prev) => {
+      const next = prev.filter((d) => d.clientId !== clientId);
+      return next.length > 0 ? next : [emptyDraft()];
+    });
+    setPrimaryIndex((prev) => Math.max(0, prev - 1));
+  }
+
+  function validateBatch(): boolean {
+    const errs: Record<string, Record<string, string>> = {};
+    let familyErr = '';
+    if (!batchFamilyId) familyErr = 'Выберите семью';
+    setBatchFamilyError(familyErr);
+    for (const draft of drafts) {
+      const e: Record<string, string> = {};
+      if (!draft.fullName.trim()) e.fullName = 'Введите имя';
+      if (!draft.whatsapp.trim()) e.whatsapp = 'Введите WhatsApp';
+      if (Object.keys(e).length > 0) errs[draft.clientId] = e;
+    }
+    setBatchErrors(errs);
+    return !familyErr && Object.keys(errs).length === 0;
+  }
+
+  function handleBatchSubmit() {
+    if (!validateBatch()) return;
+    setBatchSaving(true);
+    const contactInputs = drafts.map((d) => ({
+      fullName: d.fullName.trim(),
+      whatsapp: d.whatsapp.trim(),
+      phone: d.phone.trim() || undefined,
+      telegram: d.telegram.trim() || undefined,
+      instagram: d.instagram.trim() || undefined,
+      preferredContact: (d.preferredContact || undefined) as PreferredContactMethod | undefined,
+      familyRelation: (d.familyRelation || undefined) as FamilyRelationType | undefined,
+      customFamilyRelation: d.familyRelation === 'other' ? d.customFamilyRelation.trim() || undefined : undefined,
+      roles: d.roles.length > 0 ? d.roles : undefined,
+      usesFamilyAddress: d.usesFamilyAddress,
+      address: d.usesFamilyAddress ? undefined : d.address.trim() || undefined,
+      notes: d.notes.trim() || undefined,
+    }));
+    createFamilyContactsBatch({ familyId: batchFamilyId, contacts: contactInputs, primaryContactIndex: primaryIndex });
+    setSuccessFamilyId(batchFamilyId);
+    setBatchSuccess(true);
+    setBatchSaving(false);
+  }
+
+  // ── Not found ────────────────────────────────────────────────────────────
   if (notFound) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
@@ -603,128 +810,218 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
     );
   }
 
-  const hasFormErrors = hasAttemptedSubmit && (
-    Object.keys(errors).length > 0 || Object.keys(linkErrors).length > 0
-  );
+  // ── Batch success ────────────────────────────────────────────────────────
+  if (mode === 'create' && batchSuccess) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+          <Breadcrumb items={[{ label: 'Семьи', href: '/families' }, { label: 'Представители' }]} />
+          <h1 className="text-xl font-bold text-slate-900 mt-1">Представители добавлены</h1>
+        </div>
+        <Card padding="none">
+          <div className="p-8 flex flex-col items-center text-center gap-4">
+            <div className="size-14 rounded-full bg-emerald-100 flex items-center justify-center">
+              <CheckCircle className="size-7 text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">
+                {drafts.length === 1 ? '1 представитель добавлен' : `${drafts.length} представителя добавлено`}
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">Профили созданы и привязаны к семье</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 mt-2 w-full max-w-sm">
+              <Button className="flex-1" onClick={() => router.push(`/support/families/${successFamilyId}`)}>
+                Открыть семью
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => {
+                setDrafts([emptyDraft()]);
+                setPrimaryIndex(0);
+                setBatchSuccess(false);
+                setBatchErrors({});
+              }}>
+                Добавить ещё
+              </Button>
+            </div>
+            <button type="button" onClick={() => router.push('/families?tab=representatives')}
+              className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
+              К списку представителей
+            </button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
-  const currentPrimaryName = selectedFamily
-    ? contacts.find((c) => c.id === selectedFamily.primaryContactId)?.fullName
-    : undefined;
-  const currentBillingName = selectedFamily
-    ? contacts.find((c) => c.id === selectedFamily.billingContactId)?.fullName
-    : undefined;
+  // ── BATCH CREATE MODE ─────────────────────────────────────────────────────
+  if (mode === 'create') {
+    const batchFamily = families.find((f) => f.id === batchFamilyId);
+
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+          <Breadcrumb items={[
+            { label: 'Семьи', href: '/families' },
+            { label: 'Представители', href: '/families?tab=representatives' },
+            { label: 'Добавить представителей' },
+          ]} />
+          <div className="flex items-center gap-3 mt-1">
+            <button type="button" onClick={() => router.push('/families?tab=representatives')}
+              className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors shrink-0">
+              <ArrowLeft className="size-4" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">Добавить представителей</h1>
+              <p className="text-sm text-slate-500">Можно добавить сразу несколько представителей</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Family selector */}
+        <Section icon={<UserRound className="size-4" />} title="Семья" description="К какой семье относятся эти представители">
+          <Select
+            label="Семья *"
+            options={familyOptions}
+            value={batchFamilyId}
+            onChange={(e) => { setBatchFamilyId(e.target.value); setBatchFamilyError(''); }}
+          />
+          {batchFamilyError && <p className="text-xs text-red-500 mt-1">{batchFamilyError}</p>}
+          <button type="button" onClick={() => { setNewFamilyName(''); setShowNewFamilyModal(true); }}
+            className="flex items-center gap-1 mt-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors">
+            <Plus className="size-3.5" />Создать новую семью
+          </button>
+        </Section>
+
+        {/* Draft cards */}
+        <div className="flex flex-col gap-3">
+          {drafts.map((draft, index) => (
+            <DraftCard
+              key={draft.clientId}
+              draft={draft}
+              index={index}
+              isPrimary={primaryIndex === index}
+              familyAddress={batchFamily?.address}
+              errors={batchErrors[draft.clientId] ?? {}}
+              onUpdate={(patch) => updateDraft(draft.clientId, patch)}
+              onRemove={() => removeDraft(draft.clientId)}
+              onSetPrimary={() => setPrimaryIndex(index)}
+            />
+          ))}
+        </div>
+
+        {/* Add another button */}
+        <button
+          type="button"
+          onClick={() => setDrafts((prev) => [...prev, emptyDraft()])}
+          className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-slate-200 text-sm font-medium text-slate-500 hover:border-emerald-300 hover:text-emerald-600 transition-colors"
+        >
+          <Plus className="size-4" />
+          Добавить ещё представителя
+        </button>
+
+        {/* bottom bar */}
+        <div className="flex items-center justify-end gap-3 py-4 border-t border-slate-200 mt-2">
+          <Button variant="outline" onClick={() => router.push('/families?tab=representatives')}>Отмена</Button>
+          <Button onClick={handleBatchSubmit} loading={batchSaving}>
+            <Save className="size-4" />
+            {drafts.length === 1 ? 'Сохранить' : `Сохранить (${drafts.length})`}
+          </Button>
+        </div>
+
+        {/* Quick-create family modal */}
+        <Modal
+          isOpen={showNewFamilyModal}
+          onClose={() => setShowNewFamilyModal(false)}
+          size="sm"
+          title="Создать новую семью"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setShowNewFamilyModal(false)}>Отмена</Button>
+              <Button onClick={() => {
+                const name = newFamilyName.trim();
+                if (!name) return;
+                const id = createFamily({ name });
+                setBatchFamilyId(id);
+                setBatchFamilyError('');
+                setShowNewFamilyModal(false);
+              }} disabled={!newFamilyName.trim()}>
+                <Plus className="size-4" />Создать и выбрать
+              </Button>
+            </>
+          }
+        >
+          <Input label="Название семьи *" placeholder="Маматовы" value={newFamilyName}
+            onChange={(e) => setNewFamilyName(e.target.value)} autoFocus />
+        </Modal>
+      </div>
+    );
+  }
+
+  // ── EDIT MODE ─────────────────────────────────────────────────────────────
+
+  const hasFormErrors = hasAttemptedSubmit && (Object.keys(errors).length > 0 || Object.keys(linkErrors).length > 0);
+  const currentPrimaryName = selectedFamily ? contacts.find((c) => c.id === selectedFamily.primaryContactId)?.fullName : undefined;
+  const currentBillingName = selectedFamily ? contacts.find((c) => c.id === selectedFamily.billingContactId)?.fullName : undefined;
 
   return (
     <div className="flex flex-col gap-6">
-      {/* sticky header */}
       <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
-        <Breadcrumb
-          items={[
-            { label: 'Семьи', href: '/families' },
-            { label: 'Представители', href: '/families?tab=representatives' },
-            { label: mode === 'edit' ? 'Редактировать' : 'Новый представитель' },
-          ]}
-        />
+        <Breadcrumb items={[
+          { label: 'Семьи', href: '/families' },
+          { label: 'Представители', href: '/families?tab=representatives' },
+          { label: 'Редактировать' },
+        ]} />
         <div className="flex items-center gap-3 mt-1">
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors shrink-0"
-          >
+          <button type="button" onClick={handleCancel}
+            className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors shrink-0">
             <ArrowLeft className="size-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">
-              {mode === 'edit' ? 'Редактировать представителя' : 'Новый представитель'}
-            </h1>
-            <p className="text-sm text-slate-500">
-              {mode === 'edit' ? 'Измените данные и сохраните' : 'Заполните информацию о представителе семьи'}
-            </p>
+            <h1 className="text-xl font-bold text-slate-900">Редактировать представителя</h1>
+            <p className="text-sm text-slate-500">Измените данные и сохраните</p>
           </div>
         </div>
       </div>
 
-      {/* validation banner */}
       {hasFormErrors && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
           <AlertTriangle className="size-4 text-red-500 shrink-0" />
           <p className="text-sm text-red-700">
             Заполните обязательные поля:{' '}
             <span className="font-medium">
-              {[
-                errors.fullName && 'Полное имя',
-                errors.whatsapp && 'WhatsApp',
-                errors.familyId && 'Семья',
-                Object.keys(linkErrors).length > 0 && 'Степень родства',
-              ].filter(Boolean).join(', ')}
+              {[errors.fullName && 'Полное имя', errors.whatsapp && 'WhatsApp', Object.keys(linkErrors).length > 0 && 'Степень родства'].filter(Boolean).join(', ')}
             </span>
           </p>
         </div>
       )}
 
-      {/* Family selector — create mode only */}
-      {mode === 'create' && (
-        <Section icon={<UserRound className="size-4" />} title="Семья" description="К какой семье относится этот представитель">
-          <Select
-            label="Семья *"
-            options={familyOptions}
-            value={form.familyId}
-            onChange={(e) => { upd('familyId', e.target.value); clearError('familyId'); }}
-          />
-          {errors.familyId && <p className="text-xs text-red-500 mt-1">{errors.familyId}</p>}
-          <button
-            type="button"
-            onClick={() => { setNewFamilyName(''); setShowNewFamilyModal(true); }}
-            className="flex items-center gap-1 mt-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
-          >
-            <Plus className="size-3.5" />Создать новую семью
-          </button>
-        </Section>
-      )}
-
       {/* Children & Roles */}
-      <Section
-        icon={<Users className="size-4" />}
-        title="Дети и роли"
-        description="Выберите детей из семьи и настройте права представителя"
-      >
-        {!form.familyId ? (
-          <p className="text-sm text-slate-400 py-4 text-center">Сначала выберите семью</p>
-        ) : familyStudents.length === 0 ? (
+      <Section icon={<Users className="size-4" />} title="Дети и роли" description="Выберите детей из семьи и настройте права">
+        {familyStudents.length === 0 ? (
           <p className="text-sm text-slate-400 py-4 text-center">В этой семье пока нет учеников</p>
         ) : (
           <div className="flex flex-col gap-3">
-            {/* Apply-to-all panel */}
             {selectedStudentIds.length >= 2 && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
                 <p className="text-xs font-semibold text-blue-700 mb-2">Применить ко всем выбранным</p>
                 <div className="flex flex-wrap gap-1.5">
                   {ROLE_PRESETS.map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => {
-                        setLinkConfigs((prev) => {
-                          const next = { ...prev };
-                          for (const sid of selectedStudentIds) {
-                            if (next[sid]?.selected) {
-                              next[sid] = { ...next[sid], ...preset.patch };
-                            }
-                          }
-                          return next;
-                        });
-                        setIsDirty(true);
-                      }}
-                      className="px-2.5 py-1 rounded-lg text-xs font-medium border border-blue-300 bg-white text-blue-700 hover:bg-blue-100 transition-colors"
-                    >
+                    <button key={preset.label} type="button" onClick={() => {
+                      setLinkConfigs((prev) => {
+                        const next = { ...prev };
+                        for (const sid of selectedStudentIds) {
+                          if (next[sid]?.selected) next[sid] = { ...next[sid], ...preset.patch };
+                        }
+                        return next;
+                      });
+                      setIsDirty(true);
+                    }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium border border-blue-300 bg-white text-blue-700 hover:bg-blue-100 transition-colors">
                       {preset.label}
                     </button>
                   ))}
                 </div>
               </div>
             )}
-
-            {/* Student rows */}
             {familyStudents.map((student) => {
               const config = linkConfigs[student.id] ?? defaultLinkConfig();
               const isOnlyLink = !!config.existingLinkId && (studentLinkCounts[student.id] ?? 0) <= 1;
@@ -741,35 +1038,19 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
                 />
               );
             })}
-
-            {/* Family-level role */}
             {selectedStudentIds.length > 0 && (
               <div className="mt-1 pt-3 border-t border-slate-200">
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Роль в семье</p>
                 <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={setAsFamilyPrimary}
-                      onChange={(e) => setSetAsFamilyPrimary(e.target.checked)}
-                      className="size-4 rounded accent-emerald-600"
-                    />
+                    <input type="checkbox" checked={setAsFamilyPrimary} onChange={(e) => setSetAsFamilyPrimary(e.target.checked)} className="size-4 rounded accent-emerald-600" />
                     <span className="text-sm text-slate-700">Сделать основным контактом семьи</span>
-                    {currentPrimaryName && (
-                      <span className="text-xs text-slate-400 ml-auto">сейчас: {currentPrimaryName}</span>
-                    )}
+                    {currentPrimaryName && <span className="text-xs text-slate-400 ml-auto">сейчас: {currentPrimaryName}</span>}
                   </label>
                   <label className="flex items-center gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={setAsFamilyBilling}
-                      onChange={(e) => setSetAsFamilyBilling(e.target.checked)}
-                      className="size-4 rounded accent-emerald-600"
-                    />
+                    <input type="checkbox" checked={setAsFamilyBilling} onChange={(e) => setSetAsFamilyBilling(e.target.checked)} className="size-4 rounded accent-emerald-600" />
                     <span className="text-sm text-slate-700">Сделать основным плательщиком</span>
-                    {currentBillingName && (
-                      <span className="text-xs text-slate-400 ml-auto">сейчас: {currentBillingName}</span>
-                    )}
+                    {currentBillingName && <span className="text-xs text-slate-400 ml-auto">сейчас: {currentBillingName}</span>}
                   </label>
                 </div>
               </div>
@@ -779,16 +1060,32 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       </Section>
 
       {/* Basic info */}
-      <Section icon={<User className="size-4" />} title="Основная информация" description="Имя и предпочтительный способ связи">
+      <Section icon={<User className="size-4" />} title="Основная информация" description="Имя, родство в семье и предпочтительный способ связи">
         <div className="flex flex-col gap-4">
-          <Input
-            ref={fullNameRef}
-            label="Полное имя *"
-            placeholder="Маматова Жылдыз Абдыбековна"
-            value={form.fullName}
-            onChange={(e) => { upd('fullName', e.target.value); clearError('fullName'); }}
-            error={errors.fullName}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              ref={fullNameRef}
+              label="Полное имя *"
+              placeholder="Маматова Жылдыз Абдыбековна"
+              value={form.fullName}
+              onChange={(e) => { upd('fullName', e.target.value); clearError('fullName'); }}
+              error={errors.fullName}
+            />
+            <Select
+              label="Кем является в семье"
+              options={RELATION_SELECT_OPTIONS}
+              value={form.familyRelation}
+              onChange={(e) => upd('familyRelation', e.target.value as FamilyRelationType | '')}
+            />
+          </div>
+          {form.familyRelation === 'other' && (
+            <Input
+              label="Уточнение родства"
+              placeholder="Напр. «Дядя по маме»"
+              value={form.customFamilyRelation}
+              onChange={(e) => upd('customFamilyRelation', e.target.value)}
+            />
+          )}
           <Select
             label="Предпочтительный контакт"
             options={PREFERRED_CONTACT_OPTIONS}
@@ -798,42 +1095,68 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
         </div>
       </Section>
 
+      {/* Family-level roles */}
+      <Section icon={<UserRound className="size-4" />} title="Роли в семье" description="Функциональные роли этого представителя">
+        <div className="flex flex-col gap-2">
+          {FAMILY_CONTACT_ROLES.map((role) => (
+            <label key={role} className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.roles.includes(role)}
+                onChange={(e) => {
+                  const next = e.target.checked ? [...form.roles, role] : form.roles.filter((r) => r !== role);
+                  upd('roles', next);
+                }}
+                className="size-4 rounded accent-emerald-600"
+              />
+              <span className="text-sm text-slate-700">{FAMILY_CONTACT_ROLE_LABELS[role]}</span>
+            </label>
+          ))}
+        </div>
+      </Section>
+
+      {/* Address */}
+      <Section icon={<MapPin className="size-4" />} title="Адрес" description="Адрес представителя или использование адреса семьи">
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.usesFamilyAddress}
+              onChange={(e) => upd('usesFamilyAddress', e.target.checked)}
+              className="size-4 rounded accent-emerald-600"
+            />
+            <span className="text-sm text-slate-700">Использовать адрес семьи</span>
+            {selectedFamily?.address && <span className="text-xs text-slate-400 truncate">({selectedFamily.address})</span>}
+          </label>
+          {!form.usesFamilyAddress && (
+            <Input
+              label="Адрес"
+              placeholder="г. Бишкек, ул. Токтогула, д. 14"
+              value={form.address}
+              onChange={(e) => upd('address', e.target.value)}
+            />
+          )}
+        </div>
+      </Section>
+
       {/* Contacts */}
       <Section icon={<Phone className="size-4" />} title="Контакты" description="WhatsApp обязателен, остальное опционально">
         <div className="grid grid-cols-2 gap-4">
-          <Input
-            ref={whatsappRef}
-            label="WhatsApp *"
-            placeholder="+996700000000"
-            value={form.whatsapp}
-            onChange={(e) => { upd('whatsapp', e.target.value); clearError('whatsapp'); }}
-            error={errors.whatsapp}
-          />
-          <Input
-            label="Телефон"
-            placeholder="+996 700 000 000"
-            value={form.phone}
-            onChange={(e) => upd('phone', e.target.value)}
-          />
-          <Input
-            label="Telegram"
-            placeholder="@username"
-            value={form.telegram}
-            onChange={(e) => upd('telegram', e.target.value)}
-          />
-          <Input
-            label="Instagram"
-            placeholder="@username"
-            value={form.instagram}
-            onChange={(e) => upd('instagram', e.target.value)}
-          />
+          <Input label="WhatsApp *" placeholder="+996700000000" value={form.whatsapp}
+            onChange={(e) => { upd('whatsapp', e.target.value); clearError('whatsapp'); }} error={errors.whatsapp} />
+          <Input label="Телефон" placeholder="+996 700 000 000" value={form.phone}
+            onChange={(e) => upd('phone', e.target.value)} />
+          <Input label="Telegram" placeholder="@username" value={form.telegram}
+            onChange={(e) => upd('telegram', e.target.value)} />
+          <Input label="Instagram" placeholder="@username" value={form.instagram}
+            onChange={(e) => upd('instagram', e.target.value)} />
         </div>
       </Section>
 
       {/* Notes */}
       <Section icon={<FileText className="size-4" />} title="Заметки" description="Дополнительная информация о представителе">
         <textarea
-          placeholder="Например: всегда на связи, предпочитает WhatsApp, важные особенности общения..."
+          placeholder="Например: всегда на связи, предпочитает WhatsApp..."
           value={form.notes}
           onChange={(e) => upd('notes', e.target.value)}
           rows={3}
@@ -844,56 +1167,15 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       {/* bottom bar */}
       <div className="flex items-center justify-between py-4 border-t border-slate-200 mt-2">
         <div className="flex items-center gap-2 text-xs text-slate-400">
-          {isDirty && (
-            <>
-              <div className="size-1.5 rounded-full bg-amber-400" />
-              Есть несохранённые изменения
-            </>
-          )}
+          {isDirty && <><div className="size-1.5 rounded-full bg-amber-400" />Есть несохранённые изменения</>}
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={handleCancel}>Отмена</Button>
-          <Button onClick={handleSubmit} loading={saving}>
-            <Save className="size-4" />
-            {mode === 'edit' ? 'Сохранить изменения' : 'Сохранить'}
+          <Button onClick={handleEditSubmit} loading={saving}>
+            <Save className="size-4" />Сохранить изменения
           </Button>
         </div>
       </div>
-
-      {/* Quick-create family modal */}
-      <Modal
-        isOpen={showNewFamilyModal}
-        onClose={() => setShowNewFamilyModal(false)}
-        size="sm"
-        title="Создать новую семью"
-        description="Введите название семьи, чтобы быстро создать её и выбрать для этого представителя"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setShowNewFamilyModal(false)}>Отмена</Button>
-            <Button
-              onClick={() => {
-                const name = newFamilyName.trim();
-                if (!name) return;
-                const id = createFamily({ name });
-                upd('familyId', id);
-                clearError('familyId');
-                setShowNewFamilyModal(false);
-              }}
-              disabled={!newFamilyName.trim()}
-            >
-              <Plus className="size-4" />Создать и выбрать
-            </Button>
-          </>
-        }
-      >
-        <Input
-          label="Название семьи *"
-          placeholder="Маматовы"
-          value={newFamilyName}
-          onChange={(e) => setNewFamilyName(e.target.value)}
-          autoFocus
-        />
-      </Modal>
 
       {/* Duplicate detection modal */}
       <Modal
@@ -901,25 +1183,21 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
         onClose={() => setDuplicateMatch(null)}
         size="sm"
         title="Возможно, такой представитель уже существует"
-        description={
-          duplicateMatch
-            ? `«${duplicateMatch.fullName}» уже зарегистрирован с этим номером WhatsApp.`
-            : undefined
-        }
+        description={duplicateMatch ? `«${duplicateMatch.fullName}» уже зарегистрирован с этим номером WhatsApp.` : undefined}
         footer={
           <>
             <Button variant="ghost" onClick={() => setDuplicateMatch(null)}>Отмена</Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                const id = duplicateMatch?.id;
-                setDuplicateMatch(null);
-                if (id) router.push(`/parents/${id}`);
-              }}
-            >
+            <Button variant="outline" onClick={() => { const id = duplicateMatch?.id; setDuplicateMatch(null); if (id) router.push(`/parents/${id}`); }}>
               Использовать существующего
             </Button>
-            <Button onClick={() => { setDuplicateMatch(null); doCreate(); }}>
+            <Button onClick={() => {
+              setDuplicateMatch(null);
+              if (!contactId) {
+                const id = createFamilyContactWithLinks({ contact: { familyId: form.familyId, ...buildEditPayload() }, links: buildLinkInputs(), setAsFamilyPrimary, setAsFamilyBilling });
+                setIsDirty(false);
+                router.push(`/parents/${id}`);
+              } else doEdit();
+            }}>
               Всё равно создать
             </Button>
           </>
@@ -944,7 +1222,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
         onClose={() => setRemoveLinksConfirm([])}
         size="sm"
         title="Удалить связи с учениками?"
-        description="Следующие связи будут удалены без возможности восстановления:"
+        description="Следующие связи будут удалены:"
         footer={
           <>
             <Button variant="ghost" onClick={() => setRemoveLinksConfirm([])}>Отмена</Button>
@@ -955,11 +1233,34 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
         <ul className="flex flex-col gap-1.5">
           {removeLinksConfirm.map((item) => (
             <li key={item.linkId} className="flex items-center gap-2 text-sm text-slate-700 px-3 py-2 bg-slate-50 rounded-lg">
-              <X className="size-3.5 text-red-400 shrink-0" />
-              {item.studentName}
+              <X className="size-3.5 text-red-400 shrink-0" />{item.studentName}
             </li>
           ))}
         </ul>
+      </Modal>
+
+      {/* Quick-create family modal */}
+      <Modal
+        isOpen={showNewFamilyModal}
+        onClose={() => setShowNewFamilyModal(false)}
+        size="sm"
+        title="Создать новую семью"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowNewFamilyModal(false)}>Отмена</Button>
+            <Button onClick={() => {
+              const name = newFamilyName.trim();
+              if (!name) return;
+              createFamily({ name });
+              setShowNewFamilyModal(false);
+            }} disabled={!newFamilyName.trim()}>
+              <Plus className="size-4" />Создать
+            </Button>
+          </>
+        }
+      >
+        <Input label="Название семьи *" placeholder="Маматовы" value={newFamilyName}
+          onChange={(e) => setNewFamilyName(e.target.value)} autoFocus />
       </Modal>
     </div>
   );

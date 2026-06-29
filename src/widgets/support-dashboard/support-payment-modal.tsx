@@ -183,7 +183,9 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
   const [comment, setComment] = useState('');
   const [paidBy, setPaidBy] = useState<string>(() => {
     if (!family) return PAID_BY_NONE;
-    return family.billingContactId ?? family.primaryContactId ?? PAID_BY_NONE;
+    // Prefer first contact with 'payer' role; fall back to billingContactId / primaryContactId
+    const payerContact = familyContacts.find((c) => c.roles?.includes('payer'));
+    return payerContact?.id ?? family.billingContactId ?? family.primaryContactId ?? PAID_BY_NONE;
   });
   const [paidByOtherName, setPaidByOtherName] = useState('');
   const [overpaymentType, setOverpaymentType] = useState<OverpaymentType | ''>('');

@@ -24,6 +24,7 @@ import {
 import {
   PREFERRED_CONTACT_METHOD_LABELS,
   FAMILY_RELATION_LABELS,
+  FAMILY_CONTACT_ROLE_LABELS,
 } from '@/entities/family-contact/model/types';
 import {
   formatWhatsappLink, formatTelegramLink, formatInstagramLink,
@@ -158,7 +159,19 @@ export function ParentDetail({ contactId }: Props) {
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             {contact.isArchived && <Badge variant="slate">В архиве</Badge>}
             {isFamilyPrimary && <Badge variant="emerald">Основной контакт</Badge>}
-            {isFamilyBilling && <Badge variant="info">Плательщик</Badge>}
+            {isFamilyBilling && <Badge variant="info">Плательщик (осн.)</Badge>}
+            {contact.familyRelation && (
+              <Badge variant="slate">
+                {contact.familyRelation === 'other' && contact.customFamilyRelation
+                  ? contact.customFamilyRelation
+                  : FAMILY_RELATION_LABELS[contact.familyRelation]}
+              </Badge>
+            )}
+            {contact.roles?.map((role) => (
+              <Badge key={role} variant="slate" className="text-[10px]">
+                {FAMILY_CONTACT_ROLE_LABELS[role]}
+              </Badge>
+            ))}
             {contact.preferredContact && (
               <Badge variant="slate">
                 Предпочитает: {PREFERRED_CONTACT_METHOD_LABELS[contact.preferredContact]}
@@ -326,10 +339,20 @@ function ChildrenTab({ rows, contactId }: { rows: ChildRow[]; contactId: string 
 }
 
 function ContactsTab({ contact }: { contact: NonNullable<ReturnType<typeof useFamilyContactById>> }) {
+  const family = useFamilyById(contact.familyId);
+  const displayAddress = contact.usesFamilyAddress ? family?.address : contact.address;
+
   return (
     <div className="grid grid-cols-2 gap-6">
       <SectionCard title="Контакты" description="Все способы связи">
         <div className="flex flex-col gap-3">
+          {displayAddress && (
+            <ContactRow icon={<UserRound className="size-3.5 text-slate-400" />}>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Адрес</p>
+              <p className="text-sm text-slate-700">{displayAddress}</p>
+              {contact.usesFamilyAddress && <p className="text-[10px] text-slate-400">Адрес семьи</p>}
+            </ContactRow>
+          )}
           {contact.whatsapp && (
             <ContactRow icon={<MessageCircle className="size-3.5 text-green-500" />}>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">WhatsApp</p>
