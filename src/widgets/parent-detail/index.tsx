@@ -104,7 +104,7 @@ export function ParentDetail({ contactId }: Props) {
             { label: contact.fullName },
           ]}
         />
-        <div className="flex items-center justify-between gap-4 mt-1">
+        <div className="flex flex-wrap items-center justify-between gap-4 mt-1">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push('/families?tab=representatives')}
@@ -150,7 +150,7 @@ export function ParentDetail({ contactId }: Props) {
       </div>
 
       {/* Profile card */}
-      <div className="flex items-center gap-5 px-6 py-5 bg-white rounded-2xl border border-slate-200">
+      <div className="flex flex-wrap items-center gap-4 sm:gap-5 px-4 sm:px-6 py-5 bg-white rounded-2xl border border-slate-200">
         <div className="size-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xl font-bold shrink-0">
           {initials || <UserRound className="size-7 text-emerald-400" />}
         </div>

@@ -578,7 +578,7 @@ export function SupportDashboard() {
         {/* Row 2: Status + Plan filters */}
         <div className="flex gap-2 flex-wrap">
           {/* Status filter */}
-          <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-medium">
+          <div className="flex max-w-full rounded-xl border border-slate-200 overflow-x-auto text-xs font-medium [&>button]:shrink-0 [&>button]:min-h-11 sm:[&>button]:min-h-0">
             {(['all', 'unpaid', 'partial', 'paid', 'no_charge'] as const).map((v) => (
               <button
                 key={v}
@@ -594,7 +594,7 @@ export function SupportDashboard() {
           </div>
 
           {/* Plan filter */}
-          <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-medium">
+          <div className="flex max-w-full rounded-xl border border-slate-200 overflow-x-auto text-xs font-medium [&>button]:shrink-0 [&>button]:min-h-11 sm:[&>button]:min-h-0">
             <button
               onClick={() => setPlanFilter('all')}
               className={cn('px-3 py-2 transition-colors', planFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50')}

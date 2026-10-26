@@ -414,7 +414,7 @@ export function LeaderboardTable() {
             <div className="self-stretch w-px bg-slate-150 mx-4 shrink-0" style={{ background: '#e9ecef' }} />
 
             {/* SORT zone */}
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto min-w-0 xl:shrink-0 mt-2 xl:mt-0">
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
                 Сортировка
               </span>

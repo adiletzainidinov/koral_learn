@@ -616,7 +616,7 @@ function MobileCard({
       )}
 
       {/* Actions */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2 [&>button]:min-h-11 [&>a]:min-h-11">
         {row.paymentStatus !== 'paid' && row.paymentStatus !== 'no_charge' && (
           <button
             onClick={(e) => { e.stopPropagation(); onPayment(row.familyId); }}
