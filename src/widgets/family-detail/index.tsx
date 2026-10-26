@@ -1339,7 +1339,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
   const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
 
   if (!hydrated) return (
-    <div className="p-6 max-w-4xl mx-auto animate-pulse space-y-4">
+    <div className="p-0 sm:p-6 max-w-4xl mx-auto animate-pulse space-y-4">
       <div className="h-8 w-48 bg-slate-100 rounded-xl" />
       <div className="h-32 bg-slate-100 rounded-2xl" />
     </div>
@@ -1375,7 +1375,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-0 sm:p-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div className="flex items-center gap-3">
@@ -1520,7 +1520,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1 mb-5 w-fit">
+      <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1 mb-5 w-fit max-w-full overflow-x-auto">
         {([
           { key: 'lessons', label: 'Уроки' },
           { key: 'contacts', label: `Контакты (${family.contactIds.length})` },

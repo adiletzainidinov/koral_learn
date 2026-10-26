@@ -210,7 +210,7 @@ function SeasonModal({ onClose }: { onClose: () => void }) {
               placeholder="Весенний сезон 2026"
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Начало</label>
               <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
@@ -309,7 +309,7 @@ function AutoDistributionModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Количество команд</label>
               <input type="number" min="2" max="8" value={count} onChange={(e) => setCount(e.target.value)}
@@ -707,15 +707,15 @@ export function TeamsList() {
     });
 
   if (!hydrated) return (
-    <div className="p-6 max-w-7xl mx-auto animate-pulse space-y-4">
+    <div className="p-0 sm:p-6 max-w-7xl mx-auto animate-pulse space-y-4">
       <div className="h-8 w-48 bg-slate-100 rounded-xl" />
       <div className="h-32 bg-slate-100 rounded-2xl" />
-      <div className="grid grid-cols-4 gap-4">{Array(4).fill(0).map((_, i) => <div key={i} className="h-24 bg-slate-100 rounded-2xl" />)}</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{Array(4).fill(0).map((_, i) => <div key={i} className="h-24 bg-slate-100 rounded-2xl" />)}</div>
     </div>
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-0 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div>

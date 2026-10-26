@@ -58,10 +58,10 @@ function todayDate() {
 
 function TeamDetailSkeleton() {
   return (
-    <div className="max-w-4xl mx-auto p-6 animate-pulse space-y-5">
+    <div className="max-w-4xl mx-auto p-0 sm:p-6 animate-pulse space-y-5">
       <div className="h-4 w-28 bg-slate-100 rounded-full" />
       <div className="h-44 bg-slate-100 rounded-2xl" />
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[...Array(6)].map((_, i) => <div key={i} className="h-24 bg-slate-100 rounded-2xl" />)}
       </div>
       <div className="h-12 bg-slate-100 rounded-xl" />
@@ -304,7 +304,7 @@ function RichGoalModal({ teamId, existing, onClose }: {
           <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} placeholder="Дополнительные условия..."
             className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none" />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
               {type === 'points' ? 'Баллов нужно' : type === 'attendance' ? 'Посещений %' : 'Целевое значение'} <span className="text-red-400">*</span>
@@ -364,7 +364,7 @@ function LegacyGoalModal({ teamId, existing, onClose }: {
             placeholder="Набрать 100 баллов"
             className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Баллов нужно <span className="text-red-400">*</span></label>
             <input type="number" min="1" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="100"
@@ -436,7 +436,7 @@ function CreateGameModal({ currentTeamId, allTeams, onClose }: {
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Баллы победителю</label>
             <input type="number" min="1" value={pts} onChange={(e) => setPts(e.target.value)} placeholder="20"
@@ -875,11 +875,11 @@ export function TeamDetail({ teamId }: { teamId: string }) {
       </div>
 
       {/* ── Sticky tabs ────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm -mx-6 px-6 py-2 mb-5 border-b border-slate-100">
+      <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm -mx-0 sm:-mx-6 px-0 sm:px-6 py-2 mb-5 border-b border-slate-100">
         <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1 overflow-x-auto">
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={cn('flex-1 px-2.5 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors min-w-0',
+              className={cn('shrink-0 sm:flex-1 px-2.5 py-2.5 sm:py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors',
                 tab === t.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
               {t.label}
               {t.id === 'badges' && badges.length > 0 && (
@@ -939,7 +939,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
           </div>
 
           {/* Weekly summary */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { label: 'Баллов за неделю', value: weeklyGrowth > 0 ? `+${weeklyGrowth}` : weeklyGrowth < 0 ? `${weeklyGrowth}` : '—', color: weeklyGrowth >= 0 ? cls.text : 'text-red-500', bg: weeklyGrowth >= 0 ? cls.light : 'bg-red-50' },
               { label: 'Посещений', value: weeklyAttendance, color: 'text-emerald-600', bg: 'bg-emerald-50' },

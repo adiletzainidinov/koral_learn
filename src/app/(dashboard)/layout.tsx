@@ -5,13 +5,13 @@ import { Container } from '@/shared/ui/container';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-dvh">
       <StoreInitializer />
       <AppSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <AppHeader />
-        <main>
-          <Container className="py-6">{children}</Container>
+        <main id="main-content" className="min-w-0">
+          <Container className="py-4 sm:py-6">{children}</Container>
         </main>
       </div>
     </div>

@@ -99,12 +99,12 @@ export default function TeamsDisplayPage() {
   const podiumOrder = top3.length === 3 ? [top3[1], top3[0], top3[2]] : top3.length === 2 ? [top3[1], top3[0]] : top3;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6 font-sans select-none">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-3 sm:p-6 font-sans select-none">
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-4xl font-bold tracking-tight">🏆 Рейтинг команд</h1>
+          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight">🏆 Рейтинг команд</h1>
           {activeSeason && (
             <p className="text-slate-400 text-lg mt-1">
               {activeSeason.title}
@@ -131,12 +131,12 @@ export default function TeamsDisplayPage() {
       <div className="grid grid-cols-12 gap-6">
 
         {/* Left: Podium + rest */}
-        <div className="col-span-8 space-y-6">
+        <div className="col-span-12 xl:col-span-8 min-w-0 space-y-6">
 
           {/* Podium */}
           {top3.length > 0 && (
             <div className="bg-slate-800/60 rounded-2xl p-6 border border-slate-700">
-              <div className="flex items-end justify-center gap-4 mb-2" style={{ minHeight: 260 }}>
+              <div className="flex items-end justify-center gap-1 sm:gap-4 mb-2" style={{ minHeight: 260 }}>
                 {podiumOrder.map((team, pIdx) => {
                   const rank = top3.indexOf(team) + 1;
                   const pts = activeSeason ? (team.seasonPoints ?? 0) : team.points;
@@ -151,7 +151,7 @@ export default function TeamsDisplayPage() {
                   const medal = medals[rank as keyof typeof medals];
 
                   return (
-                    <div key={team.id} className="flex flex-col items-center flex-1 max-w-[220px]">
+                    <div key={team.id} className="flex flex-col items-center flex-1 min-w-0 max-w-[220px]">
                       {/* Crown for 1st */}
                       {isFirst && (
                         <div className="text-4xl mb-1 animate-bounce">👑</div>
@@ -194,7 +194,7 @@ export default function TeamsDisplayPage() {
           {rest.length > 0 && (
             <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700">
               <h3 className="text-slate-400 text-sm font-medium mb-3">Остальные команды</h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {rest.map((team, idx) => {
                   const rank = idx + 4;
                   const pts = activeSeason ? (team.seasonPoints ?? 0) : team.points;
@@ -226,7 +226,7 @@ export default function TeamsDisplayPage() {
         </div>
 
         {/* Right sidebar */}
-        <div className="col-span-4 space-y-4">
+        <div className="col-span-12 xl:col-span-4 min-w-0 space-y-4">
 
           {/* Team of the week */}
           {teamOfWeek && (

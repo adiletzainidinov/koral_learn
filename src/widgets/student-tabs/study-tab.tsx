@@ -46,7 +46,7 @@ export function StudyTab({ studentId }: Props) {
   return (
     <div className="flex flex-col gap-5">
       {/* summary card */}
-      <Card className="flex items-start gap-6">
+      <Card className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
         <div className="size-16 rounded-2xl overflow-hidden bg-emerald-100 flex items-center justify-center text-emerald-700 text-xl font-bold shrink-0">
           {student.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -55,7 +55,7 @@ export function StudyTab({ studentId }: Props) {
             student.fullName.slice(0, 2).toUpperCase()
           )}
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 w-full">
           <h2 className="text-lg font-bold text-slate-900">{student.fullName}</h2>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <LevelBadge level={student.level} />
@@ -65,7 +65,7 @@ export function StudyTab({ studentId }: Props) {
             </Badge>
           </div>
 
-          <div className="grid grid-cols-4 gap-4 mt-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
             <div className="flex items-center gap-2">
               <Star className="size-4 text-amber-500" />
               <div>
@@ -100,12 +100,12 @@ export function StudyTab({ studentId }: Props) {
 
       {/* inner tabs */}
       <div>
-        <div className="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl w-fit">
+        <div className="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl w-fit max-w-full overflow-x-auto">
           {innerTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setInner(tab.id)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+              className={`shrink-0 whitespace-nowrap min-h-11 sm:min-h-0 px-3 sm:px-4 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                 inner === tab.id
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
@@ -136,7 +136,8 @@ function HistoryPanel({ history }: { history: ReturnType<typeof useStudentPointH
   return (
     <>
       <Card padding="none">
-        <table className="w-full">
+        <div className="table-scroll" role="region" aria-label="Таблица с горизонтальной прокруткой" tabIndex={0}>
+          <table className="w-full">
           <thead>
             <tr className="border-b border-slate-100">
               <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Причина</th>
@@ -172,6 +173,7 @@ function HistoryPanel({ history }: { history: ReturnType<typeof useStudentPointH
             ))}
           </tbody>
         </table>
+          </div>
       </Card>
 
       <PointHistoryDetailsModal

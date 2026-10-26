@@ -30,7 +30,7 @@ export function RecentActivity() {
                 <p className="text-sm text-slate-800 truncate">{item.reason}</p>
                 <p className="text-xs text-slate-400 truncate">{studentName(item.studentId)}</p>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-col items-end sm:flex-row sm:items-center gap-1 sm:gap-2 shrink-0">
                 <PointsBadge points={item.points} />
                 <span className="text-[10px] text-slate-400">{formatRelative(item.createdAt)}</span>
               </div>

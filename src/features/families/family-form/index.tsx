@@ -112,7 +112,7 @@ export function FamilyForm() {
   if (createdFamilyId) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+        <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
           <Breadcrumb items={[{ label: 'Семьи', href: '/families' }, { label: 'Новая семья' }]} />
           <h1 className="text-xl font-bold text-slate-900 mt-1">Новая семья</h1>
         </div>
@@ -158,7 +158,7 @@ export function FamilyForm() {
   return (
     <div className="flex flex-col gap-6">
       {/* sticky header */}
-      <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+      <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
         <Breadcrumb
           items={[
             { label: 'Семьи', href: '/families' },

@@ -269,7 +269,7 @@ export function AttendanceTable() {
       />
 
       {/* ── Sticky filter + action bar ─────────────────────────────────────── */}
-      <div className="sticky top-14 z-10 -mx-6 xl:-mx-8 px-6 xl:px-8 py-3 mb-5 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm space-y-2">
+      <div className="relative sm:sticky sm:top-14 z-10 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-3 mb-5 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm space-y-2">
 
         {/* Row 1 — date · search · group chips · counter */}
         <div className="flex flex-wrap items-center gap-3">
@@ -489,7 +489,8 @@ export function AttendanceTable() {
       {/* ── Main table ─────────────────────────────────────────────────────── */}
       {visibleStudents.length > 0 && (
         <Card padding="none">
-          <table className="w-full">
+          <div className="table-scroll attendance-records" role="region" aria-label="Таблица с горизонтальной прокруткой" tabIndex={0}>
+          <table role="table" aria-label="Посещаемость учеников" className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-[30%]">
@@ -503,7 +504,7 @@ export function AttendanceTable() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody role="rowgroup" className="divide-y divide-slate-50">
               {visibleStudents.map((student, idx) => {
                 const record = dateRecords.find((r) => r.studentId === student.id);
                 const isSet  = !!record;
@@ -516,6 +517,7 @@ export function AttendanceTable() {
 
                 return (
                   <tr
+                    role="row"
                     key={student.id}
                     onClick={() => cycleRow(student.id)}
                     onMouseEnter={() => setFocusedIdx(idx)}
@@ -530,7 +532,7 @@ export function AttendanceTable() {
                     ].join(' ')}
                   >
                     {/* Avatar + Name */}
-                    <td className="px-5 py-3.5">
+                    <td role="cell" className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <div className={[
                           'size-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300',
@@ -546,7 +548,7 @@ export function AttendanceTable() {
                     </td>
 
                     {/* Status control + timer */}
-                    <td className="px-4 py-3.5">
+                    <td role="cell" className="px-4 py-3.5">
                       <div className="flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
 
                         {/* Status buttons */}
@@ -615,7 +617,7 @@ export function AttendanceTable() {
                     </td>
 
                     {/* Points */}
-                    <td className="px-5 py-3.5 text-right">
+                    <td role="cell" className="px-5 py-3.5 text-right">
                       <div className="flex flex-col items-end gap-0.5">
                         <span className={[
                           'text-sm font-bold tabular-nums transition-colors duration-200',
@@ -633,6 +635,7 @@ export function AttendanceTable() {
               })}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
     </div>

@@ -128,6 +128,7 @@ export function AssignmentsList() {
             className="py-20"
           />
         ) : (
+          <div className="table-scroll" role="region" aria-label="Таблица с горизонтальной прокруткой" tabIndex={0}>
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
@@ -190,6 +191,7 @@ export function AssignmentsList() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 

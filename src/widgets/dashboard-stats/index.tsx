@@ -25,7 +25,7 @@ export function DashboardStats() {
   );
 
   return (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
       <StatCard
         label="Всего учеников"
         value={allStudents.length}

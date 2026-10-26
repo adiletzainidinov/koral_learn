@@ -96,7 +96,7 @@ export function ParentDetail({ contactId }: Props) {
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
-      <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+      <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
         <Breadcrumb
           items={[
             { label: 'Семьи', href: '/families' },
@@ -198,7 +198,7 @@ export function ParentDetail({ contactId }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit max-w-full overflow-x-auto">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -348,7 +348,7 @@ function ContactsTab({ contact }: { contact: NonNullable<ReturnType<typeof useFa
   const displayAddress = contact.usesFamilyAddress ? family?.address : contact.address;
 
   return (
-    <div className="grid grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
       <SectionCard title="Контакты" description="Все способы связи">
         <div className="flex flex-col gap-3">
           {displayAddress && (

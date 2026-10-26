@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -14,8 +15,10 @@ import {
   Home,
   Settings,
   BookMarked,
+  X,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
+import { useUIStore } from '@/store/ui-store';
 
 const navItems = [
   { href: '/dashboard', label: 'Дашборд', icon: LayoutDashboard },
@@ -33,7 +36,7 @@ const bottomItems = [
   { href: '/settings', label: 'Настройки', icon: Settings },
 ];
 
-export function AppSidebar() {
+function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   function isActive(href: string) {
@@ -43,9 +46,9 @@ export function AppSidebar() {
   }
 
   return (
-    <aside className="w-[240px] shrink-0 sticky top-0 self-start h-screen flex flex-col bg-white border-r border-slate-200">
-      <div className="px-5 py-5 border-b border-slate-100">
-        <Link href="/dashboard" className="flex items-center gap-2.5">
+    <>
+      <div className="px-5 py-5 border-b border-slate-100 flex items-center justify-between gap-3">
+        <Link href="/dashboard" onClick={onNavigate} className="flex items-center gap-2.5">
           <div className="size-8 rounded-xl bg-emerald-600 flex items-center justify-center">
             <BookMarked className="size-4 text-white" />
           </div>
@@ -54,15 +57,22 @@ export function AppSidebar() {
             <p className="text-[10px] text-slate-400">Система обучения</p>
           </div>
         </Link>
+        {onNavigate && (
+          <button type="button" onClick={onNavigate} aria-label="Закрыть меню" className="size-11 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-emerald-600">
+            <X className="size-5" />
+          </button>
+        )}
       </div>
 
-      <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto">
+      <nav aria-label="Основная навигация" className="flex-1 min-h-0 px-3 py-4 flex flex-col gap-1 overflow-y-auto overscroll-contain">
         {navItems.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
+            onClick={onNavigate}
+            aria-current={isActive(href) ? 'page' : undefined}
             className={cn(
-              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+              'flex items-center gap-3 min-h-11 lg:min-h-0 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-emerald-600',
               isActive(href)
                 ? 'bg-emerald-50 text-emerald-700'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -84,8 +94,10 @@ export function AppSidebar() {
           <Link
             key={href}
             href={href}
+            onClick={onNavigate}
+            aria-current={isActive(href) ? 'page' : undefined}
             className={cn(
-              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+              'flex items-center gap-3 min-h-11 lg:min-h-0 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
               isActive(href)
                 ? 'bg-emerald-50 text-emerald-700'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -101,6 +113,57 @@ export function AppSidebar() {
           </Link>
         ))}
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function AppSidebar() {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const open = useUIStore((s) => s.mobileNavigationOpen);
+  const setOpen = useUIStore((s) => s.setMobileNavigationOpen);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (!open) {
+      dialog.close();
+      return;
+    }
+
+    // Native dialog contains keyboard focus and restores it to the menu trigger.
+    dialog.showModal();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const closeOnDesktop = () => { if (desktop.matches) setOpen(false); };
+    desktop.addEventListener('change', closeOnDesktop);
+    closeOnDesktop();
+
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      desktop.removeEventListener('change', closeOnDesktop);
+    };
+  }, [open, setOpen]);
+
+  return (
+    <>
+      <aside className="hidden lg:flex w-[240px] shrink-0 sticky top-0 self-start h-dvh flex-col bg-white border-r border-slate-200">
+        <NavigationContent />
+      </aside>
+      <dialog
+        ref={dialogRef}
+        id="mobile-navigation"
+        aria-label="Меню QuranLearn"
+        onCancel={(event) => { event.preventDefault(); setOpen(false); }}
+        onClose={() => setOpen(false)}
+        onClick={(event) => { if (event.target === event.currentTarget) setOpen(false); }}
+        className="fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-80 max-w-[calc(100%-3rem)] border-0 p-0 bg-white shadow-xl backdrop:bg-slate-900/40 lg:hidden"
+      >
+        <div className="flex h-full flex-col pb-[env(safe-area-inset-bottom)]">
+          <NavigationContent onNavigate={() => setOpen(false)} />
+        </div>
+      </dialog>
+    </>
   );
 }

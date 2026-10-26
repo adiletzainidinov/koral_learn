@@ -179,12 +179,13 @@ export function StudentsTable() {
 
       <Card padding="none">
         {/* Search + filters bar */}
-        <div className="px-5 py-3 border-b border-slate-100 space-y-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-48 max-w-xs">
+        <div className="px-4 sm:px-5 py-3 border-b border-slate-100 space-y-3">
+          <div className="grid grid-cols-1 sm:flex sm:items-center gap-3 sm:flex-wrap [&>div]:min-w-0">
+            <div className="relative sm:flex-1 sm:min-w-48 sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
               <Input
                 placeholder="Поиск по имени..."
+                aria-label="Поиск учеников"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -195,28 +196,32 @@ export function StudentsTable() {
               options={groupOptions}
               value={filterGroup}
               onChange={(e) => setFilterGroup(e.target.value)}
-              className="w-36"
+              aria-label="Группа"
+              className="w-full sm:w-36"
             />
 
             <Select
               options={levelOptions}
               value={filterLevel}
               onChange={(e) => setFilterLevel(e.target.value)}
-              className="w-36"
+              aria-label="Уровень"
+              className="w-full sm:w-36"
             />
 
             <Select
               options={presenceOptions}
               value={filterPresence}
               onChange={(e) => setFilterPresence(e.target.value)}
-              className="w-44"
+              aria-label="Посещаемость"
+              className="w-full sm:w-44"
             />
 
             <Select
               options={sortOptions}
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortBy)}
-              className="w-52"
+              aria-label="Сортировка учеников"
+              className="w-full sm:w-52"
             />
 
             <div className="flex items-center gap-2 ml-auto">
@@ -249,6 +254,47 @@ export function StudentsTable() {
             className="py-20"
           />
         ) : (
+          <>
+          <ul className="md:hidden divide-y divide-slate-100" aria-label="Ученики">
+            {filtered.map((student) => (
+              <li key={student.id} className="p-4 space-y-3">
+                <Link href={`/students/${student.id}`} className="flex items-center gap-3 min-h-11 rounded-lg focus-visible:outline-2 focus-visible:outline-emerald-600">
+                  <div className="size-11 shrink-0 rounded-full overflow-hidden bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold">
+                    {student.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={student.avatar} alt="" className="size-full object-cover" />
+                    ) : student.fullName.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-sm text-slate-900 break-words">{student.fullName}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{student.age} лет · Группа {student.group}</p>
+                  </div>
+                  <span className="shrink-0 font-bold text-emerald-700 text-sm">{student.totalPoints} б.</span>
+                </Link>
+                <div className="flex flex-wrap items-center gap-2">
+                  <LevelBadge level={student.level} />
+                  <PresenceBadge studentId={student.id} records={records} />
+                </div>
+                {studentContactMap[student.id] && (
+                  <Link href={`/parents/${studentContactMap[student.id].contactId}`} className="flex items-center min-h-11 text-sm text-slate-600 hover:text-emerald-700 break-words">
+                    Представитель: {studentContactMap[student.id].contactName}
+                  </Link>
+                )}
+                <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
+                  <span className="text-xs text-slate-400">С {formatDate(student.startedAt)}</span>
+                  <div className="flex items-center gap-1">
+                    <Link href={`/students/${student.id}/edit`} aria-label={`Редактировать: ${student.fullName}`} className="size-11 flex items-center justify-center rounded-lg text-slate-500 hover:bg-emerald-50 hover:text-emerald-700">
+                      <Pencil className="size-4" />
+                    </Link>
+                    <Button variant="ghost" size="sm" className="size-11 p-0 text-slate-400 hover:text-red-500" onClick={() => setDeleteId(student.id)} aria-label={`Удалить: ${student.fullName}`}>
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="table-scroll hidden md:block" role="region" aria-label="Таблица учеников с горизонтальной прокруткой" tabIndex={0}>
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
@@ -358,6 +404,8 @@ export function StudentsTable() {
               ))}
             </tbody>
           </table>
+          </div>
+          </>
         )}
       </Card>
 

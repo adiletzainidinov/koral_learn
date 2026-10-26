@@ -146,6 +146,7 @@ export function StudentAssignmentsSection({ studentId }: Props) {
             className="py-16"
           />
         ) : (
+          <div className="table-scroll" role="region" aria-label="Таблица с горизонтальной прокруткой" tabIndex={0}>
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
@@ -227,6 +228,7 @@ export function StudentAssignmentsSection({ studentId }: Props) {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 

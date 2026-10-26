@@ -459,7 +459,7 @@ export default function NewFamilyPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto pb-28">
+    <div className="p-0 sm:p-6 max-w-2xl mx-auto pb-28">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link href="/support"

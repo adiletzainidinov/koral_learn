@@ -125,6 +125,7 @@ export function FamiliesTable({ search }: Props) {
             className="py-16"
           />
         ) : (
+          <div className="table-scroll" role="region" aria-label="Таблица с горизонтальной прокруткой" tabIndex={0}>
           <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/60">
@@ -236,6 +237,7 @@ export function FamiliesTable({ search }: Props) {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 

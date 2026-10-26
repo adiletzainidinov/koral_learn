@@ -441,7 +441,7 @@ function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, on
       {!draft.collapsed && (
         <div className="p-4 flex flex-col gap-4">
           {/* 1 — Name + Relation */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Полное имя *"
               placeholder="Маматова Жылдыз"
@@ -513,7 +513,7 @@ function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, on
           </div>
 
           {/* 4 — Contacts */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="WhatsApp *"
               placeholder="+996700000000"
@@ -960,7 +960,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
   if (mode === 'create' && batchSuccess) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+        <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
           <Breadcrumb items={[{ label: 'Семьи', href: '/families' }, { label: 'Представители' }]} />
           <h1 className="text-xl font-bold text-slate-900 mt-1">Представители добавлены</h1>
         </div>
@@ -1003,7 +1003,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
 
     return (
       <div className="flex flex-col gap-6">
-        <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+        <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
           <Breadcrumb items={[
             { label: 'Семьи', href: '/families' },
             { label: 'Представители', href: '/families?tab=representatives' },
@@ -1143,7 +1143,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+      <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
         <Breadcrumb items={[
           { label: 'Семьи', href: '/families' },
           { label: 'Представители', href: '/families?tab=representatives' },
@@ -1241,7 +1241,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       {/* Basic info */}
       <Section icon={<User className="size-4" />} title="Основная информация" description="Имя, родство в семье и предпочтительный способ связи">
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               ref={fullNameRef}
               label="Полное имя *"
@@ -1359,7 +1359,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
 
       {/* Contacts */}
       <Section icon={<Phone className="size-4" />} title="Контакты" description="WhatsApp обязателен, остальное опционально">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="WhatsApp *" placeholder="+996700000000" value={form.whatsapp}
             onChange={(e) => { upd('whatsapp', e.target.value); clearError('whatsapp'); }} error={errors.whatsapp} />
           <Input label="Телефон" placeholder="+996 700 000 000" value={form.phone}
@@ -1383,7 +1383,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       </Section>
 
       {/* bottom bar */}
-      <div className="flex items-center justify-between py-4 border-t border-slate-200 mt-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-4 border-t border-slate-200 mt-2">
         <div className="flex items-center gap-2 text-xs text-slate-400">
           {isDirty && <><div className="size-1.5 rounded-full bg-amber-400" />Есть несохранённые изменения</>}
         </div>

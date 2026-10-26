@@ -34,7 +34,7 @@ export function TopStudents() {
                 <p className="text-sm font-medium text-slate-800 truncate group-hover:text-emerald-700 transition-colors">
                   {student.fullName}
                 </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
+                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                   <LevelBadge level={student.level} />
                   <span className="text-xs text-slate-400">Группа {student.group}</span>
                 </div>

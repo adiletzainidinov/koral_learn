@@ -525,7 +525,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
     <div className="flex flex-col gap-6">
 
       {/* ── sticky page header ─────────────────────────────────────────────── */}
-      <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+      <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
         <div className="flex items-center gap-3">
           <button type="button" onClick={handleCancel}
             className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors shrink-0">
@@ -572,7 +572,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
             value={form.fullName}
             onChange={(e) => { upd('fullName', e.target.value); clearError('fullName'); }}
             error={errors.fullName} />
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input ref={ageRef} label="Возраст *" type="number" min={1} max={100} placeholder="12"
               value={form.age}
               onChange={(e) => { upd('age', e.target.value); clearError('age'); }}
@@ -582,7 +582,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
             <Select label="Уровень" options={LEVEL_OPTIONS} value={form.level}
               onChange={(e) => upd('level', e.target.value as StudentLevel)} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Дата начала обучения" type="date" value={form.startedAt}
               onChange={(e) => upd('startedAt', e.target.value)} />
           </div>
@@ -611,7 +611,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       {/* ── section 3: student contacts ──────────────────────────────────── */}
       <Section icon={<Phone className="size-4" />} title="Контакты ученика"
         description="Личные контакты ученика, если он сам пользуется телефоном или мессенджерами">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Телефон" placeholder="+996 550 000 000" value={form.studentPhone}
             onChange={(e) => upd('studentPhone', e.target.value)} />
           <Input label="WhatsApp" placeholder="+996550000000" value={form.studentWhatsapp}
@@ -686,7 +686,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       </Section>
 
       {/* ── bottom action bar ─────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between py-4 border-t border-slate-200 mt-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-4 border-t border-slate-200 mt-2">
         <div className="flex items-center gap-2 text-xs text-slate-400">
           {isDirty && (<><div className="size-1.5 rounded-full bg-amber-400" />Есть несохранённые изменения</>)}
         </div>

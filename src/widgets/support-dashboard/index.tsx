@@ -445,9 +445,9 @@ export function SupportDashboard() {
   // ── Loading skeleton ──
   if (!hydrated) {
     return (
-      <div className="p-4 md:p-6 max-w-[1440px] mx-auto animate-pulse space-y-4">
+      <div className="p-0 md:p-6 max-w-[1440px] mx-auto animate-pulse space-y-4">
         <div className="h-8 w-48 bg-slate-100 rounded-xl" />
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[0, 1, 2, 3].map((i) => <div key={i} className="h-16 bg-slate-100 rounded-2xl" />)}
         </div>
         <div className="h-64 bg-slate-100 rounded-2xl" />
@@ -456,7 +456,7 @@ export function SupportDashboard() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-[1440px] mx-auto">
+    <div className="p-0 md:p-6 max-w-[1440px] mx-auto">
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">

@@ -298,7 +298,7 @@ export function LeaderboardTable() {
       )}
 
       {/* ── Sticky control bar ───────────────────────────────────────────── */}
-      <div className="sticky top-14 z-10 -mx-6 xl:-mx-8 px-6 xl:px-8 pt-3 pb-2 mb-5 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm space-y-0">
+      <div className="sticky top-16 sm:top-14 z-10 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 pt-3 pb-2 mb-5 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm space-y-0">
 
         {/* ── Row 1: search + group + level chips ──────────────────────────── */}
         <div className="flex flex-wrap items-center gap-2 pb-2">
@@ -481,6 +481,7 @@ export function LeaderboardTable() {
       {/* ── Main table ────────────────────────────────────────────────────── */}
       {sorted.length > 0 && (
         <Card padding="none">
+          <div className="table-scroll" role="region" aria-label="Таблица с горизонтальной прокруткой" tabIndex={0}>
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
@@ -615,6 +616,7 @@ export function LeaderboardTable() {
               })}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
     </div>

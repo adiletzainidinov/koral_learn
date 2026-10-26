@@ -394,7 +394,7 @@ export function CreateAssignmentsBulkPage() {
           {/* type */}
           <div className="flex flex-col gap-2">
             <p className="text-sm font-medium text-slate-700">Тип задания</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {TYPE_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -446,7 +446,7 @@ export function CreateAssignmentsBulkPage() {
             </div>
 
             {attachments.length > 0 && (
-              <div className="grid grid-cols-4 gap-2 mt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
                 {attachments.map((att) => {
                   const isImage = att.type.startsWith('image/');
                   return (
