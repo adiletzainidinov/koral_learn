@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, UserPlus, Trash2, Pencil, Users } from 'lucide-react';
+import { Search, UserPlus, Trash2, Pencil, Users, SlidersHorizontal } from 'lucide-react';
 import { Input } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/button';
 import { Badge, LevelBadge } from '@/shared/ui/badge';
@@ -69,6 +69,7 @@ export function StudentsTable() {
   }, [students, links, families, familyContacts]);
 
   const [search, setSearch] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterGroup, setFilterGroup] = useState('');
   const [filterLevel, setFilterLevel] = useState('');
   const [filterPresence, setFilterPresence] = useState('');
@@ -192,6 +193,18 @@ export function StudentsTable() {
               />
             </div>
 
+            <Button
+              type="button"
+              variant="outline"
+              className="sm:hidden"
+              aria-expanded={filtersOpen}
+              aria-controls="student-filters"
+              onClick={() => setFiltersOpen((value) => !value)}
+            >
+              <SlidersHorizontal className="size-4" />
+              {filtersOpen ? 'Скрыть фильтры' : 'Фильтры и сортировка'}
+            </Button>
+            <div id="student-filters" className={`${filtersOpen ? 'grid' : 'hidden'} grid-cols-1 gap-3 sm:contents`}>
             <Select
               options={groupOptions}
               value={filterGroup}
@@ -223,6 +236,7 @@ export function StudentsTable() {
               aria-label="Сортировка учеников"
               className="w-full sm:w-52"
             />
+            </div>
 
             <div className="flex items-center gap-2 ml-auto">
               {hasFilters && (

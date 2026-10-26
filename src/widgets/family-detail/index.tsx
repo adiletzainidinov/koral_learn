@@ -1440,13 +1440,14 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
       </div>
 
       {/* Month selector */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <span className="text-xs font-medium text-slate-500 shrink-0">Расчётный месяц:</span>
-        <div className="relative">
+        <div className="relative min-w-0 max-w-full">
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="h-8 rounded-xl border border-slate-200 bg-white px-3 pr-7 text-sm font-medium text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
+            aria-label="Расчётный месяц"
+            className="h-8 max-w-full rounded-xl border border-slate-200 bg-white px-3 pr-7 text-sm font-medium text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
             {pageMonthOptions.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}{o.value === currentMonth ? ' (текущий)' : ''}
@@ -1528,7 +1529,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
           { key: 'history', label: `История (${history.length})` },
         ] as const).map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)}
-            className={cn('px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+            className={cn('shrink-0 whitespace-nowrap min-h-11 sm:min-h-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
               tab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             )}>
             {label}
