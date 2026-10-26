@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -240,7 +242,7 @@ function StudentLinkRow({
         </div>
         <label htmlFor={`student-${studentId}`} className="flex-1 min-w-0 cursor-pointer">
           <p className="text-sm font-semibold text-slate-900">{studentName}</p>
-          <p className="text-xs text-slate-400">Группа {studentGroup}</p>
+          <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(studentGroup)}</p>
         </label>
         {!canDeselect && config.selected && (
           <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md shrink-0">

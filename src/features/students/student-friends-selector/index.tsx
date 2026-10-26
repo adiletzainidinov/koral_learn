@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, X, Users } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
@@ -23,7 +25,7 @@ function FriendCard({ student, onRemove }: { student: Student; onRemove: () => v
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-slate-900">{student.fullName}</p>
         <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
-          <span>Группа {student.group}</span>
+          <span>Группа {getStudentGroupLabel(student.group)}</span>
           <span>·</span>
           <span>{student.age} лет</span>
           {contactLine && (
@@ -82,7 +84,7 @@ export function StudentFriendsSelector({ value, onChange, allStudents, excludeSt
       if (value.includes(s.id)) return false;
       if (!search) return true;
       const q = search.toLowerCase();
-      return s.fullName.toLowerCase().includes(q) || s.group.toLowerCase().includes(q);
+      return s.fullName.toLowerCase().includes(q) || s.group.toLowerCase().includes(q) || getStudentGroupLabel(s.group).toLowerCase().includes(q);
     });
   }, [allStudents, excludeStudentId, value, search]);
 
@@ -159,7 +161,7 @@ export function StudentFriendsSelector({ value, onChange, allStudents, excludeSt
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-900 truncate">{s.fullName}</p>
                       <p className="text-xs text-slate-400">
-                        Группа {s.group} · {s.age} лет
+                        Группа {getStudentGroupLabel(s.group)} · {s.age} лет
                         {s.studentPhone && ` · ${s.studentPhone}`}
                       </p>
                     </div>

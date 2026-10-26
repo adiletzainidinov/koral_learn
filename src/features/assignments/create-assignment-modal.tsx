@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useRef, useEffect } from 'react';
 import { Paperclip, X, File, GraduationCap, Home } from 'lucide-react';
 import { Modal } from '@/shared/ui/modal';
@@ -75,7 +77,7 @@ export function CreateAssignmentModal({
 
   const studentOptions = students
     .filter((s) => s.isActive)
-    .map((s) => ({ value: s.id, label: `${s.fullName} (Группа ${s.group})` }));
+    .map((s) => ({ value: s.id, label: `${s.fullName} (Группа ${getStudentGroupLabel(s.group)})` }));
 
   // sync form state when modal opens
   useEffect(() => {

@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -505,7 +507,7 @@ function AddMembersModal({ teamId, currentMemberIds, onClose }: { teamId: string
                 className="rounded border-slate-300 text-emerald-600" />
               <div>
                 <p className="text-sm font-medium text-slate-800">{s.fullName}</p>
-                <p className="text-xs text-slate-400">Группа {s.group} · {s.totalPoints} баллов</p>
+                <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(s.group)} · {s.totalPoints} баллов</p>
               </div>
             </label>
           ))}
@@ -972,7 +974,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                           <p className="text-sm font-medium text-slate-800 truncate">{m.fullName}</p>
                           {role && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">{role}</span>}
                         </div>
-                        <p className="text-xs text-slate-400">Группа {m.group}</p>
+                        <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(m.group)}</p>
                       </div>
                       <span className="text-sm font-bold text-slate-700">{m.totalPoints}</span>
                     </div>
@@ -1054,7 +1056,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap text-xs text-slate-400">
-                          <span>Гр. {m.group}</span>
+                          <span>Гр. {getStudentGroupLabel(m.group)}</span>
                           <span>·</span>
                           <span>{mAttendance.length} посещ.</span>
                           <span>·</span>

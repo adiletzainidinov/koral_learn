@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Check, Users } from 'lucide-react';
@@ -111,7 +113,7 @@ export function SelectStudentsPage() {
                       : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  Группа {g}
+                  Группа {getStudentGroupLabel(g)}
                 </button>
               ))}
             </div>
@@ -184,7 +186,7 @@ export function SelectStudentsPage() {
                       <p className={`text-sm font-medium truncate ${isSelected ? 'text-emerald-900' : 'text-slate-900'}`}>
                         {s.fullName}
                       </p>
-                      <p className="text-xs text-slate-400">Группа {s.group}</p>
+                      <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(s.group)}</p>
                     </div>
 
                     {isSelected && (

@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -249,7 +251,7 @@ function StudentPlanRow({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-slate-800">{student.fullName}</p>
-          <p className="text-xs text-slate-400">Группа {student.group} · {student.age} лет</p>
+          <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(student.group)} · {student.age} лет</p>
         </div>
         <div className="flex items-center gap-1 text-xs text-slate-400 shrink-0">
           <Star className="size-3" />{student.totalPoints}
@@ -619,7 +621,7 @@ export default function NewFamilyPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-slate-800">{s.fullName}</p>
                             <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
-                              <span>Группа {s.group}</span>
+                              <span>Группа {getStudentGroupLabel(s.group)}</span>
                               <span>·</span>
                               <span>{s.age} лет</span>
                               <span>·</span>

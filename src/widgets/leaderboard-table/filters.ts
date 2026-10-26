@@ -1,3 +1,4 @@
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
 import { subDays } from 'date-fns';
 import type { Student, StudentLevel } from '@/entities/student/model/types';
 import type { Assignment } from '@/entities/assignment/model/types';
@@ -134,6 +135,7 @@ export function applyLbFilters(
       (s) =>
         s.fullName.toLowerCase().includes(q) ||
         s.group.toLowerCase().includes(q) ||
+        getStudentGroupLabel(s.group).toLowerCase().includes(q) ||
         `группа ${s.group.toLowerCase()}`.includes(q) ||
         (LEVEL_RU[s.level] ?? '').includes(q),
     );

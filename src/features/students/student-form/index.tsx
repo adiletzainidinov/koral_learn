@@ -1,5 +1,7 @@
 'use client';
 
+import { STUDENT_GROUP_OPTIONS } from '@/entities/student/model/groups';
+
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -66,13 +68,6 @@ const LEVEL_OPTIONS = [
   { value: 'intermediate', label: 'Средний' },
   { value: 'advanced', label: 'Продвинутый' },
 ];
-
-const GROUP_OPTIONS = [
-  { value: 'A', label: 'Группа A' },
-  { value: 'B', label: 'Группа B' },
-  { value: 'C', label: 'Группа C' },
-];
-
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -577,7 +572,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
               value={form.age}
               onChange={(e) => { upd('age', e.target.value); clearError('age'); }}
               error={errors.age} />
-            <Select label="Группа" options={GROUP_OPTIONS} value={form.group}
+            <Select label="Группа" options={STUDENT_GROUP_OPTIONS} value={form.group}
               onChange={(e) => upd('group', e.target.value)} />
             <Select label="Уровень" options={LEVEL_OPTIONS} value={form.level}
               onChange={(e) => upd('level', e.target.value as StudentLevel)} />

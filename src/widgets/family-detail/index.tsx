@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -1058,7 +1060,7 @@ function LessonsTab({
                 <Link href={`/students/${s.id}`} className="text-sm font-medium text-slate-800 hover:text-emerald-700 hover:underline">
                   {s.fullName}
                 </Link>
-                <p className="text-xs text-slate-400">Группа {s.group} · {s.age} лет</p>
+                <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(s.group)} · {s.age} лет</p>
               </div>
               <div className={cn('px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0', c.badge)}>
                 {formatAmount(cfg.planType === 'custom' ? cfg.monthlyAmount : getSelectionAmount(cfg.planType))}

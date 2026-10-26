@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useRef, useEffect } from 'react';
 import {
   ClipboardCheck, Search, X, File, Paperclip, ChevronRight,
@@ -179,7 +181,7 @@ function StudentMultiSelect({ students, selectedIds, onChange }: StudentMultiSel
                       <p className={`truncate ${isSelected ? 'text-emerald-900 font-medium' : 'text-slate-700'}`}>
                         {s.fullName}
                       </p>
-                      <p className="text-xs text-slate-400">Группа {s.group}</p>
+                      <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(s.group)}</p>
                     </div>
                   </button>
                 );
@@ -354,7 +356,7 @@ function AssignmentDetailModal({
         isEditing
           ? undefined
           : student
-          ? `${student.fullName} · Группа ${student.group}`
+          ? `${student.fullName} · Группа ${getStudentGroupLabel(student.group)}`
           : undefined
       }
       size="lg"
@@ -708,7 +710,7 @@ export function ReviewsList() {
             >
               <option value="all">Все группы</option>
               {groups.map((g) => (
-                <option key={g} value={g}>Группа {g}</option>
+                <option key={g} value={g}>Группа {getStudentGroupLabel(g)}</option>
               ))}
             </select>
           )}
@@ -850,7 +852,7 @@ export function ReviewsList() {
                         <>
                           <span>{student.fullName}</span>
                           <span>·</span>
-                          <span>Группа {student.group}</span>
+                          <span>Группа {getStudentGroupLabel(student.group)}</span>
                           <span>·</span>
                         </>
                       )}

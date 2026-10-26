@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState } from 'react';
 import Link from 'next/link';
 import {
@@ -109,7 +111,7 @@ function StudentPersonalInfoCard({ student }: { student: Student }) {
                 {student.isActive ? 'Активен' : 'Неактивен'}
               </Badge>
               <LevelBadge level={student.level} />
-              <span className="text-xs text-slate-400">Группа {student.group}</span>
+              <span className="text-xs text-slate-400">Группа {getStudentGroupLabel(student.group)}</span>
             </div>
           </div>
         </div>
@@ -117,7 +119,7 @@ function StudentPersonalInfoCard({ student }: { student: Student }) {
         {/* Main data grid */}
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
           <InfoField label="Возраст" value={`${student.age} лет`} />
-          <InfoField label="Группа" value={`Группа ${student.group}`} />
+          <InfoField label="Группа" value={getStudentGroupLabel(student.group)} />
           <InfoField label="Уровень" value={STUDENT_LEVEL_LABELS[student.level]} />
           <InfoField label="Начало обучения" value={formatDate(student.startedAt)} />
           <InfoField label="Дата создания" value={formatDate(student.createdAt)} />
@@ -348,7 +350,7 @@ export function InfoTab({ studentId }: Props) {
                       {friend.fullName}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
-                      <span>Группа {friend.group}</span>
+                      <span>Группа {getStudentGroupLabel(friend.group)}</span>
                       <span>·</span>
                       <span>{friend.age} лет</span>
                       {contactLine && (

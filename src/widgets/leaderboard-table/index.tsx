@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -111,7 +113,7 @@ function PodiumCard({ student, rank, metrics }: { student: Student; rank: 1 | 2 
         </div>
 
         <p className="font-semibold text-slate-900 text-sm leading-tight">{student.fullName}</p>
-        <p className={`text-xs mt-0.5 ${cfg.label}`}>Группа {student.group}</p>
+        <p className={`text-xs mt-0.5 break-words ${cfg.label}`}>Группа {getStudentGroupLabel(student.group)}</p>
 
         <div className={[
           'mt-3 font-bold tabular-nums',
@@ -334,7 +336,7 @@ export function LeaderboardTable() {
               <div className="flex flex-wrap gap-1">
                 <Chip label="Все группы" active={filters.group === 'ALL'} onClick={() => setFilter('group', 'ALL')} />
                 {groups.map((g) => (
-                  <Chip key={g} label={`Группа ${g}`} active={filters.group === g} onClick={() => setFilter('group', g)} />
+                  <Chip key={g} label={`Группа ${getStudentGroupLabel(g)}`} active={filters.group === g} onClick={() => setFilter('group', g)} />
                 ))}
               </div>
             </>
@@ -549,7 +551,7 @@ export function LeaderboardTable() {
 
                     {/* Group */}
                     <td className="px-4 py-3.5">
-                      <span className="text-sm text-slate-600">{student.group}</span>
+                      <span className="text-sm text-slate-600">{getStudentGroupLabel(student.group)}</span>
                     </td>
 
                     {/* Level */}

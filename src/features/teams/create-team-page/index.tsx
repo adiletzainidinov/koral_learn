@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -224,7 +226,7 @@ export function CreateTeamPage() {
               className="px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             >
               <option value="all">Все группы</option>
-              {groups.map((g) => <option key={g} value={g}>Группа {g}</option>)}
+              {groups.map((g) => <option key={g} value={g}>Группа {getStudentGroupLabel(g)}</option>)}
             </select>
           </div>
 
@@ -246,7 +248,7 @@ export function CreateTeamPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-800 truncate">{s.fullName}</p>
-                    <p className="text-xs text-slate-400">Группа {s.group} · {s.totalPoints} баллов</p>
+                    <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(s.group)} · {s.totalPoints} баллов</p>
                   </div>
                 </label>
               ))

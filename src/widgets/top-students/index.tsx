@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import Link from 'next/link';
 import { Trophy } from 'lucide-react';
 import { SectionCard } from '@/shared/ui/card';
@@ -36,7 +38,7 @@ export function TopStudents() {
                 </p>
                 <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                   <LevelBadge level={student.level} />
-                  <span className="text-xs text-slate-400">Группа {student.group}</span>
+                  <span className="text-xs text-slate-400">Группа {getStudentGroupLabel(student.group)}</span>
                 </div>
               </div>
               <div className="shrink-0 text-right">

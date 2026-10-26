@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -80,7 +82,7 @@ export function StudentsTable() {
     const groups = [...new Set(students.map((s) => s.group).filter(Boolean))].sort();
     return [
       { value: '', label: 'Все группы' },
-      ...groups.map((g) => ({ value: g, label: g })),
+      ...groups.map((g) => ({ value: g, label: getStudentGroupLabel(g) })),
     ];
   }, [students]);
 
@@ -113,6 +115,7 @@ export function StudentsTable() {
       result = result.filter(
         (s) =>
           s.fullName.toLowerCase().includes(q) ||
+          getStudentGroupLabel(s.group).toLowerCase().includes(q) ||
           (studentContactMap[s.id]?.contactName ?? '').toLowerCase().includes(q)
       );
     }
@@ -185,7 +188,7 @@ export function StudentsTable() {
             <div className="relative sm:flex-1 sm:min-w-48 sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
               <Input
-                placeholder="Поиск по имени..."
+                placeholder="Поиск по имени или группе..."
                 aria-label="Поиск учеников"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -281,7 +284,7 @@ export function StudentsTable() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-sm text-slate-900 break-words">{student.fullName}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{student.age} лет · Группа {student.group}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{student.age} лет · Группа {getStudentGroupLabel(student.group)}</p>
                   </div>
                   <span className="shrink-0 font-bold text-emerald-700 text-sm">{student.totalPoints} б.</span>
                 </Link>
@@ -362,7 +365,7 @@ export function StudentsTable() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-sm text-slate-600 font-medium">{student.group}</span>
+                    <span className="text-sm text-slate-600 font-medium">{getStudentGroupLabel(student.group)}</span>
                   </td>
                   <td className="px-4 py-3">
                     <LevelBadge level={student.level} />

@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState } from 'react';
 import { BookOpen, CalendarDays, Star, Calendar, Pencil } from 'lucide-react';
 import { Card } from '@/shared/ui/card';
@@ -59,7 +61,7 @@ export function StudyTab({ studentId }: Props) {
           <h2 className="text-lg font-bold text-slate-900">{student.fullName}</h2>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <LevelBadge level={student.level} />
-            <Badge variant="slate">Группа {student.group}</Badge>
+            <Badge variant="slate">Группа {getStudentGroupLabel(student.group)}</Badge>
             <Badge variant={student.isActive ? 'success' : 'danger'}>
               {student.isActive ? 'Активен' : 'Неактивен'}
             </Badge>

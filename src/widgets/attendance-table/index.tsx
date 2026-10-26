@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { CalendarDays, CheckCircle, Search, X, Users, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Card } from '@/shared/ui/card';
@@ -308,7 +310,7 @@ export function AttendanceTable() {
               <div className="flex flex-wrap items-center gap-1">
                 <Chip label="Все группы" active={filters.group === 'ALL'} onClick={() => setFilter('group', 'ALL')} />
                 {groups.map((g) => (
-                  <Chip key={g} label={`Группа ${g}`} active={filters.group === g} onClick={() => setFilter('group', g)} />
+                  <Chip key={g} label={`Группа ${getStudentGroupLabel(g)}`} active={filters.group === g} onClick={() => setFilter('group', g)} />
                 ))}
               </div>
             </>
@@ -469,7 +471,7 @@ export function AttendanceTable() {
             description={
               filtersActive
                 ? 'Попробуйте изменить поиск или сбросить фильтры'
-                : `Группа ${filters.group} · добавьте учеников или выберите другую группу`
+                : `Группа ${getStudentGroupLabel(filters.group)} · добавьте учеников или выберите другую группу`
             }
             className="py-16"
             action={
@@ -542,7 +544,7 @@ export function AttendanceTable() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-slate-900">{student.fullName}</p>
-                          <p className="text-xs text-slate-400">Группа {student.group}</p>
+                          <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(student.group)}</p>
                         </div>
                       </div>
                     </td>

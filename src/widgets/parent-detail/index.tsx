@@ -1,5 +1,7 @@
 'use client';
 
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -318,7 +320,7 @@ function ChildrenTab({ rows, contactId }: { rows: ChildRow[]; contactId: string 
                   <Badge variant="slate" className="text-[10px]">{relationText}</Badge>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {student.age} лет · Группа {student.group} · {student.totalPoints} баллов
+                  {student.age} лет · Группа {getStudentGroupLabel(student.group)} · {student.totalPoints} баллов
                 </p>
                 <div className="flex flex-wrap gap-1 mt-1.5">
                   {link.isPrimaryContact && <Badge variant="emerald" className="text-[10px]">Основной</Badge>}
