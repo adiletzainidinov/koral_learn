@@ -1,5 +1,7 @@
 'use client';
 
+import { formatLocalizedDate } from '@/shared/i18n/date-format';
+
 import { useTranslation } from '@/shared/i18n/use-translation';
 import { localizeUI } from '@/shared/i18n/translate';
 
@@ -519,8 +521,8 @@ function SeasonCard({ onNewSeason }: { onNewSeason: () => void }) {
           <h3 className="font-bold text-slate-900 text-lg">{season.title}</h3>
           {season.description && <p className="text-sm text-slate-500 mt-0.5">{season.description}</p>}
           <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
-            <span className="flex items-center gap-1"><Calendar className="size-3.5" /> {new Date(season.startDate).toLocaleDateString(locale === 'ky' ? 'ky-KG' : 'ru-RU', { day: 'numeric', month: 'short' })}</span>
-            {season.endDate && <span>— {new Date(season.endDate).toLocaleDateString(locale === 'ky' ? 'ky-KG' : 'ru-RU', { day: 'numeric', month: 'short' })}</span>}
+            <span className="flex items-center gap-1"><Calendar className="size-3.5" /> {formatLocalizedDate(new Date(season.startDate), { day: 'numeric', month: 'short' }, locale)}</span>
+            {season.endDate && <span>— {formatLocalizedDate(new Date(season.endDate), { day: 'numeric', month: 'short' }, locale)}</span>}
             {leader && <span className="flex items-center gap-1 font-medium text-amber-600"><Crown className="size-3.5" /> {leader.emoji} {leader.name}</span>}
           </div>
         </div>

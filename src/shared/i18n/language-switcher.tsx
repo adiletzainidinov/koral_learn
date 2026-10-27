@@ -28,9 +28,17 @@ export function LanguageDocument() {
   const pathname = usePathname();
   useEffect(() => {
     document.documentElement.lang = locale;
-    const suffix = ' — QuranLearn';
-    const title = document.title.endsWith(suffix) ? document.title.slice(0, -suffix.length) : document.title;
-    document.title = t(title) + (title === 'QuranLearn' ? '' : suffix);
+    const updateTitle = () => {
+      const suffix = ' — QuranLearn';
+      const title = document.title.endsWith(suffix) ? document.title.slice(0, -suffix.length) : document.title;
+      const localizedTitle = t(title) + (title === 'QuranLearn' ? '' : suffix);
+      if (document.title !== localizedTitle) document.title = localizedTitle;
+    };
+    updateTitle();
+    // Next.js can stream route metadata after the effect has already run.
+    const observer = new MutationObserver(updateTitle);
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
   }, [locale, pathname, t]);
   return null;
 }

@@ -1,5 +1,7 @@
 'use client';
 
+import { formatLocalizedDate } from '@/shared/i18n/date-format';
+
 import { useTranslation } from '@/shared/i18n/use-translation';
 import { localizeUI } from '@/shared/i18n/translate';
 
@@ -100,7 +102,7 @@ export default function TeamsDisplayPage() {
   const seasonDaysLeft = activeSeason?.endDate ? daysUntil(activeSeason.endDate) : null;
 
   const timeStr = now.toLocaleTimeString(locale === 'ky' ? 'ky-KG' : 'ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const dateStr = now.toLocaleDateString(locale === 'ky' ? 'ky-KG' : 'ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dateStr = formatLocalizedDate(now, { weekday: 'long', day: 'numeric', month: 'long' }, locale);
 
   const podiumOrder = top3.length === 3 ? [top3[1], top3[0], top3[2]] : top3.length === 2 ? [top3[1], top3[0]] : top3;
 

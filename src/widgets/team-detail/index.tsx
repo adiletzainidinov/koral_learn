@@ -1,8 +1,10 @@
 'use client';
 
+import { formatLocalizedDate } from '@/shared/i18n/date-format';
+
 import { useTranslation } from '@/shared/i18n/use-translation';
 import { localizeUI } from '@/shared/i18n/translate';
-import { getIntlLocale, type Locale } from '@/shared/i18n/locale-store';
+import { type Locale } from '@/shared/i18n/locale-store';
 
 
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
@@ -42,10 +44,10 @@ function useHydrated() {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string, locale: Locale = 'ru') {
-  return new Date(iso).toLocaleDateString(getIntlLocale(locale), { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatLocalizedDate(new Date(iso), { day: '2-digit', month: 'short', year: 'numeric' }, locale);
 }
 function fmtShort(iso: string, locale: Locale = 'ru') {
-  return new Date(iso).toLocaleDateString(getIntlLocale(locale), { day: '2-digit', month: 'short' });
+  return formatLocalizedDate(new Date(iso), { day: '2-digit', month: 'short' }, locale);
 }
 function weekAgoISO() {
   return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -916,7 +918,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
           <div className="bg-white rounded-2xl border border-slate-200 px-5 py-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-slate-800 text-sm">{translateText("Сегодня")}</h3>
-              <span className="text-xs text-slate-400">{new Date().toLocaleDateString(locale === 'ky' ? 'ky-KG' : 'ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+              <span className="text-xs text-slate-400">{formatLocalizedDate(new Date(), { weekday: 'long', day: 'numeric', month: 'long' }, locale)}</span>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-center">
@@ -1122,7 +1124,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                     </div>
                     <h4 className="font-bold text-slate-900">{goal.title}</h4>
                     {goal.reward && <p className="text-sm text-slate-600 mt-0.5">🎁 {goal.reward}</p>}
-                    {goal.deadline && <p className="text-xs text-slate-400 mt-0.5">{translateText("до ")}{new Date(goal.deadline).toLocaleDateString(locale === 'ky' ? 'ky-KG' : 'ru-RU', { day: 'numeric', month: 'long' })}</p>}
+                    {goal.deadline && <p className="text-xs text-slate-400 mt-0.5">{translateText("до ")}{formatLocalizedDate(new Date(goal.deadline), { day: 'numeric', month: 'long' }, locale)}</p>}
                   </div>
                   {goal.status === 'active' && (
                     <div className="flex gap-2 shrink-0">
@@ -1157,7 +1159,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                           <span className="text-sm">{RICH_GOAL_TYPE_ICONS[g.type]}</span>
                           <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{localizeUI(RICH_GOAL_TYPE_LABELS, locale)[g.type]}</span>
                           <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{translateText("● Активна")}</span>
-                          {g.deadline && <span className="text-xs text-slate-400">{translateText("до ")}{new Date(g.deadline).toLocaleDateString(locale === 'ky' ? 'ky-KG' : 'ru-RU', { day: 'numeric', month: 'short' })}</span>}
+                          {g.deadline && <span className="text-xs text-slate-400">{translateText("до ")}{formatLocalizedDate(new Date(g.deadline), { day: 'numeric', month: 'short' }, locale)}</span>}
                         </div>
                         <h4 className="font-bold text-slate-900">{g.title}</h4>
                         {g.description && <p className="text-sm text-slate-500 mt-0.5">{g.description}</p>}

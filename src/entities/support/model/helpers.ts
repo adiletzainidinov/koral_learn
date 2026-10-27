@@ -1,5 +1,6 @@
+import { KY_MONTHS } from '@/shared/i18n/date-format';
 import { translate } from '@/shared/i18n/translate';
-import { getIntlLocale, type Locale } from '@/shared/i18n/locale-store';
+import { type Locale } from '@/shared/i18n/locale-store';
 import type {
   SupportPlanType, PaymentStatus, SupportPlan, LessonType, LessonSelection, Family,
   SupportPayment, SupportPaymentDistribution, SupportPaymentAllocation,
@@ -233,13 +234,13 @@ export function getCurrentMonth(): string {
 
 export function formatMonth(month: string, locale: Locale = 'ru'): string {
   const [year, m] = month.split('-');
-  const name = locale === 'ky' ? new Intl.DateTimeFormat(getIntlLocale(locale), { month: 'long' }).format(new Date(Number(year), Number(m) - 1, 1)) : MONTHS[Number(m) - 1] ?? month;
+  const name = locale === 'ky' ? KY_MONTHS[Number(m) - 1] ?? month : MONTHS[Number(m) - 1] ?? month;
   return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`;
 }
 
 export function getReminderMessage(parentName: string, remaining: number, month: string, locale: Locale = 'ru'): string {
   const [year, m] = month.split('-');
-  const monthName = locale === 'ky' ? new Intl.DateTimeFormat(getIntlLocale(locale), { month: 'long' }).format(new Date(Number(year), Number(m) - 1, 1)) : MONTHS[Number(m) - 1] ?? month;
+  const monthName = locale === 'ky' ? KY_MONTHS[Number(m) - 1] ?? month : MONTHS[Number(m) - 1] ?? month;
   return translate(`Ассаламу алейкум! Напоминаем, что за ${monthName} ${year} осталось оплатить ${formatAmount(remaining)} за обучение детей. Спасибо за поддержку обучения Корана.`, locale);
 }
 
@@ -328,7 +329,7 @@ export function calculateGiftTotal(payments: SupportPayment[]): number {
 
 export function getThankYouMessage(parentName: string, month: string, locale: Locale = 'ru'): string {
   const [year, m] = month.split('-');
-  const monthName = locale === 'ky' ? new Intl.DateTimeFormat(getIntlLocale(locale), { month: 'long' }).format(new Date(Number(year), Number(m) - 1, 1)) : MONTHS[Number(m) - 1] ?? month;
+  const monthName = locale === 'ky' ? KY_MONTHS[Number(m) - 1] ?? month : MONTHS[Number(m) - 1] ?? month;
   return translate(`Ассаламу алейкум! Оплата за ${monthName} ${year} от ${parentName} получена. Пусть Аллах даст баракат вашей семье за поддержку обучения Корана. 🌿`, locale);
 }
 

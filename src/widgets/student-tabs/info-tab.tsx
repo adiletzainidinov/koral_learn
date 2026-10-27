@@ -1,8 +1,10 @@
 'use client';
 
+import { formatLocalizedDate } from '@/shared/i18n/date-format';
+
 import { useTranslation } from '@/shared/i18n/use-translation';
 import { localizeUI } from '@/shared/i18n/translate';
-import { getIntlLocale, type Locale } from '@/shared/i18n/locale-store';
+import { type Locale } from '@/shared/i18n/locale-store';
 
 
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
@@ -36,11 +38,11 @@ interface Props {
 function formatDate(isoDate: string, locale: Locale = 'ru'): string {
   if (!isoDate) return '—';
   try {
-    return new Date(isoDate).toLocaleDateString(getIntlLocale(locale), {
+    return formatLocalizedDate(new Date(isoDate), {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
-    });
+    }, locale);
   } catch {
     return isoDate;
   }
@@ -216,10 +218,10 @@ function StudentPersonalInfoCard({ student }: { student: Student }) {
 }
 
 function ContactRow({ contact, link }: { contact: FamilyContact; link: StudentFamilyContactLink }) {
-  const { t: translateText } = useTranslation();
+  const { t: translateText, locale } = useTranslation();
 
   const initials = getContactInitials(contact.fullName);
-  const relationText = formatContactRelation(link);
+  const relationText = formatContactRelation(link, locale);
   return (
     <div className="flex items-start gap-3 p-3 rounded-xl border border-slate-100 bg-white">
       <div className="size-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-sm font-bold shrink-0">

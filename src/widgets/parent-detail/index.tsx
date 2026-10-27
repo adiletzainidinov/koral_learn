@@ -278,7 +278,7 @@ interface ChildRow {
 }
 
 function ChildrenTab({ rows, contactId }: { rows: ChildRow[]; contactId: string }) {
-  const { t: translateText } = useTranslation();
+  const { t: translateText, locale } = useTranslation();
 
   const router = useRouter();
 
@@ -297,7 +297,7 @@ function ChildrenTab({ rows, contactId }: { rows: ChildRow[]; contactId: string 
       <div className="flex flex-col gap-2">
         {rows.map(({ link, student }) => {
           const initials = student.fullName.slice(0, 2).toUpperCase();
-          const relationText = formatContactRelation(link);
+          const relationText = formatContactRelation(link, locale);
           return (
             <div
               key={link.id}

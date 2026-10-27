@@ -31,3 +31,9 @@ test('locale store persists the selection, synchronizes tabs and survives unavai
  const target=new EventTarget(),data=new Map();global.window=target;global.localStorage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)};
  try{const store=loadTypescript('src/shared/i18n/locale-store.ts');let notifications=0;const unsubscribe=store.subscribeLocale(()=>notifications++);assert.equal(store.getLocale(),'ru');store.setLocale('ky');assert.equal(store.getLocale(),'ky');assert.equal(data.get('quranlearn-language'),'ky');data.set('quranlearn-language','ru');const event=new Event('storage');Object.defineProperty(event,'key',{value:'quranlearn-language'});target.dispatchEvent(event);assert.equal(store.getLocale(),'ru');assert.equal(notifications,2);global.localStorage.setItem=()=>{throw Error('blocked')};store.setLocale('ky');assert.equal(store.getLocale(),'ky');unsubscribe();}finally{global.window=previousWindow;global.localStorage=previousStorage;}
 });
+
+const { formatLocalizedDate, formatKyrgyzRelative } = loadTypescript('src/shared/i18n/date-format.ts');
+test('Kyrgyz dates and relative time work without browser ICU language support',()=>{
+ assert.equal(formatLocalizedDate(new Date(2026,9,27),{day:'numeric',month:'short',year:'numeric'},'ky'),'27 окт. 2026-ж.');
+ assert.equal(formatKyrgyzRelative(new Date('2026-10-20T12:00:00Z'),new Date('2026-10-27T12:00:00Z')),'1 жума мурун');
+});

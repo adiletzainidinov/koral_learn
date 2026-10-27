@@ -1,8 +1,10 @@
 'use client';
 
+import { formatLocalizedDate } from '@/shared/i18n/date-format';
+
 import { useTranslation } from '@/shared/i18n/use-translation';
 import { localizeUI } from '@/shared/i18n/translate';
-import { getIntlLocale, type Locale } from '@/shared/i18n/locale-store';
+import { type Locale } from '@/shared/i18n/locale-store';
 
 
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
@@ -45,7 +47,7 @@ function useHydrated() {
 }
 
 function fmtDate(iso: string, locale: Locale = 'ru') {
-  return new Date(iso).toLocaleDateString(getIntlLocale(locale), { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatLocalizedDate(new Date(iso), { day: '2-digit', month: 'short', year: 'numeric' }, locale);
 }
 
 function getMonthOptions(currentMonth: string, locale: Locale = 'ru') {
@@ -1149,7 +1151,7 @@ function LessonsTab({
 // ─── Contacts Tab ─────────────────────────────────────────────────────────────
 
 function ContactsTab({ familyId }: { familyId: string }) {
-  const { t: translateText } = useTranslation();
+  const { t: translateText, locale } = useTranslation();
 
   const family = useFamilyById(familyId);
   const contacts = useFamilyContacts(familyId);
@@ -1236,7 +1238,7 @@ function ContactsTab({ familyId }: { familyId: string }) {
                             key={link.id}
                             className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600"
                           >
-                            {student.fullName.split(' ')[0]} · {formatContactRelation(link)}
+                            {student.fullName.split(' ')[0]} · {formatContactRelation(link, locale)}
                           </span>
                         );
                       })}

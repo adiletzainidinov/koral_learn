@@ -37,7 +37,7 @@ interface Props {
 }
 
 export function RepresentativesTable({ search }: Props) {
-  const { t: translateText } = useTranslation();
+  const { t: translateText, locale } = useTranslation();
 
   const contacts = useAllFamilyContacts();
   const families = useFamilies();
@@ -63,7 +63,7 @@ export function RepresentativesTable({ search }: Props) {
       for (const link of contactLinks) {
         const student = studentById.get(link.studentId);
         if (!student) continue;
-        const rel = formatContactRelation(link);
+        const rel = formatContactRelation(link, locale);
         const existing = relationGroups.get(rel) ?? [];
         existing.push(student.fullName.split(' ')[0]); // first name only for brevity
         relationGroups.set(rel, existing);
@@ -84,7 +84,7 @@ export function RepresentativesTable({ search }: Props) {
       };
     }
     return map;
-  }, [contacts, families, students, links]);
+  }, [contacts, families, students, links, locale]);
 
   const visible = useMemo(() => {
     let result = showArchived ? contacts : contacts.filter((c) => !c.isArchived);

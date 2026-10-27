@@ -241,7 +241,7 @@ function AttachmentItem({ attachment, onRemove }: { attachment: AttachmentEntry;
 // ─── existing contacts panel (edit mode only) ────────────────────────────────
 
 function ExistingContactsPanel({ studentId }: { studentId: string }) {
-  const { t: translateText } = useTranslation();
+  const { t: translateText, locale } = useTranslation();
 
   const links = useAppStore((s) => s.studentFamilyContactLinks);
   const contacts = useAppStore((s) => s.familyContacts);
@@ -271,7 +271,7 @@ function ExistingContactsPanel({ studentId }: { studentId: string }) {
         const contact = contacts.find((c) => c.id === link.contactId);
         const family = families.find((f) => f.id === link.familyId);
         if (!contact) return null;
-        const relation = formatContactRelation(link);
+        const relation = formatContactRelation(link, locale);
         return (
           <div
             key={link.id}
