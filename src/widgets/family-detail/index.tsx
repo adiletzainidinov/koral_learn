@@ -1,5 +1,10 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+import { getIntlLocale, type Locale } from '@/shared/i18n/locale-store';
+
+
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -39,11 +44,11 @@ function useHydrated() {
   return h;
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
+function fmtDate(iso: string, locale: Locale = 'ru') {
+  return new Date(iso).toLocaleDateString(getIntlLocale(locale), { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function getMonthOptions(currentMonth: string) {
+function getMonthOptions(currentMonth: string, locale: Locale = 'ru') {
   const [y, m] = currentMonth.split('-').map(Number);
   const options: { value: string; label: string }[] = [];
   for (let i = -2; i <= 1; i++) {
@@ -52,7 +57,7 @@ function getMonthOptions(currentMonth: string) {
     if (mo < 1) { mo += 12; yr--; }
     if (mo > 12) { mo -= 12; yr++; }
     const val = `${yr}-${String(mo).padStart(2, '0')}`;
-    options.push({ value: val, label: formatMonth(val) });
+    options.push({ value: val, label: formatMonth(val, locale) });
   }
   return options;
 }
@@ -60,6 +65,8 @@ function getMonthOptions(currentMonth: string) {
 // ─── Edit Family Modal ────────────────────────────────────────────────────────
 
 function EditFamilyModal({ familyId, onClose }: { familyId: string; onClose: () => void }) {
+  const { t: translateText } = useTranslation();
+
   const family = useFamilyById(familyId);
   const primaryContact = useFamilyPrimaryContact(familyId);
   const updateFamily = useAppStore((s) => s.updateFamily);
@@ -69,7 +76,7 @@ function EditFamilyModal({ familyId, onClose }: { familyId: string; onClose: () 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-slate-900">Редактировать семью</h2>
+          <h2 className="text-lg font-bold text-slate-900">{translateText("Редактировать семью")}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X className="size-5" /></button>
         </div>
         <div className="space-y-4">
@@ -80,22 +87,20 @@ function EditFamilyModal({ familyId, onClose }: { familyId: string; onClose: () 
                 <p className="text-sm font-medium text-slate-800 truncate">{primaryContact.fullName}</p>
                 <p className="text-xs text-slate-500">{primaryContact.whatsapp}</p>
               </div>
-              <Link href={`/parents/${primaryContact.id}`} className="ml-auto text-xs text-emerald-600 hover:underline font-medium shrink-0">Открыть</Link>
+              <Link href={`/parents/${primaryContact.id}`} className="ml-auto text-xs text-emerald-600 hover:underline font-medium shrink-0">{translateText("Открыть")}</Link>
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Заметки</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">{translateText("Заметки")}</label>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
-              placeholder="Дополнительная информация..."
+              placeholder={translateText("Дополнительная информация...")}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none placeholder:text-slate-400" />
           </div>
         </div>
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
           <button onClick={() => { updateFamily(familyId, { notes: notes.trim() || undefined }); onClose(); }}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-            Сохранить
-          </button>
+            className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">{translateText("Сохранить")}</button>
         </div>
       </div>
     </div>
@@ -105,6 +110,8 @@ function EditFamilyModal({ familyId, onClose }: { familyId: string; onClose: () 
 // ─── Copy Button ──────────────────────────────────────────────────────────────
 
 function CopyBtn({ text, label }: { text: string; label: string }) {
+  const { t: translateText } = useTranslation();
+
   const [copied, setCopied] = useState(false);
   return (
     <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
@@ -112,7 +119,7 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
         copied ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
       )}>
       {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-      {copied ? 'Скопировано' : label}
+      {copied ? translateText('Скопировано') : label}
     </button>
   );
 }
@@ -149,6 +156,8 @@ function PaymentFormModal({
   currentMonth, preselectedStudentId, editPayment,
   onClose, onCreate, onUpdate,
 }: PaymentFormModalProps) {
+  const { t: translateText, locale } = useTranslation();
+
   const [month, setMonth] = useState(editPayment?.month ?? currentMonth);
   const [amountStr, setAmountStr] = useState(editPayment ? String(editPayment.amount) : '');
   const [method, setMethod] = useState<PaymentMethod>(editPayment?.method ?? 'cash');
@@ -161,7 +170,7 @@ function PaymentFormModal({
   );
   const [errors, setErrors] = useState<{ amount?: string; overpayment?: string }>({});
 
-  const monthOptions = useMemo(() => getMonthOptions(currentMonth), [currentMonth]);
+  const monthOptions = useMemo(() => getMonthOptions(currentMonth, locale), [currentMonth, locale]);
   const isStudentTarget = !!targetStudentId;
 
   const monthPayments = useMemo(
@@ -214,13 +223,13 @@ function PaymentFormModal({
 
   function validate() {
     const errs: typeof errors = {};
-    if (numAmount <= 0) errs.amount = 'Введите сумму';
-    if (isOverpaid && !overpaymentType) errs.overpayment = 'Выберите, что делать с переплатой';
+    if (numAmount <= 0) errs.amount = translateText('Введите сумму');
+    if (isOverpaid && !overpaymentType) errs.overpayment = translateText('Выберите, что делать с переплатой');
     if (editPayment?.overpaymentType === 'advance' && overpaidAmount < minRequiredOverpaid) {
-      errs.amount = `Нельзя уменьшить аванс: уже применено ${formatAmount(minRequiredOverpaid)} сом`;
+      errs.amount = translateText(`Нельзя уменьшить аванс: уже применено ${formatAmount(minRequiredOverpaid)} сом`);
     }
     if (!canChangeOverpaymentType && overpaymentType === 'gift' && editPayment?.overpaymentType === 'advance') {
-      errs.overpayment = `Нельзя сменить тип: уже применено ${formatAmount(minRequiredOverpaid)} сом аванса`;
+      errs.overpayment = translateText(`Нельзя сменить тип: уже применено ${formatAmount(minRequiredOverpaid)} сом аванса`);
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -258,7 +267,7 @@ function PaymentFormModal({
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100 shrink-0">
           <div>
             <h2 className="text-base font-bold text-slate-900">
-              {editPayment ? 'Редактировать оплату' : 'Внести оплату'}
+              {editPayment ? translateText('Редактировать оплату') : translateText('Внести оплату')}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">{family.name}</p>
           </div>
@@ -270,7 +279,7 @@ function PaymentFormModal({
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
           {/* Month */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Месяц</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">{translateText("Месяц")}</label>
             <div className="relative">
               <select value={month} onChange={(e) => setMonth(e.target.value)}
                 className="w-full h-10 rounded-xl border border-slate-200 px-3 pr-8 text-sm text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
@@ -282,15 +291,13 @@ function PaymentFormModal({
 
           {/* Za kogo */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">За кого</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">{translateText("За кого")}</label>
             <div className="flex flex-wrap gap-1.5">
               <button
                 onClick={() => setTargetStudentId(undefined)}
                 className={cn('px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors',
                   !isStudentTarget ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                )}>
-                Вся семья
-              </button>
+                )}>{translateText("Вся семья")}</button>
               {familyStudents.map((s) => (
                 <button key={s.id}
                   onClick={() => setTargetStudentId(s.id)}
@@ -306,26 +313,23 @@ function PaymentFormModal({
           {/* Summary chip */}
           {expected > 0 && (
             <div className="bg-slate-50 rounded-xl p-3 flex gap-4 text-xs">
-              <div><p className="text-slate-400">Ожидается</p><p className="font-semibold text-slate-800 mt-0.5">{formatAmount(expected)}</p></div>
-              <div><p className="text-slate-400">Уже оплачено</p><p className="font-semibold text-emerald-600 mt-0.5">{formatAmount(alreadyPaid)}</p></div>
-              {remaining > 0 && <div><p className="text-slate-400">Остаток</p><p className="font-semibold text-amber-600 mt-0.5">{formatAmount(remaining)}</p></div>}
-              {remaining === 0 && <div><p className="text-slate-400">Статус</p><p className="font-semibold text-emerald-600 mt-0.5">Оплачено ✓</p></div>}
+              <div><p className="text-slate-400">{translateText("Ожидается")}</p><p className="font-semibold text-slate-800 mt-0.5">{formatAmount(expected)}</p></div>
+              <div><p className="text-slate-400">{translateText("Уже оплачено")}</p><p className="font-semibold text-emerald-600 mt-0.5">{formatAmount(alreadyPaid)}</p></div>
+              {remaining > 0 && <div><p className="text-slate-400">{translateText("Остаток")}</p><p className="font-semibold text-amber-600 mt-0.5">{formatAmount(remaining)}</p></div>}
+              {remaining === 0 && <div><p className="text-slate-400">{translateText("Статус")}</p><p className="font-semibold text-emerald-600 mt-0.5">{translateText("Оплачено ✓")}</p></div>}
             </div>
           )}
 
           {/* Amount */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Сумма (сом)</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">{translateText("Сумма (сом)")}</label>
             {remaining > 0 && (
               <div className="flex gap-2 mb-2">
                 <button onClick={() => setAmountStr(String(remaining))}
-                  className="flex-1 py-1.5 px-3 rounded-xl border border-emerald-200 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
-                  Полный остаток ({formatAmount(remaining)})
+                  className="flex-1 py-1.5 px-3 rounded-xl border border-emerald-200 text-xs font-medium text-emerald-700 hover:bg-emerald-50">{translateText("Полный остаток (")}{formatAmount(remaining)})
                 </button>
                 <button onClick={() => setAmountStr(String(Math.ceil(remaining / 2)))}
-                  className="flex-1 py-1.5 px-3 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
-                  Половина
-                </button>
+                  className="flex-1 py-1.5 px-3 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">{translateText("Половина")}</button>
               </div>
             )}
             <input
@@ -341,7 +345,7 @@ function PaymentFormModal({
           {/* Distribution preview (family payments) */}
           {!isStudentTarget && numAmount > 0 && distribution.length > 0 && (
             <div className="bg-slate-50 rounded-xl p-3">
-              <p className="text-xs font-semibold text-slate-500 mb-2">Распределение по детям</p>
+              <p className="text-xs font-semibold text-slate-500 mb-2">{translateText("Распределение по детям")}</p>
               <div className="space-y-1">
                 {familyStudents.map((s) => {
                   const d = distribution.find((x) => x.studentId === s.id);
@@ -364,23 +368,20 @@ function PaymentFormModal({
           {/* Advance constraint notice */}
           {editPayment?.overpaymentType === 'advance' && minRequiredOverpaid > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-              <p className="text-xs font-semibold text-blue-800">Ограничение по авансу</p>
-              <p className="text-xs text-blue-700 mt-0.5">
-                Уже применено {formatAmount(minRequiredOverpaid)} сом. Нельзя уменьшить аванс ниже этой суммы.
-              </p>
+              <p className="text-xs font-semibold text-blue-800">{translateText("Ограничение по авансу")}</p>
+              <p className="text-xs text-blue-700 mt-0.5">{translateText("Уже применено")}{formatAmount(minRequiredOverpaid)}{translateText("сом. Нельзя уменьшить аванс ниже этой суммы.")}</p>
             </div>
           )}
 
           {/* Overpayment */}
           {isOverpaid && (
             <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 space-y-2">
-              <p className="text-xs font-semibold text-amber-800">
-                Переплата: {formatAmount(overpaidAmount)}
+              <p className="text-xs font-semibold text-amber-800">{translateText("Переплата:")}{formatAmount(overpaidAmount)}
               </p>
-              <p className="text-xs text-amber-700">Что сделать с излишком?</p>
+              <p className="text-xs text-amber-700">{translateText("Что сделать с излишком?")}</p>
               {errors.overpayment && <p className="text-xs text-red-500">{errors.overpayment}</p>}
               <div className="space-y-1.5">
-                {(Object.entries(OVERPAYMENT_LABELS) as [OverpaymentType, typeof OVERPAYMENT_LABELS[OverpaymentType]][]).map(([key, meta]) => {
+                {(Object.entries(localizeUI(OVERPAYMENT_LABELS, locale)) as [OverpaymentType, typeof OVERPAYMENT_LABELS[OverpaymentType]][]).map(([key, meta]) => {
                   const isLocked = key === 'gift' && !canChangeOverpaymentType && editPayment?.overpaymentType === 'advance';
                   return (
                     <button
@@ -398,7 +399,7 @@ function PaymentFormModal({
                       <span className="mt-0.5 shrink-0">{meta.icon}</span>
                       <div>
                         <p className="text-xs font-semibold text-slate-800">{meta.label}</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{isLocked ? 'Недоступно: аванс уже частично применён' : meta.desc}</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{isLocked ? translateText('Недоступно: аванс уже частично применён') : meta.desc}</p>
                       </div>
                       {overpaymentType === key && !isLocked && <Check className="size-4 text-emerald-500 ml-auto shrink-0 mt-0.5" />}
                     </button>
@@ -410,14 +411,14 @@ function PaymentFormModal({
 
           {/* Method */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Способ оплаты</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">{translateText("Способ оплаты")}</label>
             <div className="flex flex-wrap gap-1.5">
-              {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => (
+              {(Object.keys(localizeUI(PAYMENT_METHOD_LABELS, locale)) as PaymentMethod[]).map((m) => (
                 <button key={m} onClick={() => setMethod(m)}
                   className={cn('px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors',
                     method === m ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                   )}>
-                  {PAYMENT_METHOD_LABELS[m]}
+                  {localizeUI(PAYMENT_METHOD_LABELS, locale)[m]}
                 </button>
               ))}
             </div>
@@ -425,8 +426,8 @@ function PaymentFormModal({
 
           {/* Note */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Заметка</label>
-            <input type="text" placeholder="Примечание..." value={note}
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">{translateText("Заметка")}</label>
+            <input type="text" placeholder={translateText("Примечание...")} value={note}
               onChange={(e) => setNote(e.target.value)}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:text-slate-400" />
           </div>
@@ -435,13 +436,11 @@ function PaymentFormModal({
         {/* Footer */}
         <div className="flex gap-3 px-5 py-4 border-t border-slate-100 shrink-0">
           <button onClick={onClose}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-            Отмена
-          </button>
+            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
           <button onClick={handleSubmit}
             className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 flex items-center justify-center gap-1.5">
             <Check className="size-4" />
-            {editPayment ? 'Сохранить' : numAmount > 0 ? `Принять ${formatAmount(numAmount)}` : 'Сохранить'}
+            {editPayment ? translateText('Сохранить') : numAmount > 0 ? translateText(`Принять ${formatAmount(numAmount)}`) : translateText('Сохранить')}
           </button>
         </div>
       </div>
@@ -449,7 +448,7 @@ function PaymentFormModal({
   );
 }
 
-function getPageMonthOptions(currentMonth: string) {
+function getPageMonthOptions(currentMonth: string, locale: Locale = 'ru') {
   const [y, m] = currentMonth.split('-').map(Number);
   const options: { value: string; label: string }[] = [];
   for (let i = -4; i <= 2; i++) {
@@ -458,7 +457,7 @@ function getPageMonthOptions(currentMonth: string) {
     if (mo < 1) { mo += 12; yr--; }
     if (mo > 12) { mo -= 12; yr++; }
     const val = `${yr}-${String(mo).padStart(2, '0')}`;
-    options.push({ value: val, label: formatMonth(val) });
+    options.push({ value: val, label: formatMonth(val, locale) });
   }
   return options;
 }
@@ -484,6 +483,8 @@ function ApplyAdvanceModal({
   onCancel: () => void;
   onConfirm: (input: ApplyAdvanceInput) => void;
 }) {
+  const { t: translateText , locale } = useTranslation();
+
   const isEdit = !!editRecord;
   // Temporarily return edited record's amount to the pool so user can re-allocate it
   const editableAvailableAdvance = isEdit
@@ -491,7 +492,7 @@ function ApplyAdvanceModal({
     : availableAdvance;
 
   const currentMonth = getCurrentMonth();
-  const monthOptions = useMemo(() => getPageMonthOptions(currentMonth), [currentMonth]);
+  const monthOptions = useMemo(() => getPageMonthOptions(currentMonth, locale), [currentMonth, locale]);
 
   const initialTargetMode = useMemo((): 'family' | 'students' => {
     if (!editRecord?.allocations || editRecord.allocations.length === 0) return 'family';
@@ -511,7 +512,7 @@ function ApplyAdvanceModal({
   const [amountStr, setAmountStr] = useState(isEdit ? String(editRecord.appliedAmount) : '');
   const [noteStr, setNoteStr] = useState(() => {
     const s = editRecord?.note ?? '';
-    return s.startsWith('Применён аванс к ') ? '' : s;
+    return s.startsWith(translateText('Применён аванс к ')) ? '' : s;
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -567,19 +568,19 @@ function ApplyAdvanceModal({
 
   function handleConfirm() {
     if (targetMode === 'students' && selectedStudentIds.size === 0) {
-      setError('Выберите хотя бы одного ученика');
+      setError(translateText('Выберите хотя бы одного ученика'));
       return;
     }
-    if (numAmount <= 0) { setError('Введите сумму'); return; }
+    if (numAmount <= 0) { setError(translateText('Введите сумму')); return; }
     if (numAmount > editableAvailableAdvance) {
-      setError(`Максимум: ${formatAmount(editableAvailableAdvance)}`);
+      setError(translateText(`Максимум: ${formatAmount(editableAvailableAdvance)}`));
       return;
     }
     if (allocations.length === 0) {
-      setError('Нет долга для покрытия в выбранном месяце');
+      setError(translateText('Нет долга для покрытия в выбранном месяце'));
       return;
     }
-    const finalNote = noteStr.trim() || `Применён аванс к ${formatMonth(month)}`;
+    const finalNote = noteStr.trim() || translateText(`Применён аванс к ${formatMonth(month, locale)}`);
     onConfirm({ familyId: family.id, month, amount: numAmount, allocations, note: finalNote });
   }
 
@@ -590,12 +591,12 @@ function ApplyAdvanceModal({
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100 shrink-0">
           <div>
             <h2 className="text-base font-bold text-slate-900">
-              {isEdit ? 'Редактировать применение аванса' : 'Применить аванс'}
+              {isEdit ? translateText('Редактировать применение аванса') : translateText('Применить аванс')}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               {isEdit
-                ? `Доступно для редактирования: ${formatAmount(editableAvailableAdvance)}`
-                : `Доступно: ${formatAmount(availableAdvance)}`}
+                ? translateText(`Доступно для редактирования: ${formatAmount(editableAvailableAdvance)}`)
+                : translateText(`Доступно: ${formatAmount(availableAdvance)}`)}
             </p>
           </div>
           <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
@@ -606,13 +607,13 @@ function ApplyAdvanceModal({
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
           {/* Month */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Месяц</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">{translateText("Месяц")}</label>
             <div className="relative">
               <select value={month} onChange={(e) => { setMonth(e.target.value); setError(null); }}
                 className="w-full h-10 rounded-xl border border-slate-200 px-3 pr-8 text-sm text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                 {monthOptions.map((o) => (
                   <option key={o.value} value={o.value}>
-                    {o.label}{o.value === currentMonth ? ' (текущий)' : ''}
+                    {o.label}{o.value === currentMonth ? translateText(' (текущий)') : ''}
                   </option>
                 ))}
               </select>
@@ -622,22 +623,18 @@ function ApplyAdvanceModal({
 
           {/* Target */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">За кого</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">{translateText("За кого")}</label>
             <div className="flex gap-1.5 mb-3">
               <button
                 onClick={() => setTargetMode('family')}
                 className={cn('px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors',
                   targetMode === 'family' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                )}>
-                Вся семья
-              </button>
+                )}>{translateText("Вся семья")}</button>
               <button
                 onClick={() => setTargetMode('students')}
                 className={cn('px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors',
                   targetMode === 'students' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                )}>
-                Конкретные ученики
-              </button>
+                )}>{translateText("Конкретные ученики")}</button>
             </div>
             <div className="space-y-1.5">
               {familyStudents.map((s) => {
@@ -662,7 +659,7 @@ function ApplyAdvanceModal({
                       <p className="text-sm font-medium text-slate-800">{s.fullName.split(' ')[0]}</p>
                       {info.expected > 0 && (
                         <p className="text-xs text-slate-400">
-                          {info.remaining > 0 ? `Остаток: ${formatAmount(info.remaining)}` : 'Оплачено ✓'}
+                          {info.remaining > 0 ? translateText(`Остаток: ${formatAmount(info.remaining)}`) : translateText('Оплачено ✓')}
                         </p>
                       )}
                     </div>
@@ -680,12 +677,11 @@ function ApplyAdvanceModal({
 
           {/* Amount */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Сумма (сом)</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">{translateText("Сумма (сом)")}</label>
             {totalTargetRemaining > 0 && (
               <button
                 onClick={() => { setAmountStr(String(Math.min(editableAvailableAdvance, totalTargetRemaining))); setError(null); }}
-                className="w-full mb-2 py-1.5 px-3 rounded-xl border border-blue-200 text-xs font-medium text-blue-700 hover:bg-blue-50">
-                Максимум ({formatAmount(Math.min(editableAvailableAdvance, totalTargetRemaining))})
+                className="w-full mb-2 py-1.5 px-3 rounded-xl border border-blue-200 text-xs font-medium text-blue-700 hover:bg-blue-50">{translateText("Максимум (")}{formatAmount(Math.min(editableAvailableAdvance, totalTargetRemaining))})
               </button>
             )}
             <input
@@ -697,11 +693,11 @@ function ApplyAdvanceModal({
                 error ? 'border-red-300 focus:ring-red-400' : 'border-slate-200 focus:ring-blue-400'
               )}
             />
-            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+            {error && <p className="text-xs text-red-500 mt-1">{translateText(error)}</p>}
             <p className="text-xs text-slate-400 mt-1">
               {isEdit
-                ? `Доступно для редактирования: ${formatAmount(editableAvailableAdvance)}`
-                : `Доступный аванс: ${formatAmount(availableAdvance)}`}
+                ? translateText(`Доступно для редактирования: ${formatAmount(editableAvailableAdvance)}`)
+                : translateText(`Доступный аванс: ${formatAmount(availableAdvance)}`)}
             </p>
           </div>
 
@@ -709,7 +705,7 @@ function ApplyAdvanceModal({
           {numAmount > 0 && allocations.length > 0 && (
             <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
               <p className="text-xs font-semibold text-blue-700 mb-2">
-                {isEdit ? 'После сохранения будет применено' : 'Распределение по ученикам'}
+                {isEdit ? translateText('После сохранения будет применено') : translateText('Распределение по ученикам')}
               </p>
               <div className="space-y-1">
                 {familyStudents.map((s) => {
@@ -729,7 +725,7 @@ function ApplyAdvanceModal({
               </div>
               {isEdit && (
                 <div className="mt-2 pt-2 border-t border-blue-100 text-xs flex justify-between text-slate-500">
-                  <span>Доступный аванс станет:</span>
+                  <span>{translateText("Доступный аванс станет:")}</span>
                   <span className="font-medium text-slate-700">{formatAmount(editableAvailableAdvance - numAmount)}</span>
                 </div>
               )}
@@ -739,18 +735,16 @@ function ApplyAdvanceModal({
           {/* No debt warning */}
           {numAmount > 0 && allocations.length === 0 && (
             <div className="bg-amber-50 rounded-xl p-3 border border-amber-200">
-              <p className="text-xs text-amber-700">
-                За {formatMonth(month)} нет долга. Выберите другой месяц или уменьшите сумму.
-              </p>
+              <p className="text-xs text-amber-700">{translateText("За")}{formatMonth(month, locale)}{translateText("нет долга. Выберите другой месяц или уменьшите сумму.")}</p>
             </div>
           )}
 
           {/* Note */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Заметка</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">{translateText("Заметка")}</label>
             <input
               type="text"
-              placeholder={`Применён аванс к ${formatMonth(month)}`}
+              placeholder={translateText(translateText(`Применён аванс к ${formatMonth(month, locale)}`))}
               value={noteStr}
               onChange={(e) => setNoteStr(e.target.value)}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-slate-300"
@@ -761,13 +755,11 @@ function ApplyAdvanceModal({
         {/* Footer */}
         <div className="flex gap-3 px-5 py-4 border-t border-slate-100 shrink-0">
           <button onClick={onCancel}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-            Отмена
-          </button>
+            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
           <button onClick={handleConfirm}
             className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-1.5">
             <PiggyBank className="size-4" />
-            {isEdit ? 'Сохранить изменения' : numAmount > 0 ? `Применить ${formatAmount(numAmount)}` : 'Применить'}
+            {isEdit ? translateText('Сохранить изменения') : numAmount > 0 ? translateText(`Применить ${formatAmount(numAmount)}`) : translateText('Применить')}
           </button>
         </div>
       </div>
@@ -793,6 +785,8 @@ function PlanChangeModal({
   onCancel: () => void;
   onConfirm: (planType: SupportPlanType, customAmount: number) => void;
 }) {
+  const { t: translateText, locale } = useTranslation();
+
   const [customAmountStr, setCustomAmountStr] = useState(String(pending.initialCustomAmount || 0));
   const isCustom = pending.newPlan === 'custom';
   const isSamePlan = pending.oldPlan === pending.newPlan;
@@ -803,7 +797,7 @@ function PlanChangeModal({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-slate-900">
-            {isSamePlan ? 'Изменить сумму?' : 'Изменить формат обучения?'}
+            {isSamePlan ? translateText('Изменить сумму?') : translateText('Изменить формат обучения?')}
           </h2>
           <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
             <X className="size-4" />
@@ -812,15 +806,11 @@ function PlanChangeModal({
 
         <p className="text-sm text-slate-600 mb-4 leading-relaxed">
           {isSamePlan ? (
-            <>Укажите новую сумму для <span className="font-medium">{pending.studentName}</span>.</>
+            <>{translateText("Укажите новую сумму для ")}<span className="font-medium">{pending.studentName}</span>.</>
           ) : (
-            <>
-              Вы хотите изменить формат обучения для <span className="font-medium">{pending.studentName}</span>{' '}
-              с <span className="font-medium">«{SUPPORT_PLANS[pending.oldPlan].name}»</span>{' '}
-              на <span className="font-medium">«{SUPPORT_PLANS[pending.newPlan].name}»</span>.
+            <>{translateText("Вы хотите изменить формат обучения для")}<span className="font-medium">{pending.studentName}</span>{' '}{translateText("с")}<span className="font-medium">«{localizeUI(SUPPORT_PLANS, locale)[pending.oldPlan].name}»</span>{' '}{translateText("на")}<span className="font-medium">«{localizeUI(SUPPORT_PLANS, locale)[pending.newPlan].name}»</span>.
               {!isCustom && (
-                <> Сумма изменится с <span className="font-medium">{formatAmount(pending.oldAmount)}</span>{' '}
-                на <span className="font-medium">{formatAmount(newAmount)}</span>.</>
+                <>{translateText(" Сумма изменится с ")}<span className="font-medium">{formatAmount(pending.oldAmount)}</span>{' '}{translateText("на")}<span className="font-medium">{formatAmount(newAmount)}</span>.</>
               )}
             </>
           )}
@@ -828,7 +818,7 @@ function PlanChangeModal({
 
         {isCustom && (
           <div className="mb-5">
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Сумма в месяц (сом)</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">{translateText("Сумма в месяц (сом)")}</label>
             <input
               type="number" min="0" step="100" autoFocus
               value={customAmountStr}
@@ -836,21 +826,19 @@ function PlanChangeModal({
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
             {!isSamePlan && pending.oldAmount > 0 && (
-              <p className="text-xs text-slate-400 mt-1">Текущая сумма: {formatAmount(pending.oldAmount)}</p>
+              <p className="text-xs text-slate-400 mt-1">{translateText("Текущая сумма: ")}{formatAmount(pending.oldAmount)}</p>
             )}
           </div>
         )}
 
         <div className="flex gap-3">
           <button onClick={onCancel}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-            Отмена
-          </button>
+            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
           <button
             onClick={() => onConfirm(pending.newPlan, Number(customAmountStr) || 0)}
             className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 flex items-center justify-center gap-1.5">
             <Check className="size-4" />
-            {isSamePlan ? 'Применить' : 'Подтвердить'}
+            {isSamePlan ? translateText('Применить') : translateText('Подтвердить')}
           </button>
         </div>
       </div>
@@ -873,13 +861,15 @@ function BadgeConfirmModal({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const { t: translateText } = useTranslation();
+
   const isGive = pending.action === 'give';
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-slate-900">
-            {isGive ? 'Выдать бейджик?' : 'Отменить выдачу бейджика?'}
+            {isGive ? translateText('Выдать бейджик?') : translateText('Отменить выдачу бейджика?')}
           </h2>
           <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
             <X className="size-4" />
@@ -887,21 +877,19 @@ function BadgeConfirmModal({
         </div>
         <p className="text-sm text-slate-600 mb-5 leading-relaxed">
           {isGive
-            ? <>Отметить, что <span className="font-medium">{pending.studentName}</span> получил бейджик за оплату?</>
-            : <>Вы уверены, что хотите убрать отметку о выдаче бейджика для <span className="font-medium">{pending.studentName}</span>?</>
+            ? <>{translateText("Отметить, что ")}<span className="font-medium">{pending.studentName}</span>{translateText(" получил бейджик за оплату?")}</>
+            : <>{translateText("Вы уверены, что хотите убрать отметку о выдаче бейджика для ")}<span className="font-medium">{pending.studentName}</span>?</>
           }
         </p>
         <div className="flex gap-3">
           <button onClick={onCancel}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-            Отмена
-          </button>
+            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
           <button onClick={onConfirm}
             className={cn(
               'flex-1 px-4 py-2.5 rounded-xl text-white text-sm font-medium flex items-center justify-center gap-1.5',
               isGive ? 'bg-amber-500 hover:bg-amber-600' : 'bg-red-500 hover:bg-red-600'
             )}>
-            {isGive ? '🏅 Выдать бейджик' : 'Убрать отметку'}
+            {isGive ? translateText('🏅 Выдать бейджик') : translateText('Убрать отметку')}
           </button>
         </div>
       </div>
@@ -928,6 +916,8 @@ function LessonsTab({
   onSave: (selections: LessonSelection[]) => void;
   onToggleBadge: (studentId: string) => void;
 }) {
+  const { t: translateText, locale } = useTranslation();
+
   const [configs, setConfigs] = useState<Map<string, { lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>>(() => {
     const m = new Map<string, { lessonType: LessonType; planType: SupportPlanType; monthlyAmount: number }>();
     for (const s of familyStudents) {
@@ -1005,7 +995,7 @@ function LessonsTab({
     return (
       <div className="text-center py-12 bg-slate-50 rounded-2xl">
         <BookOpen className="size-8 text-slate-300 mx-auto mb-2" />
-        <p className="text-slate-500 text-sm">Нет учеников в этой семье</p>
+        <p className="text-slate-500 text-sm">{translateText("Нет учеников в этой семье")}</p>
       </div>
     );
   }
@@ -1017,7 +1007,7 @@ function LessonsTab({
           'text-xs transition-opacity duration-500',
           lastSaved ? 'text-emerald-500 opacity-100' : 'text-slate-400 opacity-50'
         )}>
-          {lastSaved ? '✓ Сохранено' : 'Изменения сохраняются автоматически после подтверждения'}
+          {lastSaved ? translateText('✓ Сохранено') : translateText('Изменения сохраняются автоматически после подтверждения')}
         </span>
       </div>
 
@@ -1037,10 +1027,10 @@ function LessonsTab({
         const isPartial = studentPaid > 0 && studentPaid < studentExpected;
         const badgeGiven = sel?.badgeGiven ?? false;
 
-        const statusLabel = studentExpected === 0 ? 'Открытый доступ'
-          : isPaid ? 'Оплачено'
-          : isPartial ? 'Частично'
-          : 'Не оплачено';
+        const statusLabel = studentExpected === 0 ? translateText('Открытый доступ')
+          : isPaid ? translateText('Оплачено')
+          : isPartial ? translateText('Частично')
+          : translateText('Не оплачено');
         const statusClass = studentExpected === 0 ? 'bg-slate-100 text-slate-500'
           : isPaid ? 'bg-emerald-100 text-emerald-700'
           : isPartial ? 'bg-amber-100 text-amber-700'
@@ -1060,7 +1050,7 @@ function LessonsTab({
                 <Link href={`/students/${s.id}`} className="text-sm font-medium text-slate-800 hover:text-emerald-700 hover:underline">
                   {s.fullName}
                 </Link>
-                <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(s.group)} · {s.age} лет</p>
+                <p className="text-xs text-slate-400">{translateText("Группа ")}{getStudentGroupLabel(s.group)} · {s.age}{translateText(" лет")}</p>
               </div>
               <div className={cn('px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0', c.badge)}>
                 {formatAmount(cfg.planType === 'custom' ? cfg.monthlyAmount : getSelectionAmount(cfg.planType))}
@@ -1071,7 +1061,7 @@ function LessonsTab({
             <div className="px-3 pt-3 pb-2">
               <div className="flex flex-wrap gap-1.5">
                 {PLAN_ORDER_DETAIL.map((pt) => {
-                  const plan = SUPPORT_PLANS[pt];
+                  const plan = localizeUI(SUPPORT_PLANS, locale)[pt];
                   const pc = PLAN_COLORS[pt];
                   const isActive = cfg.planType === pt;
                   return (
@@ -1091,7 +1081,7 @@ function LessonsTab({
             {/* Payment status — read-only, no payment button */}
             {studentExpected > 0 && (
               <div className="flex items-center gap-2 px-3 py-2.5 border-t border-slate-100 bg-slate-50/60 flex-wrap">
-                <span className="text-xs text-slate-400">{formatMonth(selectedMonth)}:</span>
+                <span className="text-xs text-slate-400">{formatMonth(selectedMonth, locale)}:</span>
                 <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', statusClass)}>
                   {statusLabel}
                 </span>
@@ -1105,7 +1095,7 @@ function LessonsTab({
                 )}
                 {studentAdvance > 0 && (
                   <span className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
-                    <PiggyBank className="size-3" />Аванс: {formatAmount(studentAdvance)}
+                    <PiggyBank className="size-3" />{translateText("Аванс: ")}{formatAmount(studentAdvance)}
                   </span>
                 )}
               </div>
@@ -1115,16 +1105,14 @@ function LessonsTab({
             {isPaid && (
               <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100">
                 <span className="text-xs text-slate-500 flex items-center gap-1.5">
-                  <Award className="size-3.5 text-amber-400" /> Бейджик
-                </span>
+                  <Award className="size-3.5 text-amber-400" />{translateText("Бейджик")}</span>
                 {badgeGiven ? (
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1">
-                      <Check className="size-3" /> Выдан
-                    </span>
+                      <Check className="size-3" />{translateText("Выдан")}</span>
                     <button
                       onClick={() => setPendingBadge({ studentId: s.id, studentName: s.fullName, action: 'revoke' })}
-                      title="Отменить"
+                      title={translateText("Отменить")}
                       className="size-5 flex items-center justify-center rounded-full text-slate-400 hover:text-red-400 hover:bg-red-50 transition-colors text-xs">
                       ×
                     </button>
@@ -1132,9 +1120,7 @@ function LessonsTab({
                 ) : (
                   <button
                     onClick={() => setPendingBadge({ studentId: s.id, studentName: s.fullName, action: 'give' })}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium hover:bg-amber-100 transition-colors">
-                    🏅 Дать бейджик
-                  </button>
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-xs font-medium hover:bg-amber-100 transition-colors">{translateText("🏅 Дать бейджик")}</button>
                 )}
               </div>
             )}
@@ -1163,6 +1149,8 @@ function LessonsTab({
 // ─── Contacts Tab ─────────────────────────────────────────────────────────────
 
 function ContactsTab({ familyId }: { familyId: string }) {
+  const { t: translateText } = useTranslation();
+
   const family = useFamilyById(familyId);
   const contacts = useFamilyContacts(familyId);
   const links = useFamilyContactLinks(familyId);
@@ -1176,27 +1164,21 @@ function ContactsTab({ familyId }: { familyId: string }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">
-          Управляйте представителями семьи, их связями с учениками и ролями.
-        </p>
+        <p className="text-xs text-slate-500">{translateText("Управляйте представителями семьи, их связями с учениками и ролями.")}</p>
         <Link
           href={`/parents/new?familyId=${familyId}`}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors"
-        >
-          + Добавить представителя
-        </Link>
+        >{translateText("+ Добавить представителя")}</Link>
       </div>
 
       {contacts.length === 0 && (
         <div className="text-center py-10 bg-slate-50 rounded-2xl">
           <UserRound className="size-8 text-slate-300 mx-auto mb-2" />
-          <p className="text-slate-500 text-sm">Контактов ещё нет</p>
+          <p className="text-slate-500 text-sm">{translateText("Контактов ещё нет")}</p>
           <Link
             href={`/parents/new?familyId=${familyId}`}
             className="mt-2 inline-block text-sm text-emerald-600 hover:underline"
-          >
-            Добавить первого представителя
-          </Link>
+          >{translateText("Добавить первого представителя")}</Link>
         </div>
       )}
 
@@ -1219,14 +1201,10 @@ function ContactsTab({ familyId }: { familyId: string }) {
                     {contact.fullName}
                   </Link>
                   {isPrimary && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700">
-                      Основной
-                    </span>
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700">{translateText("Основной")}</span>
                   )}
                   {isBilling && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700">
-                      Платит
-                    </span>
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700">{translateText("Платит")}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
@@ -1248,9 +1226,7 @@ function ContactsTab({ familyId }: { familyId: string }) {
                 </div>
                 {contactLinks.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-slate-100">
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">
-                      Привязан к
-                    </p>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">{translateText("Привязан к")}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {contactLinks.map((link) => {
                         const student = students.find((s) => s.id === link.studentId);
@@ -1278,9 +1254,9 @@ function ContactsTab({ familyId }: { familyId: string }) {
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-600 cursor-not-allowed'
                       : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                   )}
-                  title="Сделать основным"
+                  title={translateText("Сделать основным")}
                 >
-                  {isPrimary ? 'Основной' : 'Сделать основным'}
+                  {isPrimary ? translateText('Основной') : translateText('Сделать основным')}
                 </button>
                 <button
                   onClick={() => setFamilyBillingContact(familyId, contact.id)}
@@ -1291,17 +1267,15 @@ function ContactsTab({ familyId }: { familyId: string }) {
                       ? 'border-blue-200 bg-blue-50 text-blue-600 cursor-not-allowed'
                       : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                   )}
-                  title="Сделать плательщиком"
+                  title={translateText("Сделать плательщиком")}
                 >
-                  {isBilling ? 'Платит' : 'Сделать плательщиком'}
+                  {isBilling ? translateText('Платит') : translateText('Сделать плательщиком')}
                 </button>
                 {!isPrimary && !isBilling && (
                   <button
                     onClick={() => archiveFamilyContact(contact.id)}
                     className="text-xs px-2 py-1 rounded-lg border border-slate-200 text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition-colors"
-                  >
-                    В архив
-                  </button>
+                  >{translateText("В архив")}</button>
                 )}
               </div>
             </div>
@@ -1315,6 +1289,8 @@ function ContactsTab({ familyId }: { familyId: string }) {
 // ─── Main Widget ──────────────────────────────────────────────────────────────
 
 export function FamilyDetail({ familyId }: { familyId: string }) {
+  const { t: translateText, locale } = useTranslation();
+
   const hydrated = useHydrated();
   const router = useRouter();
   const family = useFamilyById(familyId);
@@ -1353,15 +1329,15 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
         <div className="size-14 rounded-2xl bg-slate-100 flex items-center justify-center">
           <Users className="size-6 text-slate-400" />
         </div>
-        <p className="font-semibold text-slate-700">Семья не найдена</p>
-        <Link href="/support" className="text-sm text-emerald-600 hover:underline">← Все семьи</Link>
+        <p className="font-semibold text-slate-700">{translateText("Семья не найдена")}</p>
+        <Link href="/support" className="text-sm text-emerald-600 hover:underline">{translateText("← Все семьи")}</Link>
       </div>
     );
   }
 
   const familyStudents = students.filter((s) => family.studentIds.includes(s.id));
   const currentMonth = getCurrentMonth();
-  const pageMonthOptions = getPageMonthOptions(currentMonth);
+  const pageMonthOptions = getPageMonthOptions(currentMonth, locale);
 
   const selectedMonthPayments = supportPayments.filter((p) => p.month === selectedMonth);
   const expectedAmount = calculateFamilyExpectedAmount(family);
@@ -1405,8 +1381,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                     </a>
                     <Link href={`/parents/${parent.id}`}
                       className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium hover:bg-slate-200 transition-colors">
-                      <UserRound className="size-3" />Открыть
-                    </Link>
+                      <UserRound className="size-3" />{translateText("Открыть")}</Link>
                   </div>
                 )}
               </div>
@@ -1417,8 +1392,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
           <button
             onClick={() => openPaymentModal('family')}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-            <Wallet className="size-4" /> Внести оплату
-          </button>
+            <Wallet className="size-4" />{translateText("Внести оплату")}</button>
           <div className="relative">
             <button onClick={() => setShowDropdown((v) => !v)}
               className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50">
@@ -1428,13 +1402,11 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
               <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl border border-slate-200 shadow-lg z-20 py-1" onClick={() => setShowDropdown(false)}>
                 <button onClick={() => setShowEdit(true)}
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 text-left">
-                  <Edit2 className="size-4" /> Редактировать
-                </button>
+                  <Edit2 className="size-4" />{translateText("Редактировать")}</button>
                 <div className="h-px bg-slate-100 my-1" />
                 <button onClick={() => setShowDelete(true)}
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 text-left">
-                  <Trash2 className="size-4" /> Удалить семью
-                </button>
+                  <Trash2 className="size-4" />{translateText("Удалить семью")}</button>
               </div>
             )}
           </div>
@@ -1443,16 +1415,16 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
 
       {/* Month selector */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <span className="text-xs font-medium text-slate-500 shrink-0">Расчётный месяц:</span>
+        <span className="text-xs font-medium text-slate-500 shrink-0">{translateText("Расчётный месяц:")}</span>
         <div className="relative min-w-0 max-w-full">
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            aria-label="Расчётный месяц"
+            aria-label={translateText("Расчётный месяц")}
             className="h-8 max-w-full rounded-xl border border-slate-200 bg-white px-3 pr-7 text-sm font-medium text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
             {pageMonthOptions.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}{o.value === currentMonth ? ' (текущий)' : ''}
+                {o.label}{o.value === currentMonth ? translateText(' (текущий)') : ''}
               </option>
             ))}
           </select>
@@ -1463,10 +1435,10 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         {[
-          { label: 'Учеников', value: familyStudents.length, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: `Ожидается`, value: formatAmount(expectedAmount), icon: AlertCircle, color: 'text-slate-500', bg: 'bg-slate-100' },
-          { label: `Оплачено`, value: formatAmount(paidAmount), icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Остаток', value: remaining > 0 ? formatAmount(remaining) : '—', icon: Clock, color: remaining > 0 ? 'text-amber-600' : 'text-slate-400', bg: remaining > 0 ? 'bg-amber-50' : 'bg-slate-50' },
+          { label: translateText('Учеников'), value: familyStudents.length, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: translateText(`Ожидается`), value: formatAmount(expectedAmount), icon: AlertCircle, color: 'text-slate-500', bg: 'bg-slate-100' },
+          { label: translateText(`Оплачено`), value: formatAmount(paidAmount), icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: translateText('Остаток'), value: remaining > 0 ? formatAmount(remaining) : '—', icon: Clock, color: remaining > 0 ? 'text-amber-600' : 'text-slate-400', bg: remaining > 0 ? 'bg-amber-50' : 'bg-slate-50' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
             <div className={cn('size-9 rounded-xl flex items-center justify-center', bg)}>
@@ -1485,19 +1457,17 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
         <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-start gap-3">
           <PiggyBank className="size-4 text-blue-500 mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-blue-800">Доступный аванс: {formatAmount(availableAdvance)}</p>
+            <p className="text-sm font-semibold text-blue-800">{translateText("Доступный аванс: ")}{formatAmount(availableAdvance)}</p>
             {remaining > 0 ? (
-              <p className="text-xs text-blue-600 mt-0.5">Можно применить к {formatMonth(selectedMonth)}.</p>
+              <p className="text-xs text-blue-600 mt-0.5">{translateText("Можно применить к ")}{formatMonth(selectedMonth, locale)}.</p>
             ) : (
-              <p className="text-xs text-blue-600 mt-0.5">Этот месяц уже закрыт. Выберите следующий месяц для применения аванса.</p>
+              <p className="text-xs text-blue-600 mt-0.5">{translateText("Этот месяц уже закрыт. Выберите следующий месяц для применения аванса.")}</p>
             )}
           </div>
           {remaining > 0 && (
             <button
               onClick={() => setShowApplyAdvance(true)}
-              className="shrink-0 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors">
-              Применить
-            </button>
+              className="shrink-0 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors">{translateText("Применить")}</button>
           )}
         </div>
       )}
@@ -1506,7 +1476,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
       {giftTotal > 0 && (
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 border border-purple-200 mb-4 w-fit">
           <Gift className="size-3.5 text-purple-500" />
-          <span className="text-xs font-medium text-purple-700">Хадия: {formatAmount(giftTotal)}</span>
+          <span className="text-xs font-medium text-purple-700">{translateText("Хадия: ")}{formatAmount(giftTotal)}</span>
         </div>
       )}
 
@@ -1514,10 +1484,10 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
       {expectedAmount > 0 && (
         <div className="flex gap-2 mb-5 flex-wrap">
           {(currentStatus === 'unpaid' || currentStatus === 'partial') && remaining > 0 && (
-            <CopyBtn text={getReminderMessage(family.name, remaining, selectedMonth)} label="Скопировать напоминание" />
+            <CopyBtn text={getReminderMessage(family.name, remaining, selectedMonth, locale)} label={translateText("Скопировать напоминание")} />
           )}
           {currentStatus === 'paid' && (
-            <CopyBtn text={getThankYouMessage(family.name, selectedMonth)} label="Скопировать благодарность" />
+            <CopyBtn text={getThankYouMessage(family.name, selectedMonth, locale)} label={translateText("Скопировать благодарность")} />
           )}
         </div>
       )}
@@ -1525,10 +1495,10 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
       {/* Tabs */}
       <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1 mb-5 w-fit max-w-full overflow-x-auto">
         {([
-          { key: 'lessons', label: 'Уроки' },
-          { key: 'contacts', label: `Контакты (${family.contactIds.length})` },
-          { key: 'payments', label: `Оплаты (${supportPayments.length + legacyPayments.length})` },
-          { key: 'history', label: `История (${history.length})` },
+          { key: 'lessons', label: translateText('Уроки') },
+          { key: 'contacts', label: translateText(`Контакты (${family.contactIds.length})`) },
+          { key: 'payments', label: translateText(`Оплаты (${supportPayments.length + legacyPayments.length})`) },
+          { key: 'history', label: translateText(`История (${history.length})`) },
         ] as const).map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)}
             className={cn('shrink-0 whitespace-nowrap min-h-11 sm:min-h-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
@@ -1577,24 +1547,23 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                         'text-xs font-semibold px-2 py-0.5 rounded-full',
                         isAdvanceUsage ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
                       )}>
-                        {formatMonth(p.month)}
+                        {formatMonth(p.month, locale)}
                       </span>
                       <span className="font-semibold text-slate-800">{formatAmount(p.amount)}</span>
-                      {p.method && <span className="text-xs text-slate-400">{PAYMENT_METHOD_LABELS[p.method]}</span>}
+                      {p.method && <span className="text-xs text-slate-400">{localizeUI(PAYMENT_METHOD_LABELS, locale)[p.method]}</span>}
                     </div>
                     {/* Type / details row */}
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       {isAdvanceUsage ? (
                         <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">
-                          <PiggyBank className="size-3" />Применение аванса
-                        </span>
+                          <PiggyBank className="size-3" />{translateText("Применение аванса")}</span>
                       ) : (
                         <span className="text-xs text-slate-500">
-                          {isStudentPay ? (student?.fullName ?? 'Ученик') : 'Вся семья'}
+                          {isStudentPay ? (student?.fullName ?? translateText('Ученик')) : translateText('Вся семья')}
                         </span>
                       )}
                       {!isAdvanceUsage && p.appliedAmount !== p.amount && (
-                        <span className="text-xs text-emerald-600">Зачислено: {formatAmount(p.appliedAmount)}</span>
+                        <span className="text-xs text-emerald-600">{translateText("Зачислено: ")}{formatAmount(p.appliedAmount)}</span>
                       )}
                       {p.overpaidAmount > 0 && p.overpaymentType === 'advance' && (() => {
                         const usedFromThis = calculateUsedAdvanceFromPayment(p.id, supportPayments);
@@ -1602,34 +1571,34 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                         return (
                           <>
                             <span className="flex items-center gap-1 text-xs text-blue-600">
-                              <PiggyBank className="size-3" />Аванс: {formatAmount(p.overpaidAmount)}
+                              <PiggyBank className="size-3" />{translateText("Аванс: ")}{formatAmount(p.overpaidAmount)}
                             </span>
                             {usedFromThis > 0 && (
-                              <span className="text-xs text-slate-400">Применено: {formatAmount(usedFromThis)}</span>
+                              <span className="text-xs text-slate-400">{translateText("Применено: ")}{formatAmount(usedFromThis)}</span>
                             )}
                             {freeFromThis > 0 && (
-                              <span className="text-xs text-emerald-600">Свободно: {formatAmount(freeFromThis)}</span>
+                              <span className="text-xs text-emerald-600">{translateText("Свободно: ")}{formatAmount(freeFromThis)}</span>
                             )}
                             {freeFromThis === 0 && usedFromThis > 0 && (
-                              <span className="text-xs text-slate-400">Израсходован</span>
+                              <span className="text-xs text-slate-400">{translateText("Израсходован")}</span>
                             )}
                           </>
                         );
                       })()}
                       {p.overpaidAmount > 0 && p.overpaymentType === 'gift' && (
                         <span className="flex items-center gap-1 text-xs text-purple-600">
-                          <Gift className="size-3" />→ Хадия {formatAmount(p.overpaidAmount)}
+                          <Gift className="size-3" />{translateText("→ Хадия ")}{formatAmount(p.overpaidAmount)}
                         </span>
                       )}
                     </div>
                     {p.note && !isAdvanceUsage && <p className="text-xs text-slate-400 mt-1">{p.note}</p>}
-                    <p className="text-[10px] text-slate-400 mt-1">{fmtDate(p.paidAt)}</p>
+                    <p className="text-[10px] text-slate-400 mt-1">{fmtDate(p.paidAt, locale)}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {isAdvanceUsage ? (
                       <button onClick={() => setEditAdvanceUsage(p)}
                         className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                        title="Редактировать применение аванса">
+                        title={translateText("Редактировать применение аванса")}>
                         <Edit2 className="size-3.5" />
                       </button>
                     ) : (
@@ -1678,7 +1647,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
           {legacyPayments.length > 0 && (
             <>
               {supportPayments.length > 0 && (
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide pt-2">Прежние записи</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide pt-2">{translateText("Прежние записи")}</p>
               )}
               {legacyPayments.map((p) => {
                 const sc = STATUS_COLORS[p.status];
@@ -1687,12 +1656,12 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                   <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-4 opacity-80">
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <div>
-                        <p className="font-semibold text-slate-800">{formatMonth(p.month)}</p>
-                        {p.paymentMethod && <p className="text-xs text-slate-400 mt-0.5">{PAYMENT_METHOD_LABELS[p.paymentMethod]}{p.comment ? ` · ${p.comment}` : ''}</p>}
+                        <p className="font-semibold text-slate-800">{formatMonth(p.month, locale)}</p>
+                        {p.paymentMethod && <p className="text-xs text-slate-400 mt-0.5">{localizeUI(PAYMENT_METHOD_LABELS, locale)[p.paymentMethod]}{p.comment ? ` · ${p.comment}` : ''}</p>}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <span className={cn('text-xs font-medium px-2.5 py-1 rounded-full', sc.badge)}>
-                          {PAYMENT_STATUS_LABELS[p.status]}
+                          {localizeUI(PAYMENT_STATUS_LABELS, locale)[p.status]}
                         </span>
                         <button onClick={() => deleteFamilyPayment(p.id)}
                           className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors">
@@ -1701,9 +1670,9 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                       </div>
                     </div>
                     <div className="flex gap-4 text-sm">
-                      {p.expectedAmount > 0 && <span className="text-slate-500">Начислено: <span className="font-medium text-slate-800">{formatAmount(p.expectedAmount)}</span></span>}
-                      <span className="text-slate-500">Оплачено: <span className="font-semibold text-emerald-700">{formatAmount(p.paidAmount)}</span></span>
-                      {rem > 0 && <span className="text-slate-500">Остаток: <span className="font-semibold text-amber-600">{formatAmount(rem)}</span></span>}
+                      {p.expectedAmount > 0 && <span className="text-slate-500">{translateText("Начислено: ")}<span className="font-medium text-slate-800">{formatAmount(p.expectedAmount)}</span></span>}
+                      <span className="text-slate-500">{translateText("Оплачено: ")}<span className="font-semibold text-emerald-700">{formatAmount(p.paidAmount)}</span></span>
+                      {rem > 0 && <span className="text-slate-500">{translateText("Остаток: ")}<span className="font-semibold text-amber-600">{formatAmount(rem)}</span></span>}
                     </div>
                   </div>
                 );
@@ -1714,11 +1683,9 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
           {supportPayments.length === 0 && legacyPayments.length === 0 && (
             <div className="text-center py-10 bg-slate-50 rounded-2xl">
               <Wallet className="size-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-slate-500 text-sm">Оплат ещё не было</p>
+              <p className="text-slate-500 text-sm">{translateText("Оплат ещё не было")}</p>
               <button onClick={() => openPaymentModal('family')}
-                className="mt-3 text-sm text-emerald-600 hover:underline">
-                Внести первую оплату
-              </button>
+                className="mt-3 text-sm text-emerald-600 hover:underline">{translateText("Внести первую оплату")}</button>
             </div>
           )}
         </div>
@@ -1729,13 +1696,13 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
         <div className="space-y-2">
           {history.length === 0 ? (
             <div className="text-center py-10 bg-slate-50 rounded-2xl">
-              <p className="text-slate-500 text-sm">История пуста</p>
+              <p className="text-slate-500 text-sm">{translateText("История пуста")}</p>
             </div>
           ) : (
             history.map((h) => {
               const actionLabels: Record<string, string> = {
-                created: 'Начислено', updated: 'Обновлено', paid: 'Оплачено',
-                partial_paid: 'Частично оплачено', refund: 'Возврат',
+                created: translateText('Начислено'), updated: translateText('Обновлено'), paid: translateText('Оплачено'),
+                partial_paid: translateText('Частично оплачено'), refund: translateText('Возврат'),
               };
               const actionColors: Record<string, string> = {
                 created: 'text-blue-600', updated: 'text-slate-600', paid: 'text-emerald-600',
@@ -1752,7 +1719,7 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                     </div>
                     {h.comment && <p className="text-xs text-slate-400 mt-0.5">{h.comment}</p>}
                   </div>
-                  <p className="text-xs text-slate-400 shrink-0">{fmtDate(h.createdAt)}</p>
+                  <p className="text-xs text-slate-400 shrink-0">{fmtDate(h.createdAt, locale)}</p>
                 </div>
               );
             })
@@ -1769,23 +1736,21 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                 <Trash2 className="size-5 text-red-500" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Удалить семью?</h2>
-                <p className="text-sm text-slate-500">Это действие нельзя отменить</p>
+                <h2 className="text-lg font-bold text-slate-900">{translateText("Удалить семью?")}</h2>
+                <p className="text-sm text-slate-500">{translateText("Это действие нельзя отменить")}</p>
               </div>
             </div>
             <div className="bg-slate-50 rounded-xl p-3 mb-4">
               <p className="font-semibold text-slate-800">{family.name}</p>
               <p className="text-xs text-slate-500 mt-0.5">
-                {familyStudents.length} учеников · {supportPayments.length + legacyPayments.length} оплат
-              </p>
+                {familyStudents.length}{translateText(" учеников · ")}{supportPayments.length + legacyPayments.length}{translateText("оплат")}</p>
             </div>
-            <p className="text-sm text-slate-500 mb-5">Ученики останутся в системе. История оплат будет удалена.</p>
+            <p className="text-sm text-slate-500 mb-5">{translateText("Ученики останутся в системе. История оплат будет удалена.")}</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowDelete(false)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+              <button onClick={() => setShowDelete(false)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
               <button onClick={() => { deleteFamily(familyId); router.push('/support'); }}
                 className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 flex items-center justify-center gap-1.5">
-                <Trash2 className="size-4" /> Удалить
-              </button>
+                <Trash2 className="size-4" />{translateText("Удалить")}</button>
             </div>
           </div>
         </div>
@@ -1808,27 +1773,27 @@ export function FamilyDetail({ familyId }: { familyId: string }) {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-slate-900">
-                    {isAdvanceUsageDel ? 'Отменить применение аванса?' : 'Удалить оплату?'}
+                    {isAdvanceUsageDel ? translateText('Отменить применение аванса?') : translateText('Удалить оплату?')}
                   </h2>
                   <p className="text-sm text-slate-500">
-                    {isAdvanceUsageDel ? 'Аванс вернётся на баланс' : 'После удаления суммы будут пересчитаны'}
+                    {isAdvanceUsageDel ? translateText('Аванс вернётся на баланс') : translateText('После удаления суммы будут пересчитаны')}
                   </p>
                 </div>
               </div>
               {deletingPayment && (
                 <div className="bg-slate-50 rounded-xl p-3 mb-4">
                   <p className="font-semibold text-slate-800">{formatAmount(deletingPayment.amount)}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{formatMonth(deletingPayment.month)} · {fmtDate(deletingPayment.paidAt)}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{formatMonth(deletingPayment.month, locale)} · {fmtDate(deletingPayment.paidAt, locale)}</p>
                 </div>
               )}
               <div className="flex gap-3">
-                <button onClick={() => setDeletingPaymentId(null)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+                <button onClick={() => setDeletingPaymentId(null)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
                 <button onClick={() => { deleteSupportPayment(deletingPaymentId); setDeletingPaymentId(null); }}
                   className={cn('flex-1 px-4 py-2 rounded-xl text-white text-sm font-medium flex items-center justify-center gap-1.5',
                     isAdvanceUsageDel ? 'bg-blue-500 hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'
                   )}>
                   {isAdvanceUsageDel ? <PiggyBank className="size-4" /> : <Trash2 className="size-4" />}
-                  {isAdvanceUsageDel ? 'Отменить' : 'Удалить'}
+                  {isAdvanceUsageDel ? translateText('Отменить') : translateText('Удалить')}
                 </button>
               </div>
             </div>

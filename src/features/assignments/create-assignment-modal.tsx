@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
 
 import { useState, useRef, useEffect } from 'react';
@@ -59,6 +63,8 @@ export function CreateAssignmentModal({
   mode = 'create',
   assignmentId,
 }: Props) {
+  const { t: translateText, locale } = useTranslation();
+
   const students = useStudents();
   const { createAssignment, updateAssignment } = useAppStore();
   const existingAssignment = useAppStore((s) =>
@@ -77,7 +83,7 @@ export function CreateAssignmentModal({
 
   const studentOptions = students
     .filter((s) => s.isActive)
-    .map((s) => ({ value: s.id, label: `${s.fullName} (Группа ${getStudentGroupLabel(s.group)})` }));
+    .map((s) => ({ value: s.id, label: translateText(`${s.fullName} (Группа ${getStudentGroupLabel(s.group)})`) }));
 
   // sync form state when modal opens
   useEffect(() => {
@@ -103,8 +109,8 @@ export function CreateAssignmentModal({
 
   function validate(): boolean {
     const errs: typeof errors = {};
-    if (!preselectedStudentId && mode === 'create' && !studentId) errs.studentId = 'Выберите ученика';
-    if (!title.trim()) errs.title = 'Введите название';
+    if (!preselectedStudentId && mode === 'create' && !studentId) errs.studentId = translateText('Выберите ученика');
+    if (!title.trim()) errs.title = translateText('Введите название');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -161,12 +167,12 @@ export function CreateAssignmentModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEdit ? 'Редактировать задание' : 'Создать задание'}
-      description={isEdit ? 'Измените данные задания' : 'Выдайте задание ученику'}
+      title={isEdit ? translateText('Редактировать задание') : translateText('Создать задание')}
+      description={isEdit ? translateText('Измените данные задания') : translateText('Выдайте задание ученику')}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>Отмена</Button>
-          <Button onClick={handleSubmit}>{isEdit ? 'Сохранить' : 'Создать'}</Button>
+          <Button variant="outline" onClick={onClose}>{translateText("Отмена")}</Button>
+          <Button onClick={handleSubmit}>{isEdit ? translateText('Сохранить') : translateText('Создать')}</Button>
         </>
       }
     >
@@ -174,29 +180,29 @@ export function CreateAssignmentModal({
         {/* student selector — only in create mode without preselection */}
         {!preselectedStudentId && !isEdit && (
           <Select
-            label="Ученик *"
+            label={translateText("Ученик *")}
             options={studentOptions}
-            placeholder="Выберите ученика..."
+            placeholder={translateText("Выберите ученика...")}
             value={studentId}
             onChange={(e) => { setStudentId(e.target.value); setErrors((p) => ({ ...p, studentId: undefined })); }}
-            error={errors.studentId}
+            error={translateText(errors.studentId)}
           />
         )}
 
         {/* title */}
         <Input
-          label="Название задания *"
-          placeholder="Сура Аль-Фатиха"
+          label={translateText("Название задания *")}
+          placeholder={translateText("Сура Аль-Фатиха")}
           value={title}
           onChange={(e) => { setTitle(e.target.value); setErrors((p) => ({ ...p, title: undefined })); }}
-          error={errors.title}
+          error={translateText(errors.title)}
         />
 
         {/* type selector */}
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium text-slate-700">Тип задания</p>
+          <p className="text-sm font-medium text-slate-700">{translateText("Тип задания")}</p>
           <div className="grid grid-cols-2 gap-2">
-            {TYPE_OPTIONS.map((opt) => (
+            {localizeUI(TYPE_OPTIONS, locale).map((opt) => (
               <button
                 key={opt.value}
                 type="button"
@@ -223,11 +229,11 @@ export function CreateAssignmentModal({
 
         {/* description + paste area */}
         <div className="flex flex-col gap-1.5">
-          <p className="text-sm font-medium text-slate-700">Описание и вложения</p>
+          <p className="text-sm font-medium text-slate-700">{translateText("Описание и вложения")}</p>
           <div className="rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-colors">
             <textarea
               className="w-full px-3 py-2.5 text-sm resize-none outline-none min-h-[80px] placeholder:text-slate-400"
-              placeholder="Что нужно сделать ученику..."
+              placeholder={translateText("Что нужно сделать ученику...")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onPaste={handlePaste}
@@ -238,11 +244,9 @@ export function CreateAssignmentModal({
                 onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-emerald-600 transition-colors cursor-pointer"
               >
-                <Paperclip className="size-3.5" />
-                Прикрепить файл
-              </button>
+                <Paperclip className="size-3.5" />{translateText("Прикрепить файл")}</button>
               <span className="text-slate-300 text-xs">·</span>
-              <span className="text-xs text-slate-400">Ctrl+V для скриншота</span>
+              <span className="text-xs text-slate-400">{translateText("Ctrl+V для скриншота")}</span>
             </div>
           </div>
 
@@ -291,7 +295,7 @@ export function CreateAssignmentModal({
 
         {/* due date */}
         <Input
-          label="Дедлайн (опционально)"
+          label={translateText("Дедлайн (опционально)")}
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}

@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
 
 import { useState, useMemo } from 'react';
@@ -42,6 +46,8 @@ interface Props {
 }
 
 export function ParentDetail({ contactId }: Props) {
+  const { t: translateText, locale } = useTranslation();
+
   const router = useRouter();
   const contact = useFamilyContactById(contactId);
   const links = useContactStudentLinks(contactId);
@@ -65,10 +71,9 @@ export function ParentDetail({ contactId }: Props) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <UserRound className="size-8 text-slate-300" />
-        <p className="text-lg font-semibold text-slate-700">Представитель не найден</p>
+        <p className="text-lg font-semibold text-slate-700">{translateText("Представитель не найден")}</p>
         <Button variant="outline" onClick={() => router.push('/families?tab=representatives')}>
-          <ArrowLeft className="size-4" />Назад к списку
-        </Button>
+          <ArrowLeft className="size-4" />{translateText("Назад к списку")}</Button>
       </div>
     );
   }
@@ -85,10 +90,10 @@ export function ParentDetail({ contactId }: Props) {
   }
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'children', label: `Дети (${childRows.length})` },
-    { id: 'support', label: 'Поддержка' },
-    { id: 'contacts', label: 'Контакты' },
-    { id: 'notes', label: 'Заметки' },
+    { id: 'children', label: translateText(`Дети (${childRows.length})`) },
+    { id: 'support', label: translateText('Поддержка') },
+    { id: 'contacts', label: translateText('Контакты') },
+    { id: 'notes', label: translateText('Заметки') },
   ];
 
   const familyId = contact.familyId;
@@ -101,8 +106,8 @@ export function ParentDetail({ contactId }: Props) {
       <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
         <Breadcrumb
           items={[
-            { label: 'Семьи', href: '/families' },
-            { label: 'Представители', href: '/families?tab=representatives' },
+            { label: translateText('Семьи'), href: '/families' },
+            { label: translateText('Представители'), href: '/families?tab=representatives' },
             { label: contact.fullName },
           ]}
         />
@@ -116,17 +121,14 @@ export function ParentDetail({ contactId }: Props) {
             </button>
             <div>
               <h1 className="text-xl font-bold text-slate-900">{contact.fullName}</h1>
-              <p className="text-sm text-slate-500">
-                Представитель семьи
-                {childRows.length > 0 && ` · ${childRows.length} ${childRows.length === 1 ? 'ученик' : 'ученика'}`}
+              <p className="text-sm text-slate-500">{translateText("Представитель семьи")}{childRows.length > 0 && translateText(` · ${childRows.length} ${childRows.length === 1 ? translateText('ученик') : translateText('ученика')}`)}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Link href={`/parents/${contactId}/edit`}>
               <Button variant="outline" size="sm">
-                <Pencil className="size-3.5" />Редактировать
-              </Button>
+                <Pencil className="size-3.5" />{translateText("Редактировать")}</Button>
             </Link>
             {contact.isArchived ? (
               <Button
@@ -135,8 +137,7 @@ export function ParentDetail({ contactId }: Props) {
                 onClick={handleRestore}
                 className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
               >
-                <ArchiveRestore className="size-3.5" />Восстановить
-              </Button>
+                <ArchiveRestore className="size-3.5" />{translateText("Восстановить")}</Button>
             ) : (
               <Button
                 variant="ghost"
@@ -144,8 +145,7 @@ export function ParentDetail({ contactId }: Props) {
                 onClick={() => setConfirmArchive(true)}
                 className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
               >
-                <Archive className="size-3.5" />В архив
-              </Button>
+                <Archive className="size-3.5" />{translateText("В архив")}</Button>
             )}
           </div>
         </div>
@@ -159,19 +159,19 @@ export function ParentDetail({ contactId }: Props) {
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-bold text-slate-900">{contact.fullName}</h2>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {contact.isArchived && <Badge variant="slate">В архиве</Badge>}
-            {isFamilyPrimary && <Badge variant="emerald">Основной контакт</Badge>}
-            {isFamilyBilling && <Badge variant="info">Плательщик (осн.)</Badge>}
+            {contact.isArchived && <Badge variant="slate">{translateText("В архиве")}</Badge>}
+            {isFamilyPrimary && <Badge variant="emerald">{translateText("Основной контакт")}</Badge>}
+            {isFamilyBilling && <Badge variant="info">{translateText("Плательщик (осн.)")}</Badge>}
             {contact.familyRelation && (
               <Badge variant="slate">
                 {contact.familyRelation === 'other' && contact.customFamilyRelation
                   ? contact.customFamilyRelation
-                  : FAMILY_RELATION_LABELS[contact.familyRelation]}
+                  : localizeUI(FAMILY_RELATION_LABELS, locale)[contact.familyRelation]}
               </Badge>
             )}
             {contact.roles?.map((role) => (
               <Badge key={role} variant="slate" className="text-[10px]">
-                {FAMILY_CONTACT_ROLE_LABELS[role]}
+                {localizeUI(FAMILY_CONTACT_ROLE_LABELS, locale)[role]}
               </Badge>
             ))}
             {contact.customRoles?.map((role) => (
@@ -180,8 +180,7 @@ export function ParentDetail({ contactId }: Props) {
               </Badge>
             ))}
             {contact.preferredContact && (
-              <Badge variant="slate">
-                Предпочитает: {PREFERRED_CONTACT_METHOD_LABELS[contact.preferredContact]}
+              <Badge variant="slate">{translateText("Предпочитает:")}{localizeUI(PREFERRED_CONTACT_METHOD_LABELS, locale)[contact.preferredContact]}
               </Badge>
             )}
           </div>
@@ -236,24 +235,21 @@ export function ParentDetail({ contactId }: Props) {
         isOpen={confirmArchive}
         onClose={() => setConfirmArchive(false)}
         size="sm"
-        title="Отправить в архив?"
-        description={`«${contact.fullName}» будет скрыт из активного списка. Связи с учениками сохранятся.`}
+        title={translateText("Отправить в архив?")}
+        description={translateText(`«${contact.fullName}» будет скрыт из активного списка. Связи с учениками сохранятся.`)}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setConfirmArchive(false)}>Отмена</Button>
+            <Button variant="ghost" onClick={() => setConfirmArchive(false)}>{translateText("Отмена")}</Button>
             <Button onClick={handleArchive}>
-              <Archive className="size-4" />В архив
-            </Button>
+              <Archive className="size-4" />{translateText("В архив")}</Button>
           </>
         }
       >
         {childRows.length > 0 ? (
-          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            У представителя {childRows.length}{' '}
-            {childRows.length === 1 ? 'ученик' : 'ученика'} — связи сохранятся, можно восстановить позже.
-          </p>
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{translateText("У представителя")}{childRows.length}{' '}
+            {childRows.length === 1 ? translateText('ученик') : translateText('ученика')}{translateText("— связи сохранятся, можно восстановить позже.")}</p>
         ) : (
-          <p className="text-sm text-slate-500">Связанных учеников нет — архивирование безопасно.</p>
+          <p className="text-sm text-slate-500">{translateText("Связанных учеников нет — архивирование безопасно.")}</p>
         )}
       </Modal>
     </div>
@@ -282,20 +278,22 @@ interface ChildRow {
 }
 
 function ChildrenTab({ rows, contactId }: { rows: ChildRow[]; contactId: string }) {
+  const { t: translateText } = useTranslation();
+
   const router = useRouter();
 
   if (rows.length === 0) {
     return (
       <EmptyState
         icon={<Users className="size-5" />}
-        title="Учеников не привязано"
-        description="Привяжите ученика через карточку семьи"
+        title={translateText("Учеников не привязано")}
+        description={translateText("Привяжите ученика через карточку семьи")}
       />
     );
   }
 
   return (
-    <SectionCard title="Дети" description="Ученики, привязанные к этому представителю">
+    <SectionCard title={translateText("Дети")} description={translateText("Ученики, привязанные к этому представителю")}>
       <div className="flex flex-col gap-2">
         {rows.map(({ link, student }) => {
           const initials = student.fullName.slice(0, 2).toUpperCase();
@@ -320,14 +318,13 @@ function ChildrenTab({ rows, contactId }: { rows: ChildRow[]; contactId: string 
                   <Badge variant="slate" className="text-[10px]">{relationText}</Badge>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {student.age} лет · Группа {getStudentGroupLabel(student.group)} · {student.totalPoints} баллов
-                </p>
+                  {student.age}{translateText(" лет · Группа ")}{getStudentGroupLabel(student.group)} · {student.totalPoints}{translateText("баллов")}</p>
                 <div className="flex flex-wrap gap-1 mt-1.5">
-                  {link.isPrimaryContact && <Badge variant="emerald" className="text-[10px]">Основной</Badge>}
-                  {link.canDecideEducation && <Badge variant="slate" className="text-[10px]">Решает</Badge>}
-                  {link.canReceiveNotifications && <Badge variant="slate" className="text-[10px]">Уведомления</Badge>}
-                  {link.isEmergencyContact && <Badge variant="warning" className="text-[10px]">Экстренный</Badge>}
-                  {link.isBillingContact && <Badge variant="info" className="text-[10px]">Платит</Badge>}
+                  {link.isPrimaryContact && <Badge variant="emerald" className="text-[10px]">{translateText("Основной")}</Badge>}
+                  {link.canDecideEducation && <Badge variant="slate" className="text-[10px]">{translateText("Решает")}</Badge>}
+                  {link.canReceiveNotifications && <Badge variant="slate" className="text-[10px]">{translateText("Уведомления")}</Badge>}
+                  {link.isEmergencyContact && <Badge variant="warning" className="text-[10px]">{translateText("Экстренный")}</Badge>}
+                  {link.isBillingContact && <Badge variant="info" className="text-[10px]">{translateText("Платит")}</Badge>}
                 </div>
               </div>
               <Link
@@ -335,8 +332,7 @@ function ChildrenTab({ rows, contactId }: { rows: ChildRow[]; contactId: string 
                 onClick={(e) => e.stopPropagation()}
                 className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors shrink-0 self-start mt-0.5"
               >
-                <Pencil className="size-3" />Роли
-              </Link>
+                <Pencil className="size-3" />{translateText("Роли")}</Link>
             </div>
           );
         })}
@@ -346,18 +342,20 @@ function ChildrenTab({ rows, contactId }: { rows: ChildRow[]; contactId: string 
 }
 
 function ContactsTab({ contact }: { contact: NonNullable<ReturnType<typeof useFamilyContactById>> }) {
+  const { t: translateText } = useTranslation();
+
   const family = useFamilyById(contact.familyId);
   const displayAddress = contact.usesFamilyAddress ? family?.address : contact.address;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-      <SectionCard title="Контакты" description="Все способы связи">
+      <SectionCard title={translateText("Контакты")} description={translateText("Все способы связи")}>
         <div className="flex flex-col gap-3">
           {displayAddress && (
             <ContactRow icon={<UserRound className="size-3.5 text-slate-400" />}>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Адрес</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Адрес")}</p>
               <p className="text-sm text-slate-700">{displayAddress}</p>
-              {contact.usesFamilyAddress && <p className="text-[10px] text-slate-400">Адрес семьи</p>}
+              {contact.usesFamilyAddress && <p className="text-[10px] text-slate-400">{translateText("Адрес семьи")}</p>}
             </ContactRow>
           )}
           {contact.whatsapp && (
@@ -376,7 +374,7 @@ function ContactsTab({ contact }: { contact: NonNullable<ReturnType<typeof useFa
 
           {contact.phone && (
             <ContactRow icon={<Phone className="size-3.5 text-slate-400" />}>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Телефон</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Телефон")}</p>
               <a href={`tel:${contact.phone}`} className="text-sm text-slate-700 hover:text-emerald-600">
                 {contact.phone}
               </a>
@@ -417,26 +415,30 @@ function ContactsTab({ contact }: { contact: NonNullable<ReturnType<typeof useFa
 }
 
 function NotesTab({ contact }: { contact: NonNullable<ReturnType<typeof useFamilyContactById>> }) {
+  const { t: translateText } = useTranslation();
+
   const notes = contact.notes;
 
   if (!notes) {
     return (
       <EmptyState
         icon={<FileText className="size-5" />}
-        title="Заметок пока нет"
-        description="Добавьте заметки при редактировании представителя"
+        title={translateText("Заметок пока нет")}
+        description={translateText("Добавьте заметки при редактировании представителя")}
       />
     );
   }
 
   return (
-    <SectionCard title="Заметки">
+    <SectionCard title={translateText("Заметки")}>
       <p className="text-sm text-slate-600 whitespace-pre-wrap">{notes}</p>
     </SectionCard>
   );
 }
 
 function SupportTab({ familyId }: { familyId: string }) {
+  const { t: translateText, locale } = useTranslation();
+
   const family = useFamilyById(familyId);
   const payments = useFamilyPaymentsByFamilyId(family?.id ?? '');
   const currentMonth = getCurrentMonth();
@@ -446,20 +448,19 @@ function SupportTab({ familyId }: { familyId: string }) {
     return (
       <EmptyState
         icon={<HeartHandshake className="size-5" />}
-        title="Запись поддержки не создана"
-        description="Создайте запись, чтобы отслеживать взносы этой семьи"
+        title={translateText("Запись поддержки не создана")}
+        description={translateText("Создайте запись, чтобы отслеживать взносы этой семьи")}
         action={
           <Link href="/support/families/new">
             <Button variant="outline">
-              <Plus className="size-3.5" />Создать запись
-            </Button>
+              <Plus className="size-3.5" />{translateText("Создать запись")}</Button>
           </Link>
         }
       />
     );
   }
 
-  const plan = SUPPORT_PLANS[family.supportPlanType];
+  const plan = localizeUI(SUPPORT_PLANS, locale)[family.supportPlanType];
   const planColors = PLAN_COLORS[family.supportPlanType];
   const expectedAmount = currentPayment?.expectedAmount ?? calculateFamilyExpectedAmount(family);
   const paidAmount = currentPayment?.paidAmount ?? 0;
@@ -469,8 +470,8 @@ function SupportTab({ familyId }: { familyId: string }) {
 
   return (
     <SectionCard
-      title="Учёт поддержки"
-      description={`Запись семьи · ${formatMonth(currentMonth)}`}
+      title={translateText("Учёт поддержки")}
+      description={translateText(`Запись семьи · ${formatMonth(currentMonth, locale)}`)}
     >
       <div className="space-y-4">
         {/* Plan badge */}
@@ -480,14 +481,13 @@ function SupportTab({ familyId }: { familyId: string }) {
               {plan.emoji} {plan.name}
             </span>
             <span className={cn('px-2.5 py-1 rounded-lg text-xs font-medium', statusColors.badge)}>
-              {PAYMENT_STATUS_LABELS[status]}
+              {localizeUI(PAYMENT_STATUS_LABELS, locale)[status]}
             </span>
           </div>
           <Link
             href={`/support/families/${family.id}`}
             className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:underline"
-          >
-            Открыть запись <ChevronRight className="size-3" />
+          >{translateText("Открыть запись")}<ChevronRight className="size-3" />
           </Link>
         </div>
 
@@ -495,15 +495,15 @@ function SupportTab({ familyId }: { familyId: string }) {
         {expectedAmount > 0 && (
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center bg-slate-50 rounded-xl py-2.5">
-              <p className="text-[10px] text-slate-400 mb-0.5">Ожидается</p>
+              <p className="text-[10px] text-slate-400 mb-0.5">{translateText("Ожидается")}</p>
               <p className="text-sm font-bold text-slate-800">{formatAmount(expectedAmount)}</p>
             </div>
             <div className="text-center bg-emerald-50 rounded-xl py-2.5">
-              <p className="text-[10px] text-slate-400 mb-0.5">Оплачено</p>
+              <p className="text-[10px] text-slate-400 mb-0.5">{translateText("Оплачено")}</p>
               <p className="text-sm font-bold text-emerald-700">{formatAmount(paidAmount)}</p>
             </div>
             <div className={cn('text-center rounded-xl py-2.5', remaining > 0 ? 'bg-amber-50' : 'bg-slate-50')}>
-              <p className="text-[10px] text-slate-400 mb-0.5">Остаток</p>
+              <p className="text-[10px] text-slate-400 mb-0.5">{translateText("Остаток")}</p>
               <p className={cn('text-sm font-bold', remaining > 0 ? 'text-amber-700' : 'text-slate-400')}>
                 {remaining > 0 ? formatAmount(remaining) : '—'}
               </p>
@@ -519,10 +519,9 @@ function SupportTab({ familyId }: { familyId: string }) {
               return (
                 <div key={ls.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg bg-slate-50">
                   <span className={cn('px-1.5 py-0.5 rounded-md font-medium mr-2', c.badge)}>
-                    {SUPPORT_PLANS[ls.planType].emoji}
+                    {localizeUI(SUPPORT_PLANS, locale)[ls.planType].emoji}
                   </span>
-                  <span className="flex-1 text-slate-600 truncate">
-                    Ученик #{ls.studentId.slice(-4)}
+                  <span className="flex-1 text-slate-600 truncate">{translateText("Ученик #")}{ls.studentId.slice(-4)}
                   </span>
                   <span className={cn('font-semibold', c.text)}>{formatAmount(ls.monthlyAmount)}</span>
                 </div>

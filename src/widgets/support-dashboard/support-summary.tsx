@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { Users, Wallet, TrendingDown, TrendingUp, CheckCircle2, Clock, AlertCircle, PiggyBank } from 'lucide-react';
 import { formatAmount } from '@/entities/support/model/helpers';
 import { cn } from '@/shared/lib/cn';
@@ -13,6 +16,8 @@ interface Props {
 }
 
 export function SupportSummary({ allRows, filteredCount, currentStatusFilter, onStatusFilter }: Props) {
+  const { t: translateText } = useTranslation();
+
   const totalFamilies = allRows.length;
   const totalExpected = allRows.reduce((s, r) => s + r.expectedAmount, 0);
   const totalPaid = allRows.reduce((s, r) => s + r.paidAmount, 0);
@@ -27,29 +32,29 @@ export function SupportSummary({ allRows, filteredCount, currentStatusFilter, on
       {/* Main stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
-          label="Семей"
+          label={translateText("Семей")}
           value={totalFamilies}
-          sub={filteredCount !== totalFamilies ? `показано ${filteredCount}` : undefined}
+          sub={filteredCount !== totalFamilies ? translateText(`показано ${filteredCount}`) : undefined}
           icon={<Users className="size-4" />}
           bg="bg-blue-50"
           color="text-blue-600"
         />
         <StatCard
-          label="Ожидается"
+          label={translateText("Ожидается")}
           value={formatAmount(totalExpected)}
           icon={<TrendingDown className="size-4" />}
           bg="bg-slate-100"
           color="text-slate-600"
         />
         <StatCard
-          label="Собрано"
+          label={translateText("Собрано")}
           value={formatAmount(totalPaid)}
           icon={<Wallet className="size-4" />}
           bg="bg-emerald-50"
           color="text-emerald-600"
         />
         <StatCard
-          label="Остаток"
+          label={translateText("Остаток")}
           value={formatAmount(totalRemaining)}
           icon={<TrendingUp className="size-4" />}
           bg="bg-amber-50"
@@ -60,7 +65,7 @@ export function SupportSummary({ allRows, filteredCount, currentStatusFilter, on
       {/* Clickable status chips row */}
       <div className="flex flex-wrap gap-2">
         <StatusChip
-          label="Оплачено"
+          label={translateText("Оплачено")}
           count={paidCount}
           status="paid"
           activeFilter={currentStatusFilter}
@@ -68,7 +73,7 @@ export function SupportSummary({ allRows, filteredCount, currentStatusFilter, on
           onClick={onStatusFilter}
         />
         <StatusChip
-          label="Частично"
+          label={translateText("Частично")}
           count={partialCount}
           status="partial"
           activeFilter={currentStatusFilter}
@@ -76,7 +81,7 @@ export function SupportSummary({ allRows, filteredCount, currentStatusFilter, on
           onClick={onStatusFilter}
         />
         <StatusChip
-          label="Не оплачено"
+          label={translateText("Не оплачено")}
           count={unpaidCount}
           status="unpaid"
           activeFilter={currentStatusFilter}
@@ -85,8 +90,7 @@ export function SupportSummary({ allRows, filteredCount, currentStatusFilter, on
         />
         {totalAdvance > 0 && (
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-xs font-medium text-blue-700">
-            <PiggyBank className="size-3" />
-            Аванс: {formatAmount(totalAdvance)}
+            <PiggyBank className="size-3" />{translateText("Аванс:")}{formatAmount(totalAdvance)}
           </div>
         )}
       </div>

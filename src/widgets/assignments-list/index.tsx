@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, BookOpen, Trash2, Paperclip } from 'lucide-react';
@@ -34,6 +38,8 @@ const TYPE_FILTERS: { value: AssignmentType | 'all'; label: string }[] = [
 // ─── component ───────────────────────────────────────────────────────────────
 
 export function AssignmentsList() {
+  const { t: translateText, locale } = useTranslation();
+
   const router = useRouter();
   const assignments = useAssignments();
   const students = useStudents();
@@ -45,7 +51,7 @@ export function AssignmentsList() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   const studentName = (id: string) =>
-    students.find((s) => s.id === id)?.fullName ?? 'Неизвестный';
+    students.find((s) => s.id === id)?.fullName ?? translateText('Неизвестный');
 
   const filtered = assignments
     .filter((a) => statusFilter === 'all' || a.status === statusFilter)
@@ -65,19 +71,17 @@ export function AssignmentsList() {
   return (
     <div>
       <PageHeader
-        title="Задания"
-        description={`${assignments.length} заданий всего`}
+        title={translateText("Задания")}
+        description={translateText(`${assignments.length} заданий всего`)}
         action={
           <Button onClick={handleCreate}>
-            <Plus className="size-4" />
-            Создать задание
-          </Button>
+            <Plus className="size-4" />{translateText("Создать задание")}</Button>
         }
       />
 
       {/* status filters */}
       <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-        {STATUS_FILTERS.map((f) => {
+        {localizeUI(STATUS_FILTERS, locale).map((f) => {
           const count = f.value === 'all' ? assignments.length : assignments.filter((a) => a.status === f.value).length;
           return (
             <button
@@ -97,7 +101,7 @@ export function AssignmentsList() {
 
       {/* type filters */}
       <div className="flex items-center gap-1.5 mb-4 flex-wrap">
-        {TYPE_FILTERS.map((f) => {
+        {localizeUI(TYPE_FILTERS, locale).map((f) => {
           const count = f.value === 'all'
             ? assignments.length
             : assignments.filter((a) => (a.assignmentType ?? 'homework') === f.value).length;
@@ -122,22 +126,22 @@ export function AssignmentsList() {
         {sorted.length === 0 ? (
           <EmptyState
             icon={<BookOpen className="size-5" />}
-            title="Заданий нет"
-            description="Создайте первое задание"
-            action={<Button onClick={handleCreate}><Plus className="size-4" />Создать задание</Button>}
+            title={translateText("Заданий нет")}
+            description={translateText("Создайте первое задание")}
+            action={<Button onClick={handleCreate}><Plus className="size-4" />{translateText("Создать задание")}</Button>}
             className="py-20"
           />
         ) : (
-          <div className="table-scroll" role="region" aria-label="Таблица с горизонтальной прокруткой" tabIndex={0}>
+          <div className="table-scroll" role="region" aria-label={translateText("Таблица с горизонтальной прокруткой")} tabIndex={0}>
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Задание</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ученик</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Тип</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Статус</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Выдано</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Дедлайн</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Задание")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Ученик")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Тип")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Статус")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Выдано")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Дедлайн")}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -199,22 +203,17 @@ export function AssignmentsList() {
       <Modal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        title="Удалить задание?"
-        description="Это действие нельзя отменить"
+        title={translateText("Удалить задание?")}
+        description={translateText("Это действие нельзя отменить")}
         size="sm"
         footer={
           <>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Отмена</Button>
-            <Button variant="danger" onClick={() => { if (deleteTarget) { removeAssignment(deleteTarget.id); setDeleteTarget(null); } }}>
-              Удалить
-            </Button>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>{translateText("Отмена")}</Button>
+            <Button variant="danger" onClick={() => { if (deleteTarget) { removeAssignment(deleteTarget.id); setDeleteTarget(null); } }}>{translateText("Удалить")}</Button>
           </>
         }
       >
-        <p className="text-sm text-slate-600">
-          Вы собираетесь удалить задание <strong>«{deleteTarget?.title}»</strong>.
-          Начисленные баллы будут отозваны.
-        </p>
+        <p className="text-sm text-slate-600">{translateText("Вы собираетесь удалить задание")}<strong>«{deleteTarget?.title}»</strong>{translateText(". Начисленные баллы будут отозваны.")}</p>
       </Modal>
     </div>
   );

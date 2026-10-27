@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -40,6 +43,8 @@ function ContactCard({
   onRestore: () => void;
   onClick: () => void;
 }) {
+  const { t: translateText } = useTranslation();
+
   const initials = getContactInitials(contact.fullName);
   return (
     <div
@@ -57,8 +62,8 @@ function ContactCard({
           <span className="text-sm font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors">
             {contact.fullName}
           </span>
-          {meta.isPrimary && <Badge variant="emerald" className="text-[10px]">Основной</Badge>}
-          {contact.isArchived && <Badge variant="slate" className="text-[10px]">В архиве</Badge>}
+          {meta.isPrimary && <Badge variant="emerald" className="text-[10px]">{translateText("Основной")}</Badge>}
+          {contact.isArchived && <Badge variant="slate" className="text-[10px]">{translateText("В архиве")}</Badge>}
           {meta.familyName && (
             <Badge variant="slate" className="text-[10px]">{meta.familyName}</Badge>
           )}
@@ -70,7 +75,7 @@ function ContactCard({
           </span>
           {meta.studentCount > 0 && (
             <span className="text-emerald-600 font-medium" title={meta.studentNames.join(', ')}>
-              {meta.studentCount} {meta.studentCount === 1 ? 'ученик' : meta.studentCount < 5 ? 'ученика' : 'учеников'}
+              {meta.studentCount} {meta.studentCount === 1 ? translateText('ученик') : meta.studentCount < 5 ? translateText('ученика') : translateText('учеников')}
             </span>
           )}
         </div>
@@ -84,7 +89,7 @@ function ContactCard({
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           className="size-8 rounded-lg flex items-center justify-center text-green-500 hover:bg-green-50 transition-colors shrink-0"
-          title="Написать в WhatsApp"
+          title={translateText("Написать в WhatsApp")}
         >
           <MessageCircle className="size-4" />
         </a>
@@ -100,7 +105,7 @@ function ContactCard({
           size="sm"
           onClick={onEdit}
           className="size-7 p-0 text-slate-400 hover:text-emerald-600"
-          aria-label="Редактировать"
+          aria-label={translateText("Редактировать")}
         >
           <Pencil className="size-3.5" />
         </Button>
@@ -110,7 +115,7 @@ function ContactCard({
             size="sm"
             onClick={onRestore}
             className="size-7 p-0 text-slate-400 hover:text-emerald-600"
-            aria-label="Восстановить"
+            aria-label={translateText("Восстановить")}
           >
             <ArchiveRestore className="size-3.5" />
           </Button>
@@ -120,7 +125,7 @@ function ContactCard({
             size="sm"
             onClick={onArchive}
             className="size-7 p-0 text-slate-400 hover:text-amber-600"
-            aria-label="В архив"
+            aria-label={translateText("В архив")}
           >
             <Archive className="size-3.5" />
           </Button>
@@ -131,6 +136,8 @@ function ContactCard({
 }
 
 export function ParentsList() {
+  const { t: translateText } = useTranslation();
+
   const contacts = useAllFamilyContacts();
   const families = useFamilies();
   const students = useStudents();
@@ -195,21 +202,17 @@ export function ParentsList() {
   return (
     <div>
       <PageHeader
-        title="Представители семьи"
-        description={`${activeCount} активных${archivedCount > 0 ? ` · ${archivedCount} в архиве` : ''}`}
+        title={translateText("Представители семьи")}
+        description={translateText(`${activeCount} активных${archivedCount > 0 ? translateText(` · ${archivedCount} в архиве`) : ''}`)}
         action={
           <div className="flex items-center gap-2">
             <Link href="/families/new">
               <Button variant="outline">
-                <Home className="size-4" />
-                Добавить семью
-              </Button>
+                <Home className="size-4" />{translateText("Добавить семью")}</Button>
             </Link>
             <Link href="/parents/new">
               <Button>
-                <UserPlus className="size-4" />
-                Добавить представителя
-              </Button>
+                <UserPlus className="size-4" />{translateText("Добавить представителя")}</Button>
             </Link>
           </div>
         }
@@ -221,7 +224,7 @@ export function ParentsList() {
           <div className="relative max-w-sm flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
             <Input
-              placeholder="Поиск по имени, номеру или семье..."
+              placeholder={translateText("Поиск по имени, номеру или семье...")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -233,7 +236,7 @@ export function ParentsList() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
             >
               {showArchived ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-              {showArchived ? 'Скрыть архив' : `Показать архив (${archivedCount})`}
+              {showArchived ? translateText('Скрыть архив') : translateText(`Показать архив (${archivedCount})`)}
             </button>
           )}
         </div>
@@ -241,27 +244,27 @@ export function ParentsList() {
         {visible.length === 0 ? (
           <EmptyState
             icon={<UserRound className="size-5" />}
-            title={search ? 'Представители не найдены' : 'Представителей пока нет'}
+            title={search ? translateText('Представители не найдены') : translateText('Представителей пока нет')}
             description={
               search
-                ? 'Попробуйте другой запрос'
+                ? translateText('Попробуйте другой запрос')
                 : hasFamilies
-                  ? 'Добавьте первого представителя семьи'
-                  : 'Сначала создайте семью, затем добавьте представителя'
+                  ? translateText('Добавьте первого представителя семьи')
+                  : translateText('Сначала создайте семью, затем добавьте представителя')
             }
             action={
               !search ? (
                 hasFamilies ? (
                   <Link href="/parents/new">
-                    <Button><UserPlus className="size-4" />Добавить представителя</Button>
+                    <Button><UserPlus className="size-4" />{translateText("Добавить представителя")}</Button>
                   </Link>
                 ) : (
                   <div className="flex items-center gap-2">
                     <Link href="/families/new">
-                      <Button><Plus className="size-4" />Создать семью</Button>
+                      <Button><Plus className="size-4" />{translateText("Создать семью")}</Button>
                     </Link>
                     <Link href="/parents/new">
-                      <Button variant="outline"><UserPlus className="size-4" />Добавить представителя</Button>
+                      <Button variant="outline"><UserPlus className="size-4" />{translateText("Добавить представителя")}</Button>
                     </Link>
                   </div>
                 )
@@ -291,33 +294,30 @@ export function ParentsList() {
         isOpen={archiveId !== null}
         onClose={() => setArchiveId(null)}
         size="sm"
-        title="Отправить в архив?"
+        title={translateText("Отправить в архив?")}
         description={
           contactToArchive
-            ? `«${contactToArchive.fullName}» будет скрыт из активного списка. Связи с учениками сохранятся.`
+            ? translateText(`«${contactToArchive.fullName}» будет скрыт из активного списка. Связи с учениками сохранятся.`)
             : undefined
         }
         footer={
           <>
-            <Button variant="ghost" onClick={() => setArchiveId(null)}>Отмена</Button>
+            <Button variant="ghost" onClick={() => setArchiveId(null)}>{translateText("Отмена")}</Button>
             <Button
               variant="primary"
               onClick={() => {
                 if (archiveId) { archiveFamilyContact(archiveId); setArchiveId(null); }
               }}
             >
-              <Archive className="size-4" />В архив
-            </Button>
+              <Archive className="size-4" />{translateText("В архив")}</Button>
           </>
         }
       >
         {archiveStudentCount > 0 ? (
-          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            У этого представителя {archiveStudentCount}{' '}
-            {archiveStudentCount === 1 ? 'ученик' : 'ученика'}. Связи сохранятся, представителя можно восстановить позже.
-          </p>
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{translateText("У этого представителя")}{archiveStudentCount}{' '}
+            {archiveStudentCount === 1 ? translateText('ученик') : translateText('ученика')}{translateText(". Связи сохранятся, представителя можно восстановить позже.")}</p>
         ) : (
-          <p className="text-sm text-slate-500">Связанных учеников нет — архивирование безопасно.</p>
+          <p className="text-sm text-slate-500">{translateText("Связанных учеников нет — архивирование безопасно.")}</p>
         )}
       </Modal>
     </div>

@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -48,6 +52,8 @@ interface TableProps {
 }
 
 export function SupportTable(props: TableProps) {
+  const { t: translateText } = useTranslation();
+
   const {
     rows, selectedIds, onToggleSelect, onSelectAll, allPageSelected,
     month, onPayment, onApplyAdvance, sortKey, sortDir, onSort,
@@ -76,25 +82,19 @@ export function SupportTable(props: TableProps) {
                   checked={allPageSelected}
                   onChange={onSelectAll}
                   className="rounded border-slate-300 accent-emerald-600"
-                  aria-label="Выбрать все на странице"
+                  aria-label={translateText("Выбрать все на странице")}
                 />
               </th>
-              <SortTh label="Семья" sortKey="name" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[160px]" />
-              <th scope="col" className="px-3 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide min-w-[170px]">
-                Контакт
-              </th>
-              <SortTh label="Дети" sortKey="students" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[130px] hidden lg:table-cell" />
-              <th scope="col" className="px-3 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide min-w-[130px] hidden lg:table-cell">
-                Форматы
-              </th>
-              <SortTh label="Ожидается" sortKey="expected" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[100px] text-right" align="right" />
-              <SortTh label="Оплачено" sortKey="paid" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[100px] text-right hidden lg:table-cell" align="right" />
-              <SortTh label="Остаток" sortKey="remaining" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[100px] text-right" align="right" />
-              <SortTh label="Аванс" sortKey="advance" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[90px] text-right hidden xl:table-cell" align="right" />
-              <SortTh label="Статус" sortKey="status" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[110px]" />
-              <th scope="col" className="px-3 py-3 text-right font-semibold text-slate-600 text-xs uppercase tracking-wide min-w-[130px]">
-                Действия
-              </th>
+              <SortTh label={translateText("Семья")} sortKey="name" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[160px]" />
+              <th scope="col" className="px-3 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide min-w-[170px]">{translateText("Контакт")}</th>
+              <SortTh label={translateText("Дети")} sortKey="students" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[130px] hidden lg:table-cell" />
+              <th scope="col" className="px-3 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wide min-w-[130px] hidden lg:table-cell">{translateText("Форматы")}</th>
+              <SortTh label={translateText("Ожидается")} sortKey="expected" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[100px] text-right" align="right" />
+              <SortTh label={translateText("Оплачено")} sortKey="paid" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[100px] text-right hidden lg:table-cell" align="right" />
+              <SortTh label={translateText("Остаток")} sortKey="remaining" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[100px] text-right" align="right" />
+              <SortTh label={translateText("Аванс")} sortKey="advance" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[90px] text-right hidden xl:table-cell" align="right" />
+              <SortTh label={translateText("Статус")} sortKey="status" current={sortKey} dir={sortDir} onSort={onSort} className="min-w-[110px]" />
+              <th scope="col" className="px-3 py-3 text-right font-semibold text-slate-600 text-xs uppercase tracking-wide min-w-[130px]">{translateText("Действия")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -186,11 +186,13 @@ function DesktopRow({
   onMenuToggle: (id: string) => void;
   onMenuClose: () => void;
 }) {
+  const { t: translateText, locale } = useTranslation();
+
   const router = useRouter();
   const href = `/support/families/${row.familyId}`;
 
   const reminderContact = selectReminderRecipient(row.family, row.contacts);
-  const reminderAge = formatReminderAge(row.lastReminderAt);
+  const reminderAge = localizeUI(formatReminderAge(row.lastReminderAt), locale);
 
   const twoStudents = row.studentNames.slice(0, 2).map((n) => n.split(' ')[0]).join(', ');
   const extraStudents = row.studentCount > 2 ? `+${row.studentCount - 2}` : null;
@@ -213,7 +215,7 @@ function DesktopRow({
           checked={selected}
           onChange={() => onToggleSelect(row.familyId)}
           className="rounded border-slate-300 accent-emerald-600"
-          aria-label={`Выбрать семью ${row.familyName}`}
+          aria-label={translateText(translateText(`Выбрать семью ${row.familyName}`))}
         />
       </td>
 
@@ -241,8 +243,7 @@ function DesktopRow({
               {displayContact.fullName}
             </p>
             {showBothContacts && (
-              <p className="text-[10px] text-slate-400 truncate max-w-[160px]">
-                Осн.: {row.parent!.fullName.split(' ')[0]}
+              <p className="text-[10px] text-slate-400 truncate max-w-[160px]">{translateText("Осн.:")}{row.parent!.fullName.split(' ')[0]}
               </p>
             )}
             <div className="flex items-center gap-1.5 mt-0.5">
@@ -259,7 +260,7 @@ function DesktopRow({
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   className="text-green-600 hover:text-green-700"
-                  aria-label={`WhatsApp ${displayContact.fullName}`}
+                  aria-label={translateText(`WhatsApp ${displayContact.fullName}`)}
                 >
                   <MessageCircle className="size-3.5" />
                 </a>
@@ -267,7 +268,7 @@ function DesktopRow({
             </div>
           </div>
         ) : (
-          <span className="text-xs text-slate-400">Не указан</span>
+          <span className="text-xs text-slate-400">{translateText("Не указан")}</span>
         )}
       </td>
 
@@ -278,17 +279,17 @@ function DesktopRow({
           {extraStudents && <span className="text-slate-400"> {extraStudents}</span>}
         </p>
         <p className="text-xs text-slate-400 mt-0.5">
-          {row.studentCount} {row.studentCount === 1 ? 'ученик' : row.studentCount < 5 ? 'ученика' : 'учеников'}
+          {row.studentCount} {row.studentCount === 1 ? translateText('ученик') : row.studentCount < 5 ? translateText('ученика') : translateText('учеников')}
         </p>
       </td>
 
       {/* Форматы */}
       <td className="px-3 py-3 hidden lg:table-cell" title={row.planTooltip}>
         {row.hasMixedPlans ? (
-          <span className="text-xs text-slate-500 italic">{row.plans.length} формата</span>
+          <span className="text-xs text-slate-500 italic">{row.plans.length}{translateText(" формата")}</span>
         ) : (
           <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', PLAN_COLORS[row.plans[0]].badge)}>
-            {SUPPORT_PLANS[row.plans[0]].emoji} {SUPPORT_PLANS[row.plans[0]].name}
+            {localizeUI(SUPPORT_PLANS, locale)[row.plans[0]].emoji} {localizeUI(SUPPORT_PLANS, locale)[row.plans[0]].name}
           </span>
         )}
       </td>
@@ -332,7 +333,7 @@ function DesktopRow({
       {/* Статус */}
       <td className="px-3 py-3">
         <span className={cn('text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap', STATUS_STYLES[row.paymentStatus])}>
-          {STATUS_LABELS[row.paymentStatus]}
+          {localizeUI(STATUS_LABELS, locale)[row.paymentStatus]}
         </span>
       </td>
 
@@ -343,16 +344,15 @@ function DesktopRow({
             <button
               onClick={() => onPayment(row.familyId)}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors whitespace-nowrap"
-              aria-label={`Внести оплату за семью ${row.familyName}`}
+              aria-label={translateText(translateText(`Внести оплату за семью ${row.familyName}`))}
             >
-              <Wallet className="size-3" /> Оплата
-            </button>
+              <Wallet className="size-3" />{translateText("Оплата")}</button>
           )}
           <div className="relative">
             <button
               onClick={() => onMenuToggle(row.familyId)}
               className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors"
-              aria-label={`Действия для семьи ${row.familyName}`}
+              aria-label={translateText(translateText(`Действия для семьи ${row.familyName}`))}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
             >
@@ -385,13 +385,15 @@ function RowMenu({
   onApplyAdvance: (id: string) => void;
   onClose: () => void;
 }) {
+  const { t: translateText , locale } = useTranslation();
+
   const [copiedReminder, setCopiedReminder] = useState(false);
   const createSupportReminderLog = useAppStore((s) => s.createSupportReminderLog);
 
   function handleCopyReminder() {
     const contact = reminderContact;
     if (!contact?.whatsapp && !contact?.fullName) {
-      const msg = getReminderMessage(row.familyName, row.remainingAmount, month);
+      const msg = getReminderMessage(row.familyName, row.remainingAmount, month, locale);
       navigator.clipboard.writeText(msg).then(() => {
         setCopiedReminder(true);
         setTimeout(() => { setCopiedReminder(false); onClose(); }, 1500);
@@ -401,7 +403,7 @@ function RowMenu({
     const msg = getReminderMessage(
       contact?.fullName ?? row.familyName,
       row.remainingAmount,
-      month
+      month, locale
     );
     navigator.clipboard.writeText(msg).then(() => {
       createSupportReminderLog({
@@ -424,28 +426,26 @@ function RowMenu({
       className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1.5 w-56 text-sm"
       role="menu"
     >
-      <MenuLink href={`/support/families/${row.familyId}`} onClose={onClose} label="Открыть семью" icon={<ExternalLink className="size-3.5" />} />
+      <MenuLink href={`/support/families/${row.familyId}`} onClose={onClose} label={translateText("Открыть семью")} icon={<ExternalLink className="size-3.5" />} />
       {row.paymentStatus !== 'no_charge' && (
-        <MenuBtn onClick={() => { onPayment(row.familyId); onClose(); }} label="Внести оплату" icon={<Wallet className="size-3.5" />} />
+        <MenuBtn onClick={() => { onPayment(row.familyId); onClose(); }} label={translateText("Внести оплату")} icon={<Wallet className="size-3.5" />} />
       )}
       {row.availableAdvance > 0 && row.remainingAmount > 0 && (
         <MenuBtn
           onClick={() => { onApplyAdvance(row.familyId); onClose(); }}
-          label={`Применить аванс (${formatAmount(row.availableAdvance)})`}
+          label={translateText(translateText(`Применить аванс (${formatAmount(row.availableAdvance)})`))}
           icon={<PiggyBank className="size-3.5 text-blue-500" />}
         />
       )}
       {row.remainingAmount > 0 && (
         <MenuBtn
           onClick={handleCopyReminder}
-          label={copiedReminder ? 'Скопировано!' : 'Скопировать напоминание'}
+          label={translateText(copiedReminder ? translateText('Скопировано!') : translateText('Скопировать напоминание'))}
           icon={copiedReminder ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
         />
       )}
       {noWhatsAppWarning && (
-        <div className="px-4 py-1.5 text-[10px] text-amber-600 bg-amber-50 border-t border-amber-100">
-          Нет WhatsApp у контактов семьи
-        </div>
+        <div className="px-4 py-1.5 text-[10px] text-amber-600 bg-amber-50 border-t border-amber-100">{translateText("Нет WhatsApp у контактов семьи")}</div>
       )}
       {reminderContact?.whatsapp && (
         <a
@@ -465,12 +465,10 @@ function RowMenu({
           className="flex items-center gap-2.5 px-4 py-2 hover:bg-slate-50 text-slate-700 transition-colors"
           role="menuitem"
         >
-          <span className="text-slate-400"><MessageCircle className="size-3.5" /></span>
-          Написать в WhatsApp
-        </a>
+          <span className="text-slate-400"><MessageCircle className="size-3.5" /></span>{translateText("Написать в WhatsApp")}</a>
       )}
       {row.parent && (
-        <MenuLink href={`/parents/${row.parent.id}`} onClose={onClose} label="Открыть контакт" icon={<ExternalLink className="size-3.5" />} />
+        <MenuLink href={`/parents/${row.parent.id}`} onClose={onClose} label={translateText("Открыть контакт")} icon={<ExternalLink className="size-3.5" />} />
       )}
     </div>
   );
@@ -522,10 +520,12 @@ function MobileCard({
   onToggleSelect: (id: string) => void;
   onPayment: (id: string) => void;
 }) {
+  const { t: translateText, locale } = useTranslation();
+
   const [copied, setCopied] = useState(false);
   const createSupportReminderLog = useAppStore((s) => s.createSupportReminderLog);
   const reminderContact = selectReminderRecipient(row.family, row.contacts);
-  const reminderAge = formatReminderAge(row.lastReminderAt);
+  const reminderAge = localizeUI(formatReminderAge(row.lastReminderAt), locale);
 
   function handleCopyReminder(e: React.MouseEvent) {
     e.stopPropagation();
@@ -533,7 +533,7 @@ function MobileCard({
     const msg = getReminderMessage(
       contact?.fullName ?? row.familyName,
       row.remainingAmount,
-      month
+      month, locale
     );
     navigator.clipboard.writeText(msg).then(() => {
       createSupportReminderLog({
@@ -559,7 +559,7 @@ function MobileCard({
           checked={selected}
           onChange={() => onToggleSelect(row.familyId)}
           className="mt-1 rounded border-slate-300 accent-emerald-600 shrink-0"
-          aria-label={`Выбрать ${row.familyName}`}
+          aria-label={translateText(translateText(`Выбрать ${row.familyName}`))}
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
@@ -570,7 +570,7 @@ function MobileCard({
               {row.familyName}
             </Link>
             <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full shrink-0', STATUS_STYLES[row.paymentStatus])}>
-              {STATUS_LABELS[row.paymentStatus]}
+              {localizeUI(STATUS_LABELS, locale)[row.paymentStatus]}
             </span>
           </div>
           {displayContact && (
@@ -592,7 +592,7 @@ function MobileCard({
           <p className="text-xs text-slate-400 mt-0.5">
             {row.studentNames.slice(0, 2).map((n) => n.split(' ')[0]).join(', ')}
             {row.studentCount > 2 && ` +${row.studentCount - 2}`}
-            {' · '}{row.studentCount} {row.studentCount === 1 ? 'ученик' : row.studentCount < 5 ? 'ученика' : 'учеников'}
+            {' · '}{row.studentCount} {row.studentCount === 1 ? translateText('ученик') : row.studentCount < 5 ? translateText('ученика') : translateText('учеников')}
           </p>
           {reminderAge && (
             <p className="text-[10px] text-slate-400 flex items-center gap-0.5 mt-0.5">
@@ -605,12 +605,12 @@ function MobileCard({
       {/* Amounts */}
       {row.expectedAmount > 0 && (
         <div className="flex gap-2 mb-3">
-          <AmountChip label="Ожидается" value={formatAmount(row.expectedAmount)} color="text-slate-700" />
+          <AmountChip label={translateText("Ожидается")} value={formatAmount(row.expectedAmount)} color="text-slate-700" />
           {row.paidAmount > 0 && (
-            <AmountChip label="Оплачено" value={formatAmount(row.paidAmount)} color="text-emerald-700" />
+            <AmountChip label={translateText("Оплачено")} value={formatAmount(row.paidAmount)} color="text-emerald-700" />
           )}
           {row.remainingAmount > 0 && (
-            <AmountChip label="Остаток" value={formatAmount(row.remainingAmount)} color="text-amber-700" />
+            <AmountChip label={translateText("Остаток")} value={formatAmount(row.remainingAmount)} color="text-amber-700" />
           )}
         </div>
       )}
@@ -622,8 +622,7 @@ function MobileCard({
             onClick={(e) => { e.stopPropagation(); onPayment(row.familyId); }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors"
           >
-            <Wallet className="size-3.5" /> Оплата
-          </button>
+            <Wallet className="size-3.5" />{translateText("Оплата")}</button>
         )}
         {row.remainingAmount > 0 && (
           <button
@@ -636,14 +635,13 @@ function MobileCard({
             )}
           >
             {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-            {copied ? 'Скопировано' : 'Напоминание'}
+            {copied ? translateText('Скопировано') : translateText('Напоминание')}
           </button>
         )}
         <Link
           href={`/support/families/${row.familyId}`}
           className="ml-auto flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50 transition-colors"
-        >
-          Открыть <ExternalLink className="size-3" />
+        >{translateText("Открыть")}<ExternalLink className="size-3" />
         </Link>
       </div>
     </div>

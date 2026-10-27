@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -127,6 +131,8 @@ function Chip({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AttendanceTable() {
+  const { t: translateText, locale } = useTranslation();
+
   const students = useStudents().filter((s) => s.isActive);
   const allRecords = useAttendanceRecords();
   const markAttendance      = useAppStore((s) => s.markAttendance);
@@ -266,8 +272,8 @@ export function AttendanceTable() {
   return (
     <div>
       <PageHeader
-        title="Посещаемость"
-        description="Кликните строку для смены статуса · 1 Присутствовал · 2 Опоздал · 3 Отсутствовал · 4 Уваж. причина"
+        title={translateText("Посещаемость")}
+        description={translateText("Кликните строку для смены статуса · 1 Присутствовал · 2 Опоздал · 3 Отсутствовал · 4 Уваж. причина")}
       />
 
       {/* ── Sticky filter + action bar ─────────────────────────────────────── */}
@@ -289,7 +295,7 @@ export function AttendanceTable() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Поиск по имени или группе..."
+              placeholder={translateText("Поиск по имени или группе...")}
               value={filters.search}
               onChange={(e) => setFilter('search', e.target.value)}
               className="pl-8 pr-7 h-8 w-52 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
@@ -308,9 +314,9 @@ export function AttendanceTable() {
             <>
               <div className="h-4 w-px bg-slate-200 shrink-0" />
               <div className="flex flex-wrap items-center gap-1">
-                <Chip label="Все группы" active={filters.group === 'ALL'} onClick={() => setFilter('group', 'ALL')} />
+                <Chip label={translateText("Все группы")} active={filters.group === 'ALL'} onClick={() => setFilter('group', 'ALL')} />
                 {groups.map((g) => (
-                  <Chip key={g} label={`Группа ${getStudentGroupLabel(g)}`} active={filters.group === g} onClick={() => setFilter('group', g)} />
+                  <Chip key={g} label={translateText(translateText(`Группа ${getStudentGroupLabel(g)}`))} active={filters.group === g} onClick={() => setFilter('group', g)} />
                 ))}
               </div>
             </>
@@ -322,20 +328,16 @@ export function AttendanceTable() {
                 onClick={resetFilters}
                 className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
               >
-                <X className="size-3" />
-                Сбросить
-              </button>
+                <X className="size-3" />{translateText("Сбросить")}</button>
             )}
             {allMarked ? (
               <span className="flex items-center gap-1 text-emerald-600 font-medium text-sm">
-                <CheckCircle className="size-4" />
-                Все отмечены
-              </span>
+                <CheckCircle className="size-4" />{translateText("Все отмечены")}</span>
             ) : (
               <span className="text-slate-500 tabular-nums text-sm">
                 {filtersActive
-                  ? `${visibleStudents.length} из ${students.length} · ${stats.marked} отмечено`
-                  : `${stats.marked} / ${students.length} отмечено`}
+                  ? translateText(`${visibleStudents.length} из ${students.length} · ${stats.marked} отмечено`)
+                  : translateText(`${stats.marked} / ${students.length} отмечено`)}
               </span>
             )}
           </div>
@@ -345,18 +347,18 @@ export function AttendanceTable() {
         {students.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap items-center gap-1">
-              <Chip label="Все" active={filters.status === 'ALL'} onClick={() => setFilter('status', 'ALL')} />
+              <Chip label={translateText("Все")} active={filters.status === 'ALL'} onClick={() => setFilter('status', 'ALL')} />
               {(['present', 'late', 'absent', 'excused'] as const).map((s) => (
                 <Chip
                   key={s}
-                  label={CFG[s].label}
+                  label={translateText(localizeUI(CFG, locale)[s].label)}
                   active={filters.status === s}
-                  activeClass={CFG[s].chipActive}
+                  activeClass={localizeUI(CFG, locale)[s].chipActive}
                   onClick={() => setFilter('status', s)}
                 />
               ))}
               <Chip
-                label="Не отмечены"
+                label={translateText("Не отмечены")}
                 active={filters.status === 'unmarked'}
                 activeClass="bg-slate-600 text-white shadow-sm"
                 onClick={() => setFilter('status', 'unmarked')}
@@ -366,30 +368,30 @@ export function AttendanceTable() {
             <div className="h-4 w-px bg-slate-200 shrink-0" />
 
             <div className="flex flex-wrap items-center gap-1">
-              <Chip label="Любая" active={filters.activity === 'ALL'} onClick={() => setFilter('activity', 'ALL')} />
-              <Chip label="Сегодня" active={filters.activity === 'today'} activeClass="bg-indigo-500 text-white shadow-sm" onClick={() => setFilter('activity', 'today')} />
-              <Chip label="3+ дня" active={filters.activity === 'days3'} activeClass="bg-indigo-500 text-white shadow-sm" onClick={() => setFilter('activity', 'days3')} />
-              <Chip label="7+ дней" active={filters.activity === 'days7'} activeClass="bg-indigo-500 text-white shadow-sm" onClick={() => setFilter('activity', 'days7')} />
-              <Chip label="14+ дней" active={filters.activity === 'days14'} activeClass="bg-indigo-500 text-white shadow-sm" onClick={() => setFilter('activity', 'days14')} />
+              <Chip label={translateText("Любая")} active={filters.activity === 'ALL'} onClick={() => setFilter('activity', 'ALL')} />
+              <Chip label={translateText("Сегодня")} active={filters.activity === 'today'} activeClass="bg-indigo-500 text-white shadow-sm" onClick={() => setFilter('activity', 'today')} />
+              <Chip label={translateText("3+ дня")} active={filters.activity === 'days3'} activeClass="bg-indigo-500 text-white shadow-sm" onClick={() => setFilter('activity', 'days3')} />
+              <Chip label={translateText("7+ дней")} active={filters.activity === 'days7'} activeClass="bg-indigo-500 text-white shadow-sm" onClick={() => setFilter('activity', 'days7')} />
+              <Chip label={translateText("14+ дней")} active={filters.activity === 'days14'} activeClass="bg-indigo-500 text-white shadow-sm" onClick={() => setFilter('activity', 'days14')} />
             </div>
 
             <div className="h-4 w-px bg-slate-200 shrink-0" />
 
             <div className="flex flex-wrap items-center gap-1">
               <Chip
-                label="Часто отсутствуют"
+                label={translateText("Часто отсутствуют")}
                 active={filters.problem === 'absent_often'}
                 activeClass="bg-orange-500 text-white shadow-sm"
                 onClick={() => setFilter('problem', filters.problem === 'absent_often' ? 'ALL' : 'absent_often')}
               />
               <Chip
-                label="Часто опаздывают"
+                label={translateText("Часто опаздывают")}
                 active={filters.problem === 'late_often'}
                 activeClass="bg-orange-500 text-white shadow-sm"
                 onClick={() => setFilter('problem', filters.problem === 'late_often' ? 'ALL' : 'late_often')}
               />
               <Chip
-                label="Без записей"
+                label={translateText("Без записей")}
                 active={filters.problem === 'no_records'}
                 activeClass="bg-orange-500 text-white shadow-sm"
                 onClick={() => setFilter('problem', filters.problem === 'no_records' ? 'ALL' : 'no_records')}
@@ -405,28 +407,21 @@ export function AttendanceTable() {
               <button
                 onClick={() => markAll('present')}
                 className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-green-50 text-green-700 border border-green-200 hover:bg-green-100"
-              >
-                Всем: Присутствовал
-              </button>
+              >{translateText("Всем: Присутствовал")}</button>
               <button
                 onClick={() => markAll('absent')}
                 className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
-              >
-                Всем: Отсутствовал
-              </button>
+              >{translateText("Всем: Отсутствовал")}</button>
               <button
                 onClick={() => markAll('late')}
                 className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
-              >
-                Всем: Опоздал
-              </button>
+              >{translateText("Всем: Опоздал")}</button>
               {runningCount > 0 && (
                 <button
                   onClick={stopAllRunning}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-slate-800 text-white hover:bg-slate-700"
                 >
-                  <span className="size-1.5 rounded-full bg-green-400 animate-pulse" />
-                  Остановить таймеры ({runningCount})
+                  <span className="size-1.5 rounded-full bg-green-400 animate-pulse" />{translateText("Остановить таймеры (")}{runningCount})
                 </button>
               )}
             </div>
@@ -437,8 +432,8 @@ export function AttendanceTable() {
                 <div className="flex flex-wrap items-center gap-2.5 text-xs">
                   {(['present', 'late', 'absent', 'excused'] as const).map((s) =>
                     stats[s] > 0 ? (
-                      <span key={s} className={`font-medium ${CFG[s].statColor}`}>
-                        {CFG[s].label} {stats[s]}
+                      <span key={s} className={`font-medium ${localizeUI(CFG, locale)[s].statColor}`}>
+                        {localizeUI(CFG, locale)[s].label} {stats[s]}
                       </span>
                     ) : null,
                   )}
@@ -456,8 +451,8 @@ export function AttendanceTable() {
         <Card>
           <EmptyState
             icon={<CalendarDays className="size-5" />}
-            title="Учеников нет"
-            description="Сначала добавьте активных учеников"
+            title={translateText("Учеников нет")}
+            description={translateText("Сначала добавьте активных учеников")}
             className="py-16"
           />
         </Card>
@@ -467,11 +462,11 @@ export function AttendanceTable() {
         <Card>
           <EmptyState
             icon={<Users className="size-5" />}
-            title={filtersActive ? 'Ученики не найдены' : 'В этой группе пока нет учеников'}
+            title={filtersActive ? translateText('Ученики не найдены') : translateText('В этой группе пока нет учеников')}
             description={
               filtersActive
-                ? 'Попробуйте изменить поиск или сбросить фильтры'
-                : `Группа ${getStudentGroupLabel(filters.group)} · добавьте учеников или выберите другую группу`
+                ? translateText('Попробуйте изменить поиск или сбросить фильтры')
+                : translateText(`Группа ${getStudentGroupLabel(filters.group)} · добавьте учеников или выберите другую группу`)
             }
             className="py-16"
             action={
@@ -479,9 +474,7 @@ export function AttendanceTable() {
                 <button
                   onClick={resetFilters}
                   className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 text-white hover:bg-slate-700 transition-colors"
-                >
-                  Сбросить фильтры
-                </button>
+                >{translateText("Сбросить фильтры")}</button>
               ) : undefined
             }
           />
@@ -491,19 +484,13 @@ export function AttendanceTable() {
       {/* ── Main table ─────────────────────────────────────────────────────── */}
       {visibleStudents.length > 0 && (
         <Card padding="none">
-          <div className="table-scroll attendance-records" role="region" aria-label="Таблица с горизонтальной прокруткой" tabIndex={0}>
-          <table role="table" aria-label="Посещаемость учеников" className="w-full">
+          <div className="table-scroll attendance-records" role="region" aria-label={translateText("Таблица с горизонтальной прокруткой")} tabIndex={0}>
+          <table role="table" aria-label={translateText("Посещаемость учеников")} className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-[30%]">
-                  Ученик
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Статус
-                </th>
-                <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">
-                  Баллы
-                </th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-[30%]">{translateText("Ученик")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Статус")}</th>
+                <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">{translateText("Баллы")}</th>
               </tr>
             </thead>
             <tbody role="rowgroup" className="divide-y divide-slate-50">
@@ -511,7 +498,7 @@ export function AttendanceTable() {
                 const record = dateRecords.find((r) => r.studentId === student.id);
                 const isSet  = !!record;
                 const status = getEffectiveAttendanceStatus(record);
-                const cfg    = CFG[status];
+                const cfg    = localizeUI(CFG, locale)[status];
                 const isFocused  = focusedIdx === idx;
                 const isFlashing = flashId === student.id;
                 const displayPoints = record?.pointsAwarded ?? 0;
@@ -524,7 +511,7 @@ export function AttendanceTable() {
                     onClick={() => cycleRow(student.id)}
                     onMouseEnter={() => setFocusedIdx(idx)}
                     onMouseLeave={() => setFocusedIdx(null)}
-                    title={isRunning ? 'Таймер запущен — нажмите «Остановить» для начисления бонуса' : 'Кликните для изменения статуса'}
+                    title={isRunning ? translateText('Таймер запущен — нажмите «Остановить» для начисления бонуса') : translateText('Кликните для изменения статуса')}
                     className={[
                       'select-none border-l-2 transition-all duration-200 ease-out',
                       isRunning ? 'cursor-default' : 'cursor-pointer',
@@ -544,7 +531,7 @@ export function AttendanceTable() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-slate-900">{student.fullName}</p>
-                          <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(student.group)}</p>
+                          <p className="text-xs text-slate-400">{translateText("Группа ")}{getStudentGroupLabel(student.group)}</p>
                         </div>
                       </div>
                     </td>
@@ -556,7 +543,7 @@ export function AttendanceTable() {
                         {/* Status buttons */}
                         <div className="flex gap-1 flex-wrap">
                           {CYCLE.map((s) => {
-                            const sCfg = CFG[s];
+                            const sCfg = localizeUI(CFG, locale)[s];
                             const isActive = status === s && isSet;
                             return (
                               <button
@@ -582,7 +569,7 @@ export function AttendanceTable() {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <div className="flex items-center gap-1.5">
                                   <span className="size-1.5 rounded-full bg-green-500 animate-pulse shrink-0" />
-                                  <span className="text-[11px] text-slate-400">На занятии:</span>
+                                  <span className="text-[11px] text-slate-400">{translateText("На занятии:")}</span>
                                   <LiveAttendanceTimer
                                     checkInAt={record.checkInAt}
                                     onExpire={() => expireAttendanceTimer(student.id, date)}
@@ -591,10 +578,8 @@ export function AttendanceTable() {
                                 <button
                                   onClick={() => handleStop(student.id)}
                                   className="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
-                                >
-                                  Остановить
-                                </button>
-                                <span className="text-[10px] text-slate-400 hidden sm:inline">бонус после остановки</span>
+                                >{translateText("Остановить")}</button>
+                                <span className="text-[10px] text-slate-400 hidden sm:inline">{translateText("бонус после остановки")}</span>
                               </div>
                             )}
 
@@ -602,16 +587,14 @@ export function AttendanceTable() {
                               <div className="flex items-center gap-1.5 text-xs text-emerald-700">
                                 <CheckCircle2 className="size-3 shrink-0" />
                                 {record.completedHours > 0
-                                  ? `${record.completedHours}ч · +${record.bonusPoints} бонус`
-                                  : 'Без бонуса за часы'}
+                                  ? translateText(`${record.completedHours}ч · +${record.bonusPoints} бонус`)
+                                  : translateText('Без бонуса за часы')}
                               </div>
                             )}
 
                             {record.timerStatus === 'expired' && (
                               <div className="flex items-center gap-1.5 text-xs text-orange-600">
-                                <AlertCircle className="size-3 shrink-0" />
-                                Бонус сгорел — таймер не остановлен
-                              </div>
+                                <AlertCircle className="size-3 shrink-0" />{translateText("Бонус сгорел — таймер не остановлен")}</div>
                             )}
                           </div>
                         )}
@@ -628,7 +611,7 @@ export function AttendanceTable() {
                           {isSet ? (displayPoints > 0 ? `+${displayPoints}` : '0') : '—'}
                         </span>
                         {isSet && status === 'present' && isRunning && (
-                          <span className="text-[10px] text-slate-400 font-normal">базовые</span>
+                          <span className="text-[10px] text-slate-400 font-normal">{translateText("базовые")}</span>
                         )}
                       </div>
                     </td>

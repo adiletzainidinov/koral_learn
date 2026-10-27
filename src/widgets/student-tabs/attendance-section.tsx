@@ -1,5 +1,10 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+import { getIntlLocale, type Locale } from '@/shared/i18n/locale-store';
+
+
 import { useState, useRef, useEffect, Fragment } from 'react';
 import { CalendarDays, CheckCircle2, ChevronDown, AlertCircle } from 'lucide-react';
 import { Card } from '@/shared/ui/card';
@@ -57,9 +62,9 @@ function LiveAttendanceTimer({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function formatTimeHHMM(iso: string | null): string {
+function formatTimeHHMM(iso: string | null, locale: Locale = 'ru'): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString(getIntlLocale(locale), { hour: '2-digit', minute: '2-digit' });
 }
 
 const STATUS_BUTTONS: {
@@ -106,6 +111,8 @@ interface Props {
 }
 
 export function StudentAttendanceSection({ studentId }: Props) {
+  const { t: translateText, locale } = useTranslation();
+
   const [date, setDate] = useState(todayISO());
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const attendance = useStudentAttendance(studentId);
@@ -132,17 +139,15 @@ export function StudentAttendanceSection({ studentId }: Props) {
       {/* header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold text-slate-900">Посещаемость</p>
-          <p className="text-xs text-slate-400">{attendance.length} записей всего</p>
+          <p className="text-sm font-semibold text-slate-900">{translateText("Посещаемость")}</p>
+          <p className="text-xs text-slate-400">{attendance.length}{translateText(" записей всего")}</p>
         </div>
         <div className="flex items-center gap-2">
           {!isToday && (
             <button
               onClick={() => setDate(todayISO())}
               className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer"
-            >
-              Сегодня
-            </button>
+            >{translateText("Сегодня")}</button>
           )}
           <input
             type="date"
@@ -159,14 +164,14 @@ export function StudentAttendanceSection({ studentId }: Props) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-slate-600">
             <CalendarDays className="size-4 text-slate-400" />
-            <span className="font-medium">{formatShortDate(date)}</span>
-            {isToday && <span className="text-xs text-emerald-600 font-medium">· Сегодня</span>}
+            <span className="font-medium">{formatShortDate(date, locale)}</span>
+            {isToday && <span className="text-xs text-emerald-600 font-medium">{translateText("· Сегодня")}</span>}
           </div>
           <div className="flex items-center gap-2">
             {selectedRecord ? (
               <CheckCircle2 className="size-3.5 text-emerald-500" />
             ) : (
-              <span className="text-xs text-slate-400 italic">по умолчанию</span>
+              <span className="text-xs text-slate-400 italic">{translateText("по умолчанию")}</span>
             )}
             <AttendanceStatusBadge status={activeStatus} />
             {(selectedRecord?.pointsAwarded ?? 0) > 0 && (
@@ -177,7 +182,7 @@ export function StudentAttendanceSection({ studentId }: Props) {
 
         {/* status buttons — show base points on 'Присутствовал' */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {STATUS_BUTTONS.map(({ status, label, base, active }) => {
+          {localizeUI(STATUS_BUTTONS, locale).map(({ status, label, base, active }) => {
             const isActive = activeStatus === status && !!selectedRecord;
             const pts = getAttendancePoints(status);
             return (
@@ -191,8 +196,7 @@ export function StudentAttendanceSection({ studentId }: Props) {
                 <span>{label}</span>
                 {pts > 0 && (
                   <span className={`text-xs font-semibold ${isActive ? 'opacity-80' : 'opacity-50'}`}>
-                    +{pts} б.
-                  </span>
+                    +{pts}{translateText("б.")}</span>
                 )}
               </button>
             );
@@ -206,20 +210,18 @@ export function StudentAttendanceSection({ studentId }: Props) {
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-2">
                   <span className="size-2 rounded-full bg-green-500 animate-pulse shrink-0" />
-                  <span className="text-sm text-slate-600">На занятии:</span>
+                  <span className="text-sm text-slate-600">{translateText("На занятии:")}</span>
                   <LiveAttendanceTimer
                     checkInAt={selectedRecord.checkInAt}
                     onExpire={() => expireAttendanceTimer(studentId, date)}
                   />
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-slate-400">Бонус начислится после остановки</span>
+                  <span className="text-xs text-slate-400">{translateText("Бонус начислится после остановки")}</span>
                   <button
                     onClick={() => stopAttendanceTimer(studentId, date)}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors cursor-pointer"
-                  >
-                    Остановить
-                  </button>
+                  >{translateText("Остановить")}</button>
                 </div>
               </div>
             )}
@@ -228,30 +230,23 @@ export function StudentAttendanceSection({ studentId }: Props) {
               <div className="flex items-center gap-2 text-sm text-emerald-700">
                 <CheckCircle2 className="size-4 shrink-0" />
                 {selectedRecord.completedHours > 0 ? (
-                  <span>
-                    Был {selectedRecord.completedHours}ч
-                    {' · '}
-                    <span className="font-semibold">+{selectedRecord.bonusPoints} бонус за часы</span>
-                    {' · '}
-                    итого <span className="font-semibold">+{selectedRecord.pointsAwarded} б.</span>
+                  <span>{translateText("Был")}{selectedRecord.completedHours}{translateText("ч")}{' · '}
+                    <span className="font-semibold">+{selectedRecord.bonusPoints}{translateText(" бонус за часы")}</span>
+                    {' · '}{translateText("итого")}<span className="font-semibold">+{selectedRecord.pointsAwarded}{translateText(" б.")}</span>
                   </span>
                 ) : (
-                  <span>Без бонуса за часы · +5 б.</span>
+                  <span>{translateText("Без бонуса за часы · +5 б.")}</span>
                 )}
               </div>
             )}
 
             {selectedRecord.timerStatus === 'expired' && (
               <div className="flex items-center gap-2 text-sm text-orange-600">
-                <AlertCircle className="size-4 shrink-0" />
-                Таймер не был остановлен — бонус за часы сгорел · +5 б.
-              </div>
+                <AlertCircle className="size-4 shrink-0" />{translateText("Таймер не был остановлен — бонус за часы сгорел · +5 б.")}</div>
             )}
 
             {selectedRecord.timerStatus === 'not_started' && (
-              <div className="text-xs text-slate-400">
-                Записано без таймера · +5 б.
-              </div>
+              <div className="text-xs text-slate-400">{translateText("Записано без таймера · +5 б.")}</div>
             )}
           </div>
         )}
@@ -261,28 +256,26 @@ export function StudentAttendanceSection({ studentId }: Props) {
       {attendance.length === 0 ? (
         <EmptyState
           icon={<CalendarDays className="size-5" />}
-          title="Посещений пока нет"
-          description="Отметьте первое посещение выше"
+          title={translateText("Посещений пока нет")}
+          description={translateText("Отметьте первое посещение выше")}
           className="py-12"
         />
       ) : (
         <Card padding="none">
           <div className="px-5 py-3 border-b border-slate-100">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              История посещений
-            </p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("История посещений")}</p>
           </div>
-          <div className="table-scroll" role="region" aria-label="Таблица с горизонтальной прокруткой" tabIndex={0}>
+          <div className="table-scroll" role="region" aria-label={translateText("Таблица с горизонтальной прокруткой")} tabIndex={0}>
           <table className="w-full">
             <tbody>
               {attendance.map((r) => {
                 const isExpanded = expandedDate === r.date;
                 const timeStr = r.status === 'present' && r.checkInAt
                   ? r.checkOutAt
-                    ? `${formatTimeHHMM(r.checkInAt)}–${formatTimeHHMM(r.checkOutAt)}`
+                    ? `${formatTimeHHMM(r.checkInAt, locale)}–${formatTimeHHMM(r.checkOutAt, locale)}`
                     : r.timerStatus === 'running'
-                      ? `с ${formatTimeHHMM(r.checkInAt)}`
-                      : formatTimeHHMM(r.checkInAt)
+                      ? translateText(`с ${formatTimeHHMM(r.checkInAt, locale)}`)
+                      : formatTimeHHMM(r.checkInAt, locale)
                   : null;
 
                 return (
@@ -294,7 +287,7 @@ export function StudentAttendanceSection({ studentId }: Props) {
                       }`}
                     >
                       <td className="px-5 py-3">
-                        <span className="text-sm text-slate-700 font-medium">{formatShortDate(r.date)}</span>
+                        <span className="text-sm text-slate-700 font-medium">{formatShortDate(r.date, locale)}</span>
                       </td>
                       <td className="px-4 py-3">
                         <AttendanceStatusBadge status={r.status} />
@@ -302,11 +295,9 @@ export function StudentAttendanceSection({ studentId }: Props) {
                       <td className="px-4 py-3 text-xs text-slate-500">
                         {r.timerStatus === 'running' ? (
                           <span className="flex items-center gap-1 text-green-600">
-                            <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
-                            идёт
-                          </span>
+                            <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />{translateText("идёт")}</span>
                         ) : timeStr ? (
-                          <span>{timeStr}{r.completedHours > 0 ? ` · ${r.completedHours}ч` : ''}</span>
+                          <span>{timeStr}{r.completedHours > 0 ? translateText(` · ${r.completedHours}ч`) : ''}</span>
                         ) : null}
                       </td>
                       <td className="px-4 py-3">
@@ -329,8 +320,8 @@ export function StudentAttendanceSection({ studentId }: Props) {
                           <div className="flex flex-col gap-3">
                             {/* Status change buttons */}
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs text-slate-500">Изменить:</span>
-                              {INLINE_BUTTONS.map(({ status, label, classes }) => (
+                              <span className="text-xs text-slate-500">{translateText("Изменить:")}</span>
+                              {localizeUI(INLINE_BUTTONS, locale).map(({ status, label, classes }) => (
                                 <button
                                   key={status}
                                   onClick={(e) => { e.stopPropagation(); handleMark(r.date, status); }}
@@ -349,26 +340,22 @@ export function StudentAttendanceSection({ studentId }: Props) {
                                 {r.timerStatus === 'running' && (
                                   <div className="flex items-center gap-2">
                                     <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
-                                    <span>Таймер запущен с {formatTimeHHMM(r.checkInAt)}</span>
+                                    <span>{translateText("Таймер запущен с ")}{formatTimeHHMM(r.checkInAt, locale)}</span>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); stopAttendanceTimer(studentId, r.date); }}
                                       className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors cursor-pointer"
-                                    >
-                                      Остановить
-                                    </button>
+                                    >{translateText("Остановить")}</button>
                                   </div>
                                 )}
                                 {r.timerStatus === 'stopped' && r.checkInAt && r.checkOutAt && (
                                   <span>
-                                    {formatTimeHHMM(r.checkInAt)}–{formatTimeHHMM(r.checkOutAt)}
-                                    {r.completedHours > 0 && ` · ${r.completedHours}ч · +${r.bonusPoints} бонус`}
+                                    {formatTimeHHMM(r.checkInAt, locale)}–{formatTimeHHMM(r.checkOutAt, locale)}
+                                    {r.completedHours > 0 && translateText(` · ${r.completedHours}ч · +${r.bonusPoints} бонус`)}
                                   </span>
                                 )}
                                 {r.timerStatus === 'expired' && (
                                   <span className="text-orange-600 flex items-center gap-1">
-                                    <AlertCircle className="size-3" />
-                                    Бонус сгорел — таймер не был остановлен
-                                  </span>
+                                    <AlertCircle className="size-3" />{translateText("Бонус сгорел — таймер не был остановлен")}</span>
                                 )}
                               </div>
                             )}

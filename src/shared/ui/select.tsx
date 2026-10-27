@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { forwardRef } from 'react';
 import { cn } from '../lib/cn';
 
@@ -12,6 +15,8 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ label, error, options, placeholder, className, id, ...props }, ref) => {
+  const { t: translateText } = useTranslation();
+
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
     return (
       <div className="flex flex-col gap-1.5">
@@ -32,14 +37,14 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           )}
           {...props}
         >
-          {placeholder && <option value="">{placeholder}</option>}
+          {placeholder && <option value="">{translateText(placeholder)}</option>}
           {options.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>
           ))}
         </select>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-xs text-red-500">{translateText(error)}</p>}
       </div>
     );
   }

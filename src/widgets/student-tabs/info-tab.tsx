@@ -1,5 +1,10 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+import { getIntlLocale, type Locale } from '@/shared/i18n/locale-store';
+
+
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
 
 import { useState } from 'react';
@@ -28,10 +33,10 @@ interface Props {
   studentId: string;
 }
 
-function formatDate(isoDate: string): string {
+function formatDate(isoDate: string, locale: Locale = 'ru'): string {
   if (!isoDate) return '—';
   try {
-    return new Date(isoDate).toLocaleDateString('ru-RU', {
+    return new Date(isoDate).toLocaleDateString(getIntlLocale(locale), {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -71,6 +76,8 @@ function InfoField({ label, value }: { label: string; value: React.ReactNode }) 
 }
 
 function StudentPersonalInfoCard({ student }: { student: Student }) {
+  const { t: translateText, locale } = useTranslation();
+
   const hasContacts = !!(
     student.studentPhone ||
     student.studentWhatsapp ||
@@ -80,17 +87,15 @@ function StudentPersonalInfoCard({ student }: { student: Student }) {
 
   return (
     <SectionCard
-      title="Информация об ученике"
-      description="Личные данные, обучение и контакты ученика"
+      title={translateText("Информация об ученике")}
+      description={translateText("Личные данные, обучение и контакты ученика")}
       action={
         <Link
           href={`/students/${student.id}/edit`}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors text-sm font-medium"
-          aria-label={`Редактировать ученика ${student.fullName}`}
+          aria-label={translateText(translateText(`Редактировать ученика ${student.fullName}`))}
         >
-          <Edit className="size-3.5" />
-          Редактировать
-        </Link>
+          <Edit className="size-3.5" />{translateText("Редактировать")}</Link>
       }
     >
       <div className="flex flex-col gap-5">
@@ -108,32 +113,30 @@ function StudentPersonalInfoCard({ student }: { student: Student }) {
             <p className="text-lg font-semibold text-slate-900 leading-tight">{student.fullName}</p>
             <div className="flex flex-wrap items-center gap-2 mt-1.5">
               <Badge variant={student.isActive ? 'emerald' : 'slate'}>
-                {student.isActive ? 'Активен' : 'Неактивен'}
+                {student.isActive ? translateText('Активен') : translateText('Неактивен')}
               </Badge>
               <LevelBadge level={student.level} />
-              <span className="text-xs text-slate-400">Группа {getStudentGroupLabel(student.group)}</span>
+              <span className="text-xs text-slate-400">{translateText("Группа ")}{getStudentGroupLabel(student.group)}</span>
             </div>
           </div>
         </div>
 
         {/* Main data grid */}
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
-          <InfoField label="Возраст" value={`${student.age} лет`} />
-          <InfoField label="Группа" value={getStudentGroupLabel(student.group)} />
-          <InfoField label="Уровень" value={STUDENT_LEVEL_LABELS[student.level]} />
-          <InfoField label="Начало обучения" value={formatDate(student.startedAt)} />
-          <InfoField label="Дата создания" value={formatDate(student.createdAt)} />
+          <InfoField label={translateText("Возраст")} value={translateText(`${student.age} лет`)} />
+          <InfoField label={translateText("Группа")} value={getStudentGroupLabel(student.group)} />
+          <InfoField label={translateText("Уровень")} value={localizeUI(STUDENT_LEVEL_LABELS, locale)[student.level]} />
+          <InfoField label={translateText("Начало обучения")} value={formatDate(student.startedAt, locale)} />
+          <InfoField label={translateText("Дата создания")} value={formatDate(student.createdAt, locale)} />
         </div>
 
         {/* Address — full-width row */}
         <div className="flex items-start gap-2 px-3 py-2.5 bg-slate-50 rounded-lg">
           <MapPin className="size-4 text-slate-400 mt-0.5 shrink-0" />
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">
-              Адрес
-            </p>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">{translateText("Адрес")}</p>
             <p className="text-sm text-slate-700">
-              {student.address || 'Адрес не указан'}
+              {student.address || translateText('Адрес не указан')}
             </p>
           </div>
         </div>
@@ -144,12 +147,12 @@ function StudentPersonalInfoCard({ student }: { student: Student }) {
             {student.studentPhone && (
               <ContactChip
                 icon={<Phone className="size-3 text-slate-400" />}
-                label="Телефон"
+                label={translateText("Телефон")}
               >
                 <a
                   href={`tel:${student.studentPhone.replace(/[\s\-()]/g, '')}`}
                   className="text-sm text-slate-700 hover:text-emerald-600"
-                  aria-label={`Позвонить ученику ${student.fullName}`}
+                  aria-label={translateText(translateText(`Позвонить ученику ${student.fullName}`))}
                 >
                   {student.studentPhone}
                 </a>
@@ -165,7 +168,7 @@ function StudentPersonalInfoCard({ student }: { student: Student }) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-green-600 hover:underline"
-                  aria-label={`Написать ${student.fullName} в WhatsApp`}
+                  aria-label={translateText(translateText(`Написать ${student.fullName} в WhatsApp`))}
                 >
                   {student.studentWhatsapp}
                 </a>
@@ -181,7 +184,7 @@ function StudentPersonalInfoCard({ student }: { student: Student }) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-blue-500 hover:underline"
-                  aria-label={`Написать ${student.fullName} в Telegram`}
+                  aria-label={translateText(translateText(`Написать ${student.fullName} в Telegram`))}
                 >
                   {student.studentTelegram}
                 </a>
@@ -197,7 +200,7 @@ function StudentPersonalInfoCard({ student }: { student: Student }) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-pink-500 hover:underline"
-                  aria-label={`Instagram профиль ${student.fullName}`}
+                  aria-label={translateText(translateText(`Instagram профиль ${student.fullName}`))}
                 >
                   {student.studentInstagram}
                 </a>
@@ -205,7 +208,7 @@ function StudentPersonalInfoCard({ student }: { student: Student }) {
             )}
           </div>
         ) : (
-          <p className="text-xs text-slate-400">Контакты ученика не указаны</p>
+          <p className="text-xs text-slate-400">{translateText("Контакты ученика не указаны")}</p>
         )}
       </div>
     </SectionCard>
@@ -213,6 +216,8 @@ function StudentPersonalInfoCard({ student }: { student: Student }) {
 }
 
 function ContactRow({ contact, link }: { contact: FamilyContact; link: StudentFamilyContactLink }) {
+  const { t: translateText } = useTranslation();
+
   const initials = getContactInitials(contact.fullName);
   const relationText = formatContactRelation(link);
   return (
@@ -231,11 +236,11 @@ function ContactRow({ contact, link }: { contact: FamilyContact; link: StudentFa
           <Badge variant="slate" className="text-[10px]">{relationText}</Badge>
         </div>
         <div className="flex flex-wrap gap-1 mt-1">
-          {link.isPrimaryContact && <Badge variant="emerald" className="text-[10px]">Основной</Badge>}
-          {link.canDecideEducation && <Badge variant="slate" className="text-[10px]">Решает</Badge>}
-          {link.canReceiveNotifications && <Badge variant="slate" className="text-[10px]">Уведомления</Badge>}
-          {link.isEmergencyContact && <Badge variant="warning" className="text-[10px]">Экстренный</Badge>}
-          {link.isBillingContact && <Badge variant="info" className="text-[10px]">Платит</Badge>}
+          {link.isPrimaryContact && <Badge variant="emerald" className="text-[10px]">{translateText("Основной")}</Badge>}
+          {link.canDecideEducation && <Badge variant="slate" className="text-[10px]">{translateText("Решает")}</Badge>}
+          {link.canReceiveNotifications && <Badge variant="slate" className="text-[10px]">{translateText("Уведомления")}</Badge>}
+          {link.isEmergencyContact && <Badge variant="warning" className="text-[10px]">{translateText("Экстренный")}</Badge>}
+          {link.isBillingContact && <Badge variant="info" className="text-[10px]">{translateText("Платит")}</Badge>}
         </div>
         <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
           {contact.whatsapp && (
@@ -273,20 +278,22 @@ function ContactRow({ contact, link }: { contact: FamilyContact; link: StudentFa
 }
 
 function ContactsBlock({ studentId }: { studentId: string }) {
+  const { t: translateText } = useTranslation();
+
   const rows = useStudentFamilyContacts(studentId);
   if (rows.length === 0) {
     return (
-      <SectionCard title="Родители и представители">
+      <SectionCard title={translateText("Родители и представители")}>
         <EmptyState
           icon={<UserRound className="size-5" />}
-          title="Представителей пока нет"
-          description="Привяжите ученика к семье и добавьте представителей через карточку семьи"
+          title={translateText("Представителей пока нет")}
+          description={translateText("Привяжите ученика к семье и добавьте представителей через карточку семьи")}
         />
       </SectionCard>
     );
   }
   return (
-    <SectionCard title="Родители и представители" description={`${rows.length} ${rows.length === 1 ? 'контакт' : 'контакта'}`}>
+    <SectionCard title={translateText("Родители и представители")} description={translateText(`${rows.length} ${rows.length === 1 ? translateText('контакт') : translateText('контакта')}`)}>
       <div className="flex flex-col gap-2">
         {rows.map(({ link, contact }) => (
           <ContactRow key={link.id} contact={contact} link={link} />
@@ -297,6 +304,8 @@ function ContactsBlock({ studentId }: { studentId: string }) {
 }
 
 export function InfoTab({ studentId }: Props) {
+  const { t: translateText } = useTranslation();
+
   const student = useStudentById(studentId);
   const allStudents = useAppStore((s) => s.students);
 
@@ -319,13 +328,13 @@ export function InfoTab({ studentId }: Props) {
 
       {/* 3. Friends and connections */}
       <SectionCard
-        title="Друзья и связи"
+        title={translateText("Друзья и связи")}
         description={
-          friendStudents.length > 0 ? 'Ученики, через которых можно связаться' : undefined
+          friendStudents.length > 0 ? translateText('Ученики, через которых можно связаться') : undefined
         }
       >
         {friendStudents.length === 0 ? (
-          <p className="text-sm text-slate-400">Друзья не выбраны</p>
+          <p className="text-sm text-slate-400">{translateText("Друзья не выбраны")}</p>
         ) : (
           <div className="flex flex-col gap-2">
             {friendStudents.map((friend) => {
@@ -350,9 +359,9 @@ export function InfoTab({ studentId }: Props) {
                       {friend.fullName}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
-                      <span>Группа {getStudentGroupLabel(friend.group)}</span>
+                      <span>{translateText("Группа ")}{getStudentGroupLabel(friend.group)}</span>
                       <span>·</span>
-                      <span>{friend.age} лет</span>
+                      <span>{friend.age}{translateText(" лет")}</span>
                       {contactLine && (
                         <>
                           <span>·</span>
@@ -383,13 +392,13 @@ export function InfoTab({ studentId }: Props) {
 
       {/* 4. Notes and files */}
       {notes && (
-        <SectionCard title="Заметки">
+        <SectionCard title={translateText("Заметки")}>
           <p className="text-sm text-slate-600 whitespace-pre-wrap">{notes}</p>
         </SectionCard>
       )}
 
       {attachments.length > 0 && (
-        <SectionCard title="Файлы" description="Скриншоты и документы">
+        <SectionCard title={translateText("Файлы")} description={translateText("Скриншоты и документы")}>
           <FilesGrid attachments={attachments} />
         </SectionCard>
       )}

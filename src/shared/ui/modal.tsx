@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../lib/cn';
@@ -23,6 +26,8 @@ const sizeClasses = {
 };
 
 export function Modal({ isOpen, onClose, title, description, children, size = 'md', footer, closeOnBackdrop = true }: ModalProps) {
+  const { t: translateText } = useTranslation();
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
@@ -56,7 +61,7 @@ export function Modal({ isOpen, onClose, title, description, children, size = 'm
             <h2 className="text-base font-semibold text-slate-900">{title}</h2>
             {description && <p className="text-sm text-slate-500 mt-0.5">{description}</p>}
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Закрыть окно" className="size-11 sm:size-8 p-0 shrink-0">
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label={translateText("Закрыть окно")} className="size-11 sm:size-8 p-0 shrink-0">
             <X className="size-4" />
           </Button>
         </div>

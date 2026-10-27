@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
 
@@ -11,6 +14,8 @@ interface Props {
 }
 
 export function Lightbox({ isOpen, imageSrc, imageAlt, onClose }: Props) {
+  const { t: translateText } = useTranslation();
+
   useEffect(() => {
     if (!isOpen) return;
     function handleKey(e: KeyboardEvent) {
@@ -31,7 +36,7 @@ export function Lightbox({ isOpen, imageSrc, imageAlt, onClose }: Props) {
       <button
         onClick={onClose}
         className="absolute top-4 right-4 size-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
-        aria-label="Закрыть"
+        aria-label={translateText("Закрыть")}
       >
         <X className="size-5" />
       </button>

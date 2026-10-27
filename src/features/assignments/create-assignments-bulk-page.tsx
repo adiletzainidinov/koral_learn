@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
 
 import { useState, useRef, useEffect } from 'react';
@@ -63,6 +67,8 @@ interface StudentSelectorModalProps {
 }
 
 function StudentSelectorModal({ isOpen, onClose, currentIds, allStudents, onApply }: StudentSelectorModalProps) {
+  const { t: translateText } = useTranslation();
+
   const [draft, setDraft] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState('all');
@@ -126,9 +132,9 @@ function StudentSelectorModal({ isOpen, onClose, currentIds, allStudents, onAppl
         {/* header */}
         <div className="flex items-center justify-between gap-4 px-6 py-5 border-b border-slate-100 shrink-0">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">Выбор учеников</h2>
+            <h2 className="text-base font-semibold text-slate-900">{translateText("Выбор учеников")}</h2>
             <p className={`text-sm mt-0.5 transition-colors ${draft.length > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-              {draft.length > 0 ? `Выбрано: ${pluralStudents(draft.length)}` : 'Никто не выбран'}
+              {draft.length > 0 ? translateText(`Выбрано: ${pluralStudents(draft.length)}`) : translateText('Никто не выбран')}
             </p>
           </div>
         </div>
@@ -139,7 +145,7 @@ function StudentSelectorModal({ isOpen, onClose, currentIds, allStudents, onAppl
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Поиск по имени..."
+              placeholder={translateText("Поиск по имени...")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors bg-white"
@@ -153,9 +159,7 @@ function StudentSelectorModal({ isOpen, onClose, currentIds, allStudents, onAppl
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                   groupFilter === 'all' ? 'bg-slate-800 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
-              >
-                Все группы
-              </button>
+              >{translateText("Все группы")}</button>
               {groups.map((g) => (
                 <button
                   key={g}
@@ -163,8 +167,7 @@ function StudentSelectorModal({ isOpen, onClose, currentIds, allStudents, onAppl
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                     groupFilter === g ? 'bg-slate-800 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
-                >
-                  Группа {getStudentGroupLabel(g)}
+                >{translateText("Группа")}{getStudentGroupLabel(g)}
                 </button>
               ))}
             </div>
@@ -175,15 +178,11 @@ function StudentSelectorModal({ isOpen, onClose, currentIds, allStudents, onAppl
               <button
                 onClick={selectAll}
                 className="text-sm text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer"
-              >
-                Выбрать всех
-              </button>
+              >{translateText("Выбрать всех")}</button>
               {draft.length > 0 && (
                 <>
                   <span className="text-slate-300">·</span>
-                  <button onClick={clearAll} className="text-sm text-slate-500 hover:text-slate-700 cursor-pointer">
-                    Снять выбор
-                  </button>
+                  <button onClick={clearAll} className="text-sm text-slate-500 hover:text-slate-700 cursor-pointer">{translateText("Снять выбор")}</button>
                 </>
               )}
             </div>
@@ -193,9 +192,9 @@ function StudentSelectorModal({ isOpen, onClose, currentIds, allStudents, onAppl
         {/* scrollable list */}
         <div className="flex-1 overflow-y-auto px-6 py-3">
           {activeStudents.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-12">Нет активных учеников</p>
+            <p className="text-sm text-slate-400 text-center py-12">{translateText("Нет активных учеников")}</p>
           ) : visible.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-12">Ученики не найдены</p>
+            <p className="text-sm text-slate-400 text-center py-12">{translateText("Ученики не найдены")}</p>
           ) : (
             <div className="flex flex-col gap-1">
               {visible.map((s) => {
@@ -224,9 +223,9 @@ function StudentSelectorModal({ isOpen, onClose, currentIds, allStudents, onAppl
                       <p className={`text-sm font-medium truncate ${isSelected ? 'text-emerald-900' : 'text-slate-900'}`}>
                         {s.fullName}
                       </p>
-                      <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(s.group)}</p>
+                      <p className="text-xs text-slate-400">{translateText("Группа ")}{getStudentGroupLabel(s.group)}</p>
                     </div>
-                    {isSelected && <span className="text-xs text-emerald-600 font-medium shrink-0">Выбран</span>}
+                    {isSelected && <span className="text-xs text-emerald-600 font-medium shrink-0">{translateText("Выбран")}</span>}
                   </button>
                 );
               })}
@@ -237,11 +236,11 @@ function StudentSelectorModal({ isOpen, onClose, currentIds, allStudents, onAppl
         {/* footer — always visible */}
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
           <span className={`text-sm font-medium transition-colors ${draft.length > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-            {draft.length > 0 ? `Выбрано: ${pluralStudents(draft.length)}` : 'Никто не выбран'}
+            {draft.length > 0 ? translateText(`Выбрано: ${pluralStudents(draft.length)}`) : translateText('Никто не выбран')}
           </span>
           <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={onClose}>Отмена</Button>
-            <Button onClick={handleApply} disabled={draft.length === 0}>Применить</Button>
+            <Button variant="outline" onClick={onClose}>{translateText("Отмена")}</Button>
+            <Button onClick={handleApply} disabled={draft.length === 0}>{translateText("Применить")}</Button>
           </div>
         </div>
       </div>
@@ -252,6 +251,8 @@ function StudentSelectorModal({ isOpen, onClose, currentIds, allStudents, onAppl
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export function CreateAssignmentsBulkPage() {
+  const { t: translateText, locale } = useTranslation();
+
   const router = useRouter();
   const students = useStudents();
   const { selectedStudentIds, setSelectedStudentIds, removeStudentId, clearSelectedStudentIds } = useUIStore();
@@ -279,7 +280,7 @@ export function CreateAssignmentsBulkPage() {
 
   function validate(): boolean {
     const errs: typeof errors = {};
-    if (!title.trim()) errs.title = 'Введите название задания';
+    if (!title.trim()) errs.title = translateText('Введите название задания');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -333,23 +334,20 @@ export function CreateAssignmentsBulkPage() {
               <ArrowLeft className="size-4" />
             </Button>
           </Link>
-          <Link href="/assignments" className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
-            Задания
-          </Link>
+          <Link href="/assignments" className="text-sm text-slate-400 hover:text-slate-600 transition-colors">{translateText("Задания")}</Link>
           <span className="text-slate-300">/</span>
-          <span className="text-sm font-medium text-slate-900">Создать задание</span>
+          <span className="text-sm font-medium text-slate-900">{translateText("Создать задание")}</span>
         </div>
 
         {/* header */}
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Создать задание</h1>
-          <p className="text-sm text-slate-500 mt-1">Выдайте задание сразу нескольким ученикам</p>
+          <h1 className="text-xl font-bold text-slate-900">{translateText("Создать задание")}</h1>
+          <p className="text-sm text-slate-500 mt-1">{translateText("Выдайте задание сразу нескольким ученикам")}</p>
         </div>
 
         {/* selected students — editable chips */}
         <div className="flex flex-col gap-2">
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-            Задание будет создано для {pluralStudents(selectedStudentIds.length)}
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{translateText("Задание будет создано для")}{pluralStudents(selectedStudentIds.length)}
           </p>
           <div className="flex items-center gap-2 flex-wrap">
             {selectedStudents.map((s) => (
@@ -361,7 +359,7 @@ export function CreateAssignmentsBulkPage() {
                 <button
                   type="button"
                   onClick={() => removeStudentId(s.id)}
-                  aria-label={`Удалить ${s.fullName}`}
+                  aria-label={translateText(translateText(`Удалить ${s.fullName}`))}
                   className="size-3.5 flex items-center justify-center rounded-full text-emerald-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
                 >
                   <X className="size-3" />
@@ -373,12 +371,10 @@ export function CreateAssignmentsBulkPage() {
               onClick={() => setIsModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 border border-dashed border-slate-300 text-slate-500 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full text-xs font-medium transition-colors cursor-pointer"
             >
-              <UserPlus className="size-3.5" />
-              Добавить учеников
-            </button>
+              <UserPlus className="size-3.5" />{translateText("Добавить учеников")}</button>
           </div>
           {selectedStudentIds.length === 0 && (
-            <p className="text-xs text-red-500">Выберите хотя бы одного ученика</p>
+            <p className="text-xs text-red-500">{translateText("Выберите хотя бы одного ученика")}</p>
           )}
         </div>
 
@@ -386,18 +382,18 @@ export function CreateAssignmentsBulkPage() {
         <div className="max-w-2xl flex flex-col gap-6">
           {/* title */}
           <Input
-            label="Название задания *"
-            placeholder="Сура Аль-Фатиха, стр. 12–15..."
+            label={translateText("Название задания *")}
+            placeholder={translateText("Сура Аль-Фатиха, стр. 12–15...")}
             value={title}
             onChange={(e) => { setTitle(e.target.value); setErrors((p) => ({ ...p, title: undefined })); }}
-            error={errors.title}
+            error={translateText(errors.title)}
           />
 
           {/* type */}
           <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-slate-700">Тип задания</p>
+            <p className="text-sm font-medium text-slate-700">{translateText("Тип задания")}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {TYPE_OPTIONS.map((opt) => (
+              {localizeUI(TYPE_OPTIONS, locale).map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -424,11 +420,11 @@ export function CreateAssignmentsBulkPage() {
 
           {/* description + attachments */}
           <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-slate-700">Описание и вложения</p>
+            <p className="text-sm font-medium text-slate-700">{translateText("Описание и вложения")}</p>
             <div className="rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-colors">
               <textarea
                 className="w-full px-4 py-3 text-sm resize-none outline-none min-h-[120px] placeholder:text-slate-400"
-                placeholder="Что нужно сделать ученику..."
+                placeholder={translateText("Что нужно сделать ученику...")}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 onPaste={handlePaste}
@@ -439,11 +435,9 @@ export function CreateAssignmentsBulkPage() {
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-emerald-600 transition-colors cursor-pointer"
                 >
-                  <Paperclip className="size-3.5" />
-                  Прикрепить файл
-                </button>
+                  <Paperclip className="size-3.5" />{translateText("Прикрепить файл")}</button>
                 <span className="text-slate-300 text-xs">·</span>
-                <span className="text-xs text-slate-400">Ctrl+V для скриншота</span>
+                <span className="text-xs text-slate-400">{translateText("Ctrl+V для скриншота")}</span>
               </div>
             </div>
 
@@ -496,7 +490,7 @@ export function CreateAssignmentsBulkPage() {
 
           {/* due date */}
           <Input
-            label="Дедлайн (опционально)"
+            label={translateText("Дедлайн (опционально)")}
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
@@ -508,10 +502,9 @@ export function CreateAssignmentsBulkPage() {
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-slate-200 z-20">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-end gap-3">
           <Link href="/assignments">
-            <Button variant="outline">Отмена</Button>
+            <Button variant="outline">{translateText("Отмена")}</Button>
           </Link>
-          <Button onClick={handleSubmit} disabled={selectedStudentIds.length === 0}>
-            Создать для {pluralStudents(selectedStudentIds.length)}
+          <Button onClick={handleSubmit} disabled={selectedStudentIds.length === 0}>{translateText("Создать для")}{pluralStudents(selectedStudentIds.length)}
           </Button>
         </div>
       </div>

@@ -1,5 +1,10 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+import { getIntlLocale, type Locale } from '@/shared/i18n/locale-store';
+
+
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -36,11 +41,11 @@ function useHydrated() {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
+function fmtDate(iso: string, locale: Locale = 'ru') {
+  return new Date(iso).toLocaleDateString(getIntlLocale(locale), { day: '2-digit', month: 'short', year: 'numeric' });
 }
-function fmtShort(iso: string) {
-  return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
+function fmtShort(iso: string, locale: Locale = 'ru') {
+  return new Date(iso).toLocaleDateString(getIntlLocale(locale), { day: '2-digit', month: 'short' });
 }
 function weekAgoISO() {
   return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -101,6 +106,8 @@ function ProgressBar({ pct, colorDot, height = 'h-2.5' }: { pct: number; colorDo
 // ─── Award Points Modal ───────────────────────────────────────────────────────
 
 function AwardModal({ teamId, onClose }: { teamId: string; onClose: () => void }) {
+  const { t: translateText, locale } = useTranslation();
+
   const award = useAppStore((s) => s.awardTeamPoints);
   const activeSeason = useActiveSeason();
   const [mode, setMode] = useState<'preset' | 'manual'>('preset');
@@ -108,8 +115,8 @@ function AwardModal({ teamId, onClose }: { teamId: string; onClose: () => void }
   const [pts, setPts] = useState('');
   const [reason, setReason] = useState('');
 
-  const positivePresets = TEAM_POINT_PRESETS.filter((p) => p.points > 0);
-  const negativePresets = TEAM_POINT_PRESETS.filter((p) => p.points < 0);
+  const positivePresets = localizeUI(TEAM_POINT_PRESETS, locale).filter((p) => p.points > 0);
+  const negativePresets = localizeUI(TEAM_POINT_PRESETS, locale).filter((p) => p.points < 0);
 
   function submit() {
     if (mode === 'preset' && selectedPreset) {
@@ -126,18 +133,18 @@ function AwardModal({ teamId, onClose }: { teamId: string; onClose: () => void }
   return (
     <Modal onClose={onClose} maxW="max-w-lg">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-slate-900">Начислить баллы</h2>
+        <h2 className="text-lg font-bold text-slate-900">{translateText("Начислить баллы")}</h2>
         <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X className="size-4" /></button>
       </div>
 
       <div className="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl">
-        <button onClick={() => setMode('preset')} className={cn('flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors', mode === 'preset' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}>Быстрые причины</button>
-        <button onClick={() => setMode('manual')} className={cn('flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors', mode === 'manual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}>Вручную</button>
+        <button onClick={() => setMode('preset')} className={cn('flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors', mode === 'preset' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}>{translateText("Быстрые причины")}</button>
+        <button onClick={() => setMode('manual')} className={cn('flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors', mode === 'manual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}>{translateText("Вручную")}</button>
       </div>
 
       {mode === 'preset' ? (
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Положительные</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Положительные")}</p>
           <div className="grid grid-cols-2 gap-2">
             {positivePresets.map((p) => (
               <button key={p.id} onClick={() => setSelectedPreset(selectedPreset?.id === p.id ? null : p)}
@@ -151,7 +158,7 @@ function AwardModal({ teamId, onClose }: { teamId: string; onClose: () => void }
               </button>
             ))}
           </div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Штрафы</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Штрафы")}</p>
           <div className="grid grid-cols-2 gap-2">
             {negativePresets.map((p) => (
               <button key={p.id} onClick={() => setSelectedPreset(selectedPreset?.id === p.id ? null : p)}
@@ -166,43 +173,39 @@ function AwardModal({ teamId, onClose }: { teamId: string; onClose: () => void }
             ))}
           </div>
           {selectedPreset && (
-            <div className={cn('rounded-xl px-4 py-3 text-sm font-medium text-center', selectedPreset.points > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700')}>
-              Команда получит <span className="font-bold">{selectedPreset.points > 0 ? `+${selectedPreset.points}` : selectedPreset.points} баллов</span>
+            <div className={cn('rounded-xl px-4 py-3 text-sm font-medium text-center', selectedPreset.points > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700')}>{translateText("Команда получит")}<span className="font-bold">{selectedPreset.points > 0 ? `+${selectedPreset.points}` : selectedPreset.points}{translateText(" баллов")}</span>
             </div>
           )}
         </div>
       ) : (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Баллы (отрицательное — штраф)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Баллы (отрицательное — штраф)")}</label>
             <input type="number" value={pts} onChange={(e) => setPts(e.target.value)} autoFocus
-              placeholder="+20 или -5"
+              placeholder={translateText("+20 или -5")}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Причина</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Причина")}</label>
             <input type="text" value={reason} onChange={(e) => setReason(e.target.value)}
-              placeholder="Например: Отличное чтение"
+              placeholder={translateText("Например: Отличное чтение")}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
           {pts && reason && (
-            <div className={cn('rounded-xl px-4 py-3 text-sm text-center', parseInt(pts) >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700')}>
-              Команда получит <span className="font-bold">{parseInt(pts) >= 0 ? `+${pts}` : pts} баллов</span>
+            <div className={cn('rounded-xl px-4 py-3 text-sm text-center', parseInt(pts) >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700')}>{translateText("Команда получит")}<span className="font-bold">{parseInt(pts) >= 0 ? `+${pts}` : pts}{translateText(" баллов")}</span>
             </div>
           )}
         </div>
       )}
 
       {activeSeason && (
-        <p className="text-xs text-slate-400 mt-3 text-center">Баллы войдут в сезон: {activeSeason.title}</p>
+        <p className="text-xs text-slate-400 mt-3 text-center">{translateText("Баллы войдут в сезон: ")}{activeSeason.title}</p>
       )}
 
       <div className="flex gap-3 mt-4">
-        <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+        <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
         <button onClick={submit} disabled={mode === 'preset' ? !selectedPreset : (!pts || !reason.trim())}
-          className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">
-          Начислить
-        </button>
+          className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">{translateText("Начислить")}</button>
       </div>
     </Modal>
   );
@@ -211,13 +214,15 @@ function AwardModal({ teamId, onClose }: { teamId: string; onClose: () => void }
 // ─── Badge Award Modal ────────────────────────────────────────────────────────
 
 function BadgeModal({ teamId, onClose }: { teamId: string; onClose: () => void }) {
+  const { t: translateText, locale } = useTranslation();
+
   const awardBadge = useAppStore((s) => s.awardTeamBadge);
   const [selected, setSelected] = useState<TeamBadgeType | null>(null);
-  const types = Object.entries(TEAM_BADGE_META) as [TeamBadgeType, typeof TEAM_BADGE_META[TeamBadgeType]][];
+  const types = Object.entries(localizeUI(TEAM_BADGE_META, locale)) as [TeamBadgeType, typeof TEAM_BADGE_META[TeamBadgeType]][];
 
   return (
     <Modal onClose={onClose}>
-      <h2 className="text-lg font-bold text-slate-900 mb-4">Выдать бейдж</h2>
+      <h2 className="text-lg font-bold text-slate-900 mb-4">{translateText("Выдать бейдж")}</h2>
       <div className="grid grid-cols-2 gap-2 mb-5">
         {types.map(([type, meta]) => (
           <button key={type} onClick={() => setSelected(selected === type ? null : type)}
@@ -232,11 +237,9 @@ function BadgeModal({ teamId, onClose }: { teamId: string; onClose: () => void }
         ))}
       </div>
       <div className="flex gap-3">
-        <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+        <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
         <button onClick={() => { if (selected) { awardBadge(teamId, selected); onClose(); } }} disabled={!selected}
-          className="flex-1 px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 disabled:opacity-40">
-          Выдать 🏅
-        </button>
+          className="flex-1 px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 disabled:opacity-40">{translateText("Выдать 🏅")}</button>
       </div>
     </Modal>
   );
@@ -249,6 +252,8 @@ function RichGoalModal({ teamId, existing, onClose }: {
   existing?: { id: string; title: string; type: RichTeamGoalType; targetValue: number; reward?: string; deadline?: string; description?: string };
   onClose: () => void;
 }) {
+  const { t: translateText, locale } = useTranslation();
+
   const create = useAppStore((s) => s.createRichTeamGoal);
   const update = useAppStore((s) => s.updateRichTeamGoal);
   const activeSeason = useActiveSeason();
@@ -281,55 +286,55 @@ function RichGoalModal({ teamId, existing, onClose }: {
 
   return (
     <Modal onClose={onClose}>
-      <h2 className="text-lg font-bold text-slate-900 mb-5">{existing ? 'Изменить цель' : 'Создать цель'}</h2>
+      <h2 className="text-lg font-bold text-slate-900 mb-5">{existing ? translateText('Изменить цель') : translateText('Создать цель')}</h2>
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Тип цели</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Тип цели")}</label>
           <div className="grid grid-cols-3 gap-2">
-            {(Object.entries(RICH_GOAL_TYPE_ICONS) as [RichTeamGoalType, string][]).map(([t, icon]) => (
-              <button key={t} type="button" onClick={() => setType(t)}
+            {(Object.entries(RICH_GOAL_TYPE_ICONS) as [RichTeamGoalType, string][]).map(([goalType, icon]) => (
+              <button key={goalType} type="button" onClick={() => setType(goalType)}
                 className={cn('flex items-center gap-1.5 px-2 py-2 rounded-xl border text-xs font-medium transition-all',
-                  type === t ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-600 hover:border-emerald-300')}>
-                <span>{icon}</span> {RICH_GOAL_TYPE_LABELS[t]}
+                  type === goalType ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-600 hover:border-emerald-300')}>
+                <span>{icon}</span> {localizeUI(RICH_GOAL_TYPE_LABELS, locale)[goalType]}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Название <span className="text-red-400">*</span></label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Название ")}<span className="text-red-400">*</span></label>
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus
-            placeholder="Например: Набрать 100 баллов за месяц"
+            placeholder={translateText("Например: Набрать 100 баллов за месяц")}
             className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Описание</label>
-          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} placeholder="Дополнительные условия..."
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Описание")}</label>
+          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} placeholder={translateText("Дополнительные условия...")}
             className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              {type === 'points' ? 'Баллов нужно' : type === 'attendance' ? 'Посещений %' : 'Целевое значение'} <span className="text-red-400">*</span>
+              {type === 'points' ? translateText('Баллов нужно') : type === 'attendance' ? translateText('Посещений %') : translateText('Целевое значение')} <span className="text-red-400">*</span>
             </label>
             <input type="number" min="1" value={target} onChange={(e) => setTarget(e.target.value)}
-              placeholder={type === 'points' ? '100' : type === 'attendance' ? '90' : '5'}
+              placeholder={translateText(type === 'points' ? '100' : type === 'attendance' ? '90' : '5')}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Дедлайн</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Дедлайн")}</label>
             <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Награда 🎁</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Награда 🎁")}</label>
           <input type="text" value={reward} onChange={(e) => setReward(e.target.value)}
-            placeholder="Мороженое / поход в кино / фото в Instagram"
+            placeholder={translateText("Мороженое / поход в кино / фото в Instagram")}
             className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
         </div>
         <div className="flex gap-3 pt-1">
-          <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
-          <button type="submit" disabled={!title.trim() || !target} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">Сохранить</button>
+          <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
+          <button type="submit" disabled={!title.trim() || !target} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">{translateText("Сохранить")}</button>
         </div>
       </form>
     </Modal>
@@ -343,6 +348,8 @@ function LegacyGoalModal({ teamId, existing, onClose }: {
   existing?: { title: string; targetPoints: number; reward?: string; deadline?: string };
   onClose: () => void;
 }) {
+  const { t: translateText } = useTranslation();
+
   const createGoal = useAppStore((s) => s.createTeamGoal);
   const updateGoal = useAppStore((s) => s.updateTeamGoal);
   const [title, setTitle] = useState(existing?.title ?? '');
@@ -352,7 +359,7 @@ function LegacyGoalModal({ teamId, existing, onClose }: {
 
   return (
     <Modal onClose={onClose}>
-      <h2 className="text-lg font-bold text-slate-900 mb-5">{existing ? 'Изменить цель' : 'Создать цель'}</h2>
+      <h2 className="text-lg font-bold text-slate-900 mb-5">{existing ? translateText('Изменить цель') : translateText('Создать цель')}</h2>
       <form onSubmit={(e) => {
         e.preventDefault();
         if (!title.trim() || !target) return;
@@ -361,31 +368,31 @@ function LegacyGoalModal({ teamId, existing, onClose }: {
         onClose();
       }} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Название <span className="text-red-400">*</span></label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Название ")}<span className="text-red-400">*</span></label>
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus
-            placeholder="Набрать 100 баллов"
+            placeholder={translateText("Набрать 100 баллов")}
             className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Баллов нужно <span className="text-red-400">*</span></label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Баллов нужно ")}<span className="text-red-400">*</span></label>
             <input type="number" min="1" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="100"
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Дедлайн</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Дедлайн")}</label>
             <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Награда 🎁</label>
-          <input type="text" value={reward} onChange={(e) => setReward(e.target.value)} placeholder="Мороженое всей команде"
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Награда 🎁")}</label>
+          <input type="text" value={reward} onChange={(e) => setReward(e.target.value)} placeholder={translateText("Мороженое всей команде")}
             className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
         </div>
         <div className="flex gap-3 pt-1">
-          <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
-          <button type="submit" disabled={!title.trim() || !target} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">Сохранить</button>
+          <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
+          <button type="submit" disabled={!title.trim() || !target} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">{translateText("Сохранить")}</button>
         </div>
       </form>
     </Modal>
@@ -399,6 +406,8 @@ function CreateGameModal({ currentTeamId, allTeams, onClose }: {
   allTeams: { id: string; name: string; emoji?: string }[];
   onClose: () => void;
 }) {
+  const { t: translateText } = useTranslation();
+
   const createGame = useAppStore((s) => s.createTeamGame);
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
@@ -407,8 +416,8 @@ function CreateGameModal({ currentTeamId, allTeams, onClose }: {
   const [teamIds, setTeamIds] = useState<Set<string>>(new Set([currentTeamId]));
 
   const TEMPLATES = [
-    'Кто быстрее найдёт аят', 'Чтение без ошибки', 'Таджвид-викторина',
-    'Повторение суры', 'Командный вопрос-ответ', 'Лучший азан',
+    translateText('Кто быстрее найдёт аят'), translateText('Чтение без ошибки'), translateText('Таджвид-викторина'),
+    translateText('Повторение суры'), translateText('Командный вопрос-ответ'), translateText('Лучший азан'),
   ];
 
   function toggle(id: string) {
@@ -418,7 +427,7 @@ function CreateGameModal({ currentTeamId, allTeams, onClose }: {
 
   return (
     <Modal onClose={onClose} maxW="max-w-lg">
-      <h2 className="text-lg font-bold text-slate-900 mb-5">Создать игру</h2>
+      <h2 className="text-lg font-bold text-slate-900 mb-5">{translateText("Создать игру")}</h2>
       <form onSubmit={(e) => {
         e.preventDefault();
         if (!title.trim() || !pts || teamIds.size < 2) return;
@@ -426,8 +435,8 @@ function CreateGameModal({ currentTeamId, allTeams, onClose }: {
         onClose();
       }} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Название <span className="text-red-400">*</span></label>
-          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus placeholder="Турнир по таджвиду"
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Название ")}<span className="text-red-400">*</span></label>
+          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus placeholder={translateText("Турнир по таджвиду")}
             className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           <div className="flex flex-wrap gap-1.5 mt-2">
             {TEMPLATES.map((t) => (
@@ -440,36 +449,36 @@ function CreateGameModal({ currentTeamId, allTeams, onClose }: {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Баллы победителю</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Баллы победителю")}</label>
             <input type="number" min="1" value={pts} onChange={(e) => setPts(e.target.value)} placeholder="20"
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Статус</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Статус")}</label>
             <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
-              <option value="planned">Запланирована</option>
-              <option value="active">Начать сейчас</option>
+              <option value="planned">{translateText("Запланирована")}</option>
+              <option value="active">{translateText("Начать сейчас")}</option>
             </select>
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Команды (мин. 2)</label>
+          <label className="block text-sm font-medium text-slate-700 mb-2">{translateText("Команды (мин. 2)")}</label>
           <div className="space-y-1.5 max-h-36 overflow-y-auto border border-slate-200 rounded-xl p-3">
             {allTeams.map((t) => (
               <label key={t.id} className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={teamIds.has(t.id)} onChange={() => toggle(t.id)}
                   disabled={t.id === currentTeamId} className="rounded border-slate-300 text-emerald-600" />
-                <span className="text-sm">{t.emoji} {t.name}{t.id === currentTeamId ? ' (эта команда)' : ''}</span>
+                <span className="text-sm">{t.emoji} {t.name}{t.id === currentTeamId ? translateText(' (эта команда)') : ''}</span>
               </label>
             ))}
           </div>
-          {teamIds.size < 2 && <p className="text-xs text-red-500 mt-1">Выберите хотя бы 2 команды</p>}
+          {teamIds.size < 2 && <p className="text-xs text-red-500 mt-1">{translateText("Выберите хотя бы 2 команды")}</p>}
         </div>
         <div className="flex gap-3 pt-1">
-          <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+          <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
           <button type="submit" disabled={!title.trim() || !pts || teamIds.size < 2}
-            className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">Создать</button>
+            className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">{translateText("Создать")}</button>
         </div>
       </form>
     </Modal>
@@ -479,6 +488,8 @@ function CreateGameModal({ currentTeamId, allTeams, onClose }: {
 // ─── Add Members Modal ────────────────────────────────────────────────────────
 
 function AddMembersModal({ teamId, currentMemberIds, onClose }: { teamId: string; currentMemberIds: string[]; onClose: () => void }) {
+  const { t: translateText } = useTranslation();
+
   const addStudent = useAppStore((s) => s.addStudentToTeam);
   const students = useStudents();
   const [search, setSearch] = useState('');
@@ -492,31 +503,30 @@ function AddMembersModal({ teamId, currentMemberIds, onClose }: { teamId: string
 
   return (
     <Modal onClose={onClose}>
-      <h2 className="text-lg font-bold text-slate-900 mb-4">Добавить участников</h2>
+      <h2 className="text-lg font-bold text-slate-900 mb-4">{translateText("Добавить участников")}</h2>
       <div className="relative mb-3">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-        <input type="text" placeholder="Поиск..." value={search} onChange={(e) => setSearch(e.target.value)} autoFocus
+        <input type="text" placeholder={translateText("Поиск...")} value={search} onChange={(e) => setSearch(e.target.value)} autoFocus
           className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
       </div>
       <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-56 overflow-y-auto mb-4">
         {available.length === 0
-          ? <p className="text-center text-sm text-slate-400 py-6">{search ? 'Не найдено' : 'Все ученики уже в командах'}</p>
+          ? <p className="text-center text-sm text-slate-400 py-6">{search ? translateText('Не найдено') : translateText('Все ученики уже в командах')}</p>
           : available.map((s) => (
             <label key={s.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50">
               <input type="checkbox" checked={selected.has(s.id)} onChange={() => setSelected((p) => { const n = new Set(p); n.has(s.id) ? n.delete(s.id) : n.add(s.id); return n; })}
                 className="rounded border-slate-300 text-emerald-600" />
               <div>
                 <p className="text-sm font-medium text-slate-800">{s.fullName}</p>
-                <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(s.group)} · {s.totalPoints} баллов</p>
+                <p className="text-xs text-slate-400">{translateText("Группа ")}{getStudentGroupLabel(s.group)} · {s.totalPoints}{translateText(" баллов")}</p>
               </div>
             </label>
           ))}
       </div>
       <div className="flex gap-3">
-        <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+        <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
         <button onClick={() => { selected.forEach((id) => addStudent(teamId, id)); onClose(); }}
-          disabled={selected.size === 0} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">
-          Добавить {selected.size > 0 ? `(${selected.size})` : ''}
+          disabled={selected.size === 0} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">{translateText("Добавить")}{selected.size > 0 ? `(${selected.size})` : ''}
         </button>
       </div>
     </Modal>
@@ -528,6 +538,8 @@ function AddMembersModal({ teamId, currentMemberIds, onClose }: { teamId: string
 function EditTeamModal({ teamId, name: initName, description: initDesc, color: initColor, emoji: initEmoji, onClose }: {
   teamId: string; name: string; description?: string; color: TeamColor; emoji?: string; onClose: () => void;
 }) {
+  const { t: translateText } = useTranslation();
+
   const updateTeam = useAppStore((s) => s.updateTeam);
   const [name, setName] = useState(initName);
   const [desc, setDesc] = useState(initDesc ?? '');
@@ -536,7 +548,7 @@ function EditTeamModal({ teamId, name: initName, description: initDesc, color: i
 
   return (
     <Modal onClose={onClose}>
-      <h2 className="text-lg font-bold text-slate-900 mb-5">Редактировать команду</h2>
+      <h2 className="text-lg font-bold text-slate-900 mb-5">{translateText("Редактировать команду")}</h2>
       <form onSubmit={(e) => {
         e.preventDefault();
         if (!name.trim()) return;
@@ -545,22 +557,22 @@ function EditTeamModal({ teamId, name: initName, description: initDesc, color: i
       }} className="space-y-4">
         <div className="grid grid-cols-[auto_1fr] gap-3 items-end">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Эмодзи</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Эмодзи")}</label>
             <input type="text" value={emoji} onChange={(e) => setEmoji(e.target.value)} maxLength={2} placeholder="🏆"
               className="w-14 px-2 py-2 rounded-lg border border-slate-200 text-lg text-center focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Название</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Название")}</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} autoFocus
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Описание</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Описание")}</label>
           <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Цвет</label>
+          <label className="block text-sm font-medium text-slate-700 mb-2">{translateText("Цвет")}</label>
           <div className="flex flex-wrap gap-2">
             {TEAM_COLORS.map((c) => (
               <button key={c} type="button" onClick={() => setColor(c)}
@@ -569,8 +581,8 @@ function EditTeamModal({ teamId, name: initName, description: initDesc, color: i
           </div>
         </div>
         <div className="flex gap-3 pt-1">
-          <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
-          <button type="submit" disabled={!name.trim()} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">Сохранить</button>
+          <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
+          <button type="submit" disabled={!name.trim()} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">{translateText("Сохранить")}</button>
         </div>
       </form>
     </Modal>
@@ -602,6 +614,8 @@ function getMemberRole(team: NonNullable<ReturnType<typeof useTeamById>>, studen
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function TeamDetail({ teamId }: { teamId: string }) {
+  const { t: translateText, locale } = useTranslation();
+
   const hydrated = useHydrated();
   const router = useRouter();
 
@@ -663,8 +677,8 @@ export function TeamDetail({ teamId }: { teamId: string }) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <div className="size-14 rounded-2xl bg-slate-100 flex items-center justify-center"><Users className="size-6 text-slate-400" /></div>
-        <p className="font-semibold text-slate-700">Команда не найдена</p>
-        <Link href="/teams" className="text-sm text-emerald-600 hover:underline">← Все команды</Link>
+        <p className="font-semibold text-slate-700">{translateText("Команда не найдена")}</p>
+        <Link href="/teams" className="text-sm text-emerald-600 hover:underline">{translateText("← Все команды")}</Link>
       </div>
     );
   }
@@ -687,8 +701,8 @@ export function TeamDetail({ teamId }: { teamId: string }) {
 
   // Level info
   const levelInfo = getNextLevelInfo(team.points);
-  const levelCfg = TEAM_LEVEL_CONFIGS[levelInfo.currentLevel];
-  const nextLevelCfg = levelInfo.nextLevel ? TEAM_LEVEL_CONFIGS[levelInfo.nextLevel] : null;
+  const levelCfg = localizeUI(TEAM_LEVEL_CONFIGS, locale)[levelInfo.currentLevel];
+  const nextLevelCfg = levelInfo.nextLevel ? localizeUI(TEAM_LEVEL_CONFIGS, locale)[levelInfo.nextLevel] : null;
 
   // Members tab
   const filteredMembers = members
@@ -712,7 +726,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
   function copyParentMessage() {
     if (!team) return;
     const seasonRank = [...allTeams].sort((a, b) => (b.seasonPoints ?? 0) - (a.seasonPoints ?? 0)).findIndex((t) => t.id === teamId) + 1;
-    const msg = `Ассаламу алейкум! 🌙\n\nКоманда вашего ребёнка «${team.name}» ${rank <= 3 ? `занимает ${rank === 1 ? '1-е место' : rank === 2 ? '2-е место' : '3-е место'} 🏆` : `сейчас на ${rank}-м месте`} в общем рейтинге!\n\n📊 Баллов: ${team.points}\n🏅 Уровень: ${levelCfg.emoji} ${levelCfg.label}${badges.length > 0 ? `\n🎖️ Бейджи: ${badges.slice(-3).map((b) => b.icon + ' ' + b.title).join(', ')}` : ''}${activeSeason ? `\n📅 Текущий сезон: ${activeSeason.title}` : ''}\n\nПродолжайте поддерживать ребёнка в изучении Корана! 🤲`;
+    const msg = translateText(`Ассаламу алейкум! 🌙\n\nКоманда вашего ребёнка «${team.name}» ${rank <= 3 ? translateText(`занимает ${rank === 1 ? translateText('1-е место') : rank === 2 ? translateText('2-е место') : translateText('3-е место')} 🏆`) : translateText(`сейчас на ${rank}-м месте`)} в общем рейтинге!\n\n📊 Баллов: ${team.points}\n🏅 Уровень: ${levelCfg.emoji} ${levelCfg.label}${badges.length > 0 ? translateText(`\n🎖️ Бейджи: ${badges.slice(-3).map((b) => b.icon + ' ' + b.title).join(', ')}`) : ''}${activeSeason ? translateText(`\n📅 Текущий сезон: ${activeSeason.title}`) : ''}\n\nПродолжайте поддерживать ребёнка в изучении Корана! 🤲`);
     navigator.clipboard.writeText(msg).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   }
 
@@ -723,8 +737,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-slate-400 mb-5 pt-2">
         <Link href="/teams" className="hover:text-slate-600 transition-colors flex items-center gap-1">
-          <Users className="size-3.5" /> Команды
-        </Link>
+          <Users className="size-3.5" />{translateText("Команды")}</Link>
         <ChevronRight className="size-3.5" />
         <span className="text-slate-700 font-medium">{team.name}</span>
       </div>
@@ -744,7 +757,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                   <h1 className="text-2xl font-bold text-slate-900">{team.name}</h1>
                   {rank <= 3 && (
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                      {rank === 1 ? '🥇 Лидер' : rank === 2 ? '🥈 2-е' : '🥉 3-е'}
+                      {rank === 1 ? translateText('🥇 Лидер') : rank === 2 ? translateText('🥈 2-е') : translateText('🥉 3-е')}
                     </span>
                   )}
                   <span className={cn('text-xs font-bold px-2 py-0.5 rounded-full', cls.badge)}>
@@ -754,17 +767,15 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                 {team.description && <p className="text-sm text-slate-500 mt-0.5">{team.description}</p>}
                 <div className="flex items-center gap-4 mt-2 flex-wrap">
                   <span className={cn('flex items-center gap-1 text-sm font-bold', cls.text)}>
-                    <Star className="size-3.5" /> {team.points} баллов
-                  </span>
+                    <Star className="size-3.5" /> {team.points}{translateText("баллов")}</span>
                   {activeSeason && (team.seasonPoints ?? 0) !== team.points && (
-                    <span className="text-xs text-slate-400">{team.seasonPoints ?? 0} сезон</span>
+                    <span className="text-xs text-slate-400">{team.seasonPoints ?? 0}{translateText(" сезон")}</span>
                   )}
                   <span className="flex items-center gap-1 text-sm text-slate-500">
-                    <Users className="size-3.5" /> {members.length} участников
-                  </span>
-                  <span className="text-xs text-slate-400">#{rank} рейтинг</span>
+                    <Users className="size-3.5" /> {members.length}{translateText("участников")}</span>
+                  <span className="text-xs text-slate-400">#{rank}{translateText(" рейтинг")}</span>
                   {todayAttendance > 0 && (
-                    <span className="text-xs text-emerald-600 font-medium">✓ {todayAttendance}/{members.length} сегодня</span>
+                    <span className="text-xs text-emerald-600 font-medium">✓ {todayAttendance}/{members.length}{translateText(" сегодня")}</span>
                   )}
                 </div>
 
@@ -784,19 +795,15 @@ export function TeamDetail({ teamId }: { teamId: string }) {
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => setShowAddMembers(true)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-                <Plus className="size-4" /> Участники
-              </button>
+                <Plus className="size-4" />{translateText("Участники")}</button>
               <button onClick={() => setShowAward(true)}
                 className={cn('flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium', cls.badge, 'hover:opacity-90')}>
-                <Zap className="size-4" /> Начислить
-              </button>
+                <Zap className="size-4" />{translateText("Начислить")}</button>
               <button onClick={() => setShowBadge(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-200 text-sm font-medium text-amber-700 hover:bg-amber-50">
-                🏅 Бейдж
-              </button>
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-200 text-sm font-medium text-amber-700 hover:bg-amber-50">{translateText("🏅 Бейдж")}</button>
               <button onClick={copyParentMessage}
                 className={cn('flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-colors', copied ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-slate-200 text-slate-600 hover:bg-slate-50')}>
-                <Copy className="size-4" /> {copied ? 'Скопировано!' : 'Родителям'}
+                <Copy className="size-4" /> {copied ? translateText('Скопировано!') : translateText('Родителям')}
               </button>
               <div className="relative" ref={dropdownRef}>
                 <button onClick={() => setShowDropdown(!showDropdown)}
@@ -807,21 +814,17 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                   <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl border border-slate-200 shadow-lg z-20 py-1">
                     <button onClick={() => { setShowEdit(true); setShowDropdown(false); }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 text-left">
-                      <Edit2 className="size-4" /> Редактировать
-                    </button>
+                      <Edit2 className="size-4" />{translateText("Редактировать")}</button>
                     <button onClick={() => { setShowGame(true); setShowDropdown(false); }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 text-left">
-                      <Swords className="size-4" /> Создать игру
-                    </button>
+                      <Swords className="size-4" />{translateText("Создать игру")}</button>
                     <button onClick={() => { setShowRichGoal(true); setShowDropdown(false); }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 text-left">
-                      <Target className="size-4" /> Добавить цель
-                    </button>
+                      <Target className="size-4" />{translateText("Добавить цель")}</button>
                     <div className="h-px bg-slate-100 my-1" />
                     <button onClick={() => { setDeleteConfirm(true); setShowDropdown(false); }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 text-left">
-                      <Trash2 className="size-4" /> Удалить команду
-                    </button>
+                      <Trash2 className="size-4" />{translateText("Удалить команду")}</button>
                   </div>
                 )}
               </div>
@@ -833,9 +836,9 @@ export function TeamDetail({ teamId }: { teamId: string }) {
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="text-slate-500">{levelCfg.emoji} {levelCfg.label}</span>
               {nextLevelCfg ? (
-                <span className={cn('font-medium', cls.text)}>До «{nextLevelCfg.label}» — {levelInfo.pointsToNext} баллов</span>
+                <span className={cn('font-medium', cls.text)}>{translateText("До «")}{nextLevelCfg.label}» — {levelInfo.pointsToNext}{translateText(" баллов")}</span>
               ) : (
-                <span className="text-amber-600 font-medium">Максимальный уровень! 🏆</span>
+                <span className="text-amber-600 font-medium">{translateText("Максимальный уровень! 🏆")}</span>
               )}
             </div>
             <ProgressBar pct={levelInfo.progress} colorDot={cls.dot} height="h-2" />
@@ -857,12 +860,12 @@ export function TeamDetail({ teamId }: { teamId: string }) {
       {/* ── Stats grid ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
         {[
-          { label: 'Баллов', value: team.points, icon: Star, color: cls.text, bg: cls.light },
-          { label: 'Ср. балл', value: avgPoints, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Участников', value: members.length, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-          { label: 'Побед', value: gamesWon, icon: Trophy, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'Посещ./нед.', value: weeklyAttendance, icon: Calendar, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Рост/нед.', value: weeklyGrowth > 0 ? `+${weeklyGrowth}` : weeklyGrowth < 0 ? `${weeklyGrowth}` : '—', icon: Activity, color: weeklyGrowth > 0 ? 'text-emerald-600' : weeklyGrowth < 0 ? 'text-red-500' : 'text-purple-600', bg: 'bg-purple-50' },
+          { label: translateText('Баллов'), value: team.points, icon: Star, color: cls.text, bg: cls.light },
+          { label: translateText('Ср. балл'), value: avgPoints, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: translateText('Участников'), value: members.length, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+          { label: translateText('Побед'), value: gamesWon, icon: Trophy, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: translateText('Посещ./нед.'), value: weeklyAttendance, icon: Calendar, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: translateText('Рост/нед.'), value: weeklyGrowth > 0 ? `+${weeklyGrowth}` : weeklyGrowth < 0 ? `${weeklyGrowth}` : '—', icon: Activity, color: weeklyGrowth > 0 ? 'text-emerald-600' : weeklyGrowth < 0 ? 'text-red-500' : 'text-purple-600', bg: 'bg-purple-50' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-200 p-3.5 flex flex-col gap-2">
             <div className={cn('size-8 rounded-lg flex items-center justify-center', bg)}>
@@ -879,7 +882,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
       {/* ── Sticky tabs ────────────────────────────────────────────────── */}
       <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm -mx-0 sm:-mx-6 px-0 sm:px-6 py-2 mb-5 border-b border-slate-100">
         <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1 overflow-x-auto">
-          {TABS.map((t) => (
+          {localizeUI(TABS, locale).map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={cn('shrink-0 sm:flex-1 px-2.5 py-2.5 sm:py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors',
                 tab === t.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
@@ -900,9 +903,9 @@ export function TeamDetail({ teamId }: { teamId: string }) {
             <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100 px-5 py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold text-emerald-600 mb-1">Активный сезон</p>
+                  <p className="text-xs font-semibold text-emerald-600 mb-1">{translateText("Активный сезон")}</p>
                   <p className="font-bold text-slate-900">{activeSeason.title}</p>
-                  <p className={cn('text-sm font-bold mt-1', cls.text)}>{team.seasonPoints ?? 0} баллов в этом сезоне</p>
+                  <p className={cn('text-sm font-bold mt-1', cls.text)}>{team.seasonPoints ?? 0}{translateText(" баллов в этом сезоне")}</p>
                 </div>
                 <Calendar className="size-8 text-emerald-300" />
               </div>
@@ -912,24 +915,24 @@ export function TeamDetail({ teamId }: { teamId: string }) {
           {/* Today block */}
           <div className="bg-white rounded-2xl border border-slate-200 px-5 py-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-slate-800 text-sm">Сегодня</h3>
-              <span className="text-xs text-slate-400">{new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+              <h3 className="font-semibold text-slate-800 text-sm">{translateText("Сегодня")}</h3>
+              <span className="text-xs text-slate-400">{new Date().toLocaleDateString(locale === 'ky' ? 'ky-KG' : 'ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-center">
                 <div className={cn('text-2xl font-bold', cls.text)}>{todayAttendance}</div>
-                <div className="text-xs text-slate-400">из {members.length}</div>
+                <div className="text-xs text-slate-400">{translateText("из ")}{members.length}</div>
               </div>
               <div className="flex-1">
                 <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div className={cn('h-full rounded-full', cls.dot)} style={{ width: members.length > 0 ? `${Math.round((todayAttendance / members.length) * 100)}%` : '0%' }} />
                 </div>
-                <p className="text-xs text-slate-500 mt-1">учеников пришли</p>
+                <p className="text-xs text-slate-500 mt-1">{translateText("учеников пришли")}</p>
               </div>
             </div>
             {/* Quick award buttons */}
             <div className="mt-3 flex flex-wrap gap-2">
-              {TEAM_POINT_PRESETS.filter((p) => p.points > 0).slice(0, 4).map((p) => (
+              {localizeUI(TEAM_POINT_PRESETS, locale).filter((p) => p.points > 0).slice(0, 4).map((p) => (
                 <button key={p.id} onClick={() => {
                   useAppStore.getState().awardTeamPoints(teamId, p.points, p.label, 'preset');
                 }}
@@ -943,14 +946,14 @@ export function TeamDetail({ teamId }: { teamId: string }) {
           {/* Weekly summary */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { label: 'Баллов за неделю', value: weeklyGrowth > 0 ? `+${weeklyGrowth}` : weeklyGrowth < 0 ? `${weeklyGrowth}` : '—', color: weeklyGrowth >= 0 ? cls.text : 'text-red-500', bg: weeklyGrowth >= 0 ? cls.light : 'bg-red-50' },
-              { label: 'Посещений', value: weeklyAttendance, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-              { label: 'Активных дней', value: new Set(history.filter((h) => h.createdAt >= waISO).map((h) => h.createdAt.split('T')[0])).size, color: 'text-purple-600', bg: 'bg-purple-50' },
+              { label: translateText('Баллов за неделю'), value: weeklyGrowth > 0 ? `+${weeklyGrowth}` : weeklyGrowth < 0 ? `${weeklyGrowth}` : '—', color: weeklyGrowth >= 0 ? cls.text : 'text-red-500', bg: weeklyGrowth >= 0 ? cls.light : 'bg-red-50' },
+              { label: translateText('Посещений'), value: weeklyAttendance, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+              { label: translateText('Активных дней'), value: new Set(history.filter((h) => h.createdAt >= waISO).map((h) => h.createdAt.split('T')[0])).size, color: 'text-purple-600', bg: 'bg-purple-50' },
             ].map(({ label, value, color, bg }) => (
               <div key={label} className={cn('rounded-2xl border border-slate-100 p-4', bg)}>
                 <p className={cn('text-2xl font-bold', color)}>{value}</p>
                 <p className="text-xs font-medium text-slate-700 mt-0.5">{label}</p>
-                <p className="text-[11px] text-slate-400">за 7 дней</p>
+                <p className="text-[11px] text-slate-400">{translateText("за 7 дней")}</p>
               </div>
             ))}
           </div>
@@ -959,12 +962,12 @@ export function TeamDetail({ teamId }: { teamId: string }) {
           {members.length > 0 && (
             <div className="bg-white rounded-2xl border border-slate-200">
               <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="font-semibold text-slate-800 text-sm">Лидеры команды</h3>
-                <button onClick={() => setTab('members')} className="text-xs text-slate-400 hover:text-emerald-600 flex items-center gap-1">все <ChevronRight className="size-3" /></button>
+                <h3 className="font-semibold text-slate-800 text-sm">{translateText("Лидеры команды")}</h3>
+                <button onClick={() => setTab('members')} className="text-xs text-slate-400 hover:text-emerald-600 flex items-center gap-1">{translateText("все ")}<ChevronRight className="size-3" /></button>
               </div>
               <div className="divide-y divide-slate-100">
                 {[...members].sort((a, b) => b.totalPoints - a.totalPoints).slice(0, 5).map((m, i) => {
-                  const role = getMemberRole(team, m.id);
+                  const role = localizeUI(getMemberRole(team, m.id), locale);
                   return (
                     <div key={m.id} className="px-5 py-3 flex items-center gap-3">
                       <span className="w-5 text-center text-xs font-bold text-slate-400">{i + 1}</span>
@@ -974,7 +977,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                           <p className="text-sm font-medium text-slate-800 truncate">{m.fullName}</p>
                           {role && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">{role}</span>}
                         </div>
-                        <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(m.group)}</p>
+                        <p className="text-xs text-slate-400">{translateText("Группа ")}{getStudentGroupLabel(m.group)}</p>
                       </div>
                       <span className="text-sm font-bold text-slate-700">{m.totalPoints}</span>
                     </div>
@@ -987,17 +990,17 @@ export function TeamDetail({ teamId }: { teamId: string }) {
           {/* Recent activity */}
           <div className="bg-white rounded-2xl border border-slate-200">
             <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-semibold text-slate-800 text-sm">Последние начисления</h3>
-              <button onClick={() => setTab('history')} className="text-xs text-slate-400 hover:text-emerald-600 flex items-center gap-1">все <ChevronRight className="size-3" /></button>
+              <h3 className="font-semibold text-slate-800 text-sm">{translateText("Последние начисления")}</h3>
+              <button onClick={() => setTab('history')} className="text-xs text-slate-400 hover:text-emerald-600 flex items-center gap-1">{translateText("все ")}<ChevronRight className="size-3" /></button>
             </div>
             {history.length === 0
-              ? <p className="text-center text-sm text-slate-400 py-8">Нет записей</p>
+              ? <p className="text-center text-sm text-slate-400 py-8">{translateText("Нет записей")}</p>
               : <div className="divide-y divide-slate-100">
                 {history.slice(0, 5).map((h) => (
                   <div key={h.id} className="px-5 py-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm text-slate-700 truncate">{h.reason}</p>
-                      <p className="text-xs text-slate-400">{TEAM_SOURCE_LABELS[h.source]} · {fmtShort(h.createdAt)}</p>
+                      <p className="text-xs text-slate-400">{localizeUI(TEAM_SOURCE_LABELS, locale)[h.source]} · {fmtShort(h.createdAt, locale)}</p>
                     </div>
                     <span className={cn('text-sm font-bold shrink-0', h.points >= 0 ? cls.text : 'text-red-500')}>
                       {h.points >= 0 ? `+${h.points}` : h.points}
@@ -1016,31 +1019,30 @@ export function TeamDetail({ teamId }: { teamId: string }) {
           <div className="flex flex-wrap gap-2">
             <div className="relative flex-1 min-w-[160px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
-              <input type="text" placeholder="Поиск участника..." value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)}
+              <input type="text" placeholder={translateText("Поиск участника...")} value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
             </div>
             <select value={memberSort} onChange={(e) => setMemberSort(e.target.value as typeof memberSort)}
               className="px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-400">
-              <option value="points">По баллам</option>
-              <option value="name">По имени</option>
+              <option value="points">{translateText("По баллам")}</option>
+              <option value="name">{translateText("По имени")}</option>
             </select>
             <button onClick={() => setShowAddMembers(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-              <Plus className="size-4" /> Добавить
-            </button>
+              <Plus className="size-4" />{translateText("Добавить")}</button>
           </div>
 
           {filteredMembers.length === 0
             ? <div className="bg-white rounded-2xl border border-slate-200 text-center py-12">
               <Users className="size-8 text-slate-300 mx-auto mb-3" />
-              <p className="text-sm text-slate-400">{members.length === 0 ? 'В команде пока нет участников' : 'Никого не найдено'}</p>
+              <p className="text-sm text-slate-400">{members.length === 0 ? translateText('В команде пока нет участников') : translateText('Никого не найдено')}</p>
             </div>
             : <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
               {filteredMembers.map((m, i) => {
                 const mAttendance = attendance.filter((r) => r.studentId === m.id);
                 const mAssignments = assignments.filter((a) => a.studentId === m.id);
                 const recentAtt = mAttendance.filter((r) => r.date >= waDate && (r.status === 'present' || r.status === 'late')).length;
-                const role = getMemberRole(team, m.id);
+                const role = localizeUI(getMemberRole(team, m.id), locale);
                 return (
                   <div key={m.id} className="px-5 py-3.5 hover:bg-slate-50/50">
                     <div className="flex items-center gap-3">
@@ -1051,17 +1053,17 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                           <p className="text-sm font-semibold text-slate-800 truncate">{m.fullName}</p>
                           {role && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium flex items-center gap-0.5">
-                              {role === 'Капитан' ? <Crown className="size-2.5" /> : role === 'Пом. капитана' ? <Star className="size-2.5" /> : null} {role}
+                              {role === translateText('Капитан') ? <Crown className="size-2.5" /> : role === translateText('Пом. капитана') ? <Star className="size-2.5" /> : null} {role}
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap text-xs text-slate-400">
-                          <span>Гр. {getStudentGroupLabel(m.group)}</span>
+                          <span>{translateText("Гр. ")}{getStudentGroupLabel(m.group)}</span>
                           <span>·</span>
-                          <span>{mAttendance.length} посещ.</span>
+                          <span>{mAttendance.length}{translateText(" посещ.")}</span>
                           <span>·</span>
-                          <span>{mAssignments.filter((a) => a.status !== 'pending').length} заданий</span>
-                          {recentAtt > 0 && <span className="text-emerald-600">+{recentAtt}/нед.</span>}
+                          <span>{mAssignments.filter((a) => a.status !== 'pending').length}{translateText(" заданий")}</span>
+                          {recentAtt > 0 && <span className="text-emerald-600">+{recentAtt}{translateText("/нед.")}</span>}
                         </div>
                       </div>
                       <span className="text-sm font-bold text-slate-700 shrink-0">{m.totalPoints}</span>
@@ -1069,23 +1071,21 @@ export function TeamDetail({ teamId }: { teamId: string }) {
 
                     {/* Role assignment */}
                     <div className="mt-2 pl-14 flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-slate-400">Роль:</span>
+                      <span className="text-xs text-slate-400">{translateText("Роль:")}</span>
                       {(['captain', 'assistant', 'discipline', 'revision'] as const).map((r) => {
-                        const currentRole = getMemberRole(team, m.id);
-                        const roleLabel = TEAM_MEMBER_ROLE_LABELS[r];
+                        const currentRole = localizeUI(getMemberRole(team, m.id), locale);
+                        const roleLabel = localizeUI(TEAM_MEMBER_ROLE_LABELS, locale)[r];
                         const isActive = currentRole === roleLabel;
                         return (
                           <button key={r} onClick={() => setRole(teamId, m.id, r)}
                             className={cn('text-[10px] px-2 py-0.5 rounded-full border transition-colors',
                               isActive ? 'border-amber-400 bg-amber-50 text-amber-700 font-medium' : 'border-slate-200 text-slate-500 hover:border-amber-300')}>
-                            {TEAM_MEMBER_ROLE_LABELS[r]}
+                            {localizeUI(TEAM_MEMBER_ROLE_LABELS, locale)[r]}
                           </button>
                         );
                       })}
                       <div className="ml-auto flex gap-1">
-                        <Link href={`/students/${m.id}`} className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-500 hover:text-emerald-600 hover:border-emerald-200">
-                          Профиль
-                        </Link>
+                        <Link href={`/students/${m.id}`} className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-500 hover:text-emerald-600 hover:border-emerald-200">{translateText("Профиль")}</Link>
                         <button onClick={() => removeStudent(teamId, m.id)} className="p-1.5 rounded-lg text-slate-300 hover:text-red-400 hover:bg-red-50">
                           <X className="size-3.5" />
                         </button>
@@ -1103,10 +1103,9 @@ export function TeamDetail({ teamId }: { teamId: string }) {
       {tab === 'goals' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-slate-700">Цели команды</h3>
+            <h3 className="font-semibold text-slate-700">{translateText("Цели команды")}</h3>
             <button onClick={() => setShowRichGoal(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-              <Plus className="size-4" /> Добавить цель
-            </button>
+              <Plus className="size-4" />{translateText("Добавить цель")}</button>
           </div>
 
           {/* Legacy goal */}
@@ -1116,29 +1115,27 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">⭐ Баллы</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{translateText("⭐ Баллы")}</span>
                       <span className={cn('text-xs px-2 py-0.5 rounded-full', goal.status === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700')}>
-                        {goal.status === 'active' ? '● Активна' : '✓ Выполнена'}
+                        {goal.status === 'active' ? translateText('● Активна') : translateText('✓ Выполнена')}
                       </span>
                     </div>
                     <h4 className="font-bold text-slate-900">{goal.title}</h4>
                     {goal.reward && <p className="text-sm text-slate-600 mt-0.5">🎁 {goal.reward}</p>}
-                    {goal.deadline && <p className="text-xs text-slate-400 mt-0.5">до {new Date(goal.deadline).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</p>}
+                    {goal.deadline && <p className="text-xs text-slate-400 mt-0.5">{translateText("до ")}{new Date(goal.deadline).toLocaleDateString(locale === 'ky' ? 'ky-KG' : 'ru-RU', { day: 'numeric', month: 'long' })}</p>}
                   </div>
                   {goal.status === 'active' && (
                     <div className="flex gap-2 shrink-0">
                       <button onClick={() => setShowGoal(true)} className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-1">
-                        <Edit2 className="size-3" /> Изменить
-                      </button>
+                        <Edit2 className="size-3" />{translateText("Изменить")}</button>
                       <button onClick={() => completeGoal(teamId)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs hover:bg-emerald-700 flex items-center gap-1">
-                        <CheckCircle2 className="size-3" /> Выполнена
-                      </button>
+                        <CheckCircle2 className="size-3" />{translateText("Выполнена")}</button>
                     </div>
                   )}
                 </div>
                 <div className="mt-3">
                   <div className="flex justify-between text-xs mb-1.5">
-                    <span className="text-slate-600">{goal.currentPoints} / {goal.targetPoints} баллов</span>
+                    <span className="text-slate-600">{goal.currentPoints} / {goal.targetPoints}{translateText(" баллов")}</span>
                     <span className={cn('font-bold', cls.text)}>{goalPct}%</span>
                   </div>
                   <ProgressBar pct={goalPct} colorDot={cls.dot} height="h-3" />
@@ -1158,9 +1155,9 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                           <span className="text-sm">{RICH_GOAL_TYPE_ICONS[g.type]}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{RICH_GOAL_TYPE_LABELS[g.type]}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">● Активна</span>
-                          {g.deadline && <span className="text-xs text-slate-400">до {new Date(g.deadline).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>}
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{localizeUI(RICH_GOAL_TYPE_LABELS, locale)[g.type]}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{translateText("● Активна")}</span>
+                          {g.deadline && <span className="text-xs text-slate-400">{translateText("до ")}{new Date(g.deadline).toLocaleDateString(locale === 'ky' ? 'ky-KG' : 'ru-RU', { day: 'numeric', month: 'short' })}</span>}
                         </div>
                         <h4 className="font-bold text-slate-900">{g.title}</h4>
                         {g.description && <p className="text-sm text-slate-500 mt-0.5">{g.description}</p>}
@@ -1197,7 +1194,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
           {/* Completed rich goals */}
           {richGoals.some((g) => g.status !== 'active') && (
             <div>
-              <h4 className="text-sm font-semibold text-slate-500 mb-2">Завершённые</h4>
+              <h4 className="text-sm font-semibold text-slate-500 mb-2">{translateText("Завершённые")}</h4>
               <div className="space-y-2">
                 {richGoals.filter((g) => g.status !== 'active').map((g) => (
                   <div key={g.id} className={cn('bg-white rounded-xl border p-4 flex items-center justify-between gap-3', g.status === 'completed' ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 opacity-60')}>
@@ -1205,7 +1202,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-sm">{RICH_GOAL_TYPE_ICONS[g.type]}</span>
                         <span className={cn('text-xs px-1.5 py-0.5 rounded-full', g.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500')}>
-                          {g.status === 'completed' ? '✓ Выполнена' : '✕ Провалена'}
+                          {g.status === 'completed' ? translateText('✓ Выполнена') : translateText('✕ Провалена')}
                         </span>
                       </div>
                       <p className="text-sm font-medium text-slate-800">{g.title}</p>
@@ -1223,11 +1220,10 @@ export function TeamDetail({ teamId }: { teamId: string }) {
           {richGoals.length === 0 && !goal && (
             <div className="bg-white rounded-2xl border border-slate-200 text-center py-14">
               <Target className="size-10 text-slate-300 mx-auto mb-3" />
-              <p className="font-semibold text-slate-700 mb-1">Нет целей</p>
-              <p className="text-sm text-slate-400 mb-4">Создайте цель для мотивации команды</p>
+              <p className="font-semibold text-slate-700 mb-1">{translateText("Нет целей")}</p>
+              <p className="text-sm text-slate-400 mb-4">{translateText("Создайте цель для мотивации команды")}</p>
               <button onClick={() => setShowRichGoal(true)} className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 inline-flex items-center gap-2">
-                <Plus className="size-4" /> Создать цель
-              </button>
+                <Plus className="size-4" />{translateText("Создать цель")}</button>
             </div>
           )}
         </div>
@@ -1237,17 +1233,16 @@ export function TeamDetail({ teamId }: { teamId: string }) {
       {tab === 'games' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-slate-500">{teamGames.length} игр · {gamesWon} побед</span>
+            <span className="text-sm text-slate-500">{teamGames.length}{translateText(" игр · ")}{gamesWon}{translateText(" побед")}</span>
             <button onClick={() => setShowGame(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-              <Plus className="size-4" /> Создать игру
-            </button>
+              <Plus className="size-4" />{translateText("Создать игру")}</button>
           </div>
 
           {teamGames.length === 0
             ? <div className="bg-white rounded-2xl border border-slate-200 text-center py-14">
               <Swords className="size-8 text-slate-300 mx-auto mb-3" />
-              <p className="font-semibold text-slate-700 mb-1">Игр пока нет</p>
-              <p className="text-sm text-slate-400">Создайте командную игру</p>
+              <p className="font-semibold text-slate-700 mb-1">{translateText("Игр пока нет")}</p>
+              <p className="text-sm text-slate-400">{translateText("Создайте командную игру")}</p>
             </div>
             : <div className="space-y-3">
               {teamGames.map((game) => {
@@ -1263,32 +1258,28 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                             game.status === 'planned' ? 'bg-slate-100 text-slate-600'
                               : game.status === 'active' ? 'bg-blue-100 text-blue-700'
                               : 'bg-green-100 text-green-700')}>
-                            {TEAM_GAME_STATUS_LABELS[game.status]}
+                            {localizeUI(TEAM_GAME_STATUS_LABELS, locale)[game.status]}
                           </span>
-                          {isWinner && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">🏆 Победа!</span>}
-                          <span className="text-xs text-slate-400">{fmtDate(game.createdAt)}</span>
+                          {isWinner && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{translateText("🏆 Победа!")}</span>}
+                          <span className="text-xs text-slate-400">{fmtDate(game.createdAt, locale)}</span>
                         </div>
                         <h4 className="font-semibold text-slate-900">{game.title}</h4>
                         {game.description && <p className="text-sm text-slate-500 mt-0.5">{game.description}</p>}
                         <div className="flex items-center gap-3 mt-2 text-xs text-slate-400 flex-wrap">
                           <span>{gameTeams.map((t) => `${t.emoji ?? ''} ${t.name}`).join(' vs ')}</span>
-                          <span>🏆 {game.pointsForWinner} баллов победителю</span>
+                          <span>🏆 {game.pointsForWinner}{translateText(" баллов победителю")}</span>
                         </div>
-                        {winner && <p className="text-xs text-emerald-700 font-medium mt-1">Победитель: {winner.emoji} {winner.name}</p>}
+                        {winner && <p className="text-xs text-emerald-700 font-medium mt-1">{translateText("Победитель: ")}{winner.emoji} {winner.name}</p>}
                       </div>
                       <div className="flex flex-col gap-1.5 shrink-0">
                         {game.status === 'planned' && (
-                          <button onClick={() => startGame(game.id)} className="px-3 py-1.5 rounded-lg bg-blue-500 text-white text-xs hover:bg-blue-600">Начать</button>
+                          <button onClick={() => startGame(game.id)} className="px-3 py-1.5 rounded-lg bg-blue-500 text-white text-xs hover:bg-blue-600">{translateText("Начать")}</button>
                         )}
                         {game.status !== 'finished' && (
                           <button onClick={() => { setFinishGameId(game.id); setFinishWinnerId(''); }}
-                            className="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs hover:bg-amber-600">
-                            Завершить
-                          </button>
+                            className="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs hover:bg-amber-600">{translateText("Завершить")}</button>
                         )}
-                        <button onClick={() => deleteGame(game.id)} className="px-3 py-1.5 rounded-lg border border-red-200 text-xs text-red-500 hover:bg-red-50">
-                          Удалить
-                        </button>
+                        <button onClick={() => deleteGame(game.id)} className="px-3 py-1.5 rounded-lg border border-red-200 text-xs text-red-500 hover:bg-red-50">{translateText("Удалить")}</button>
                       </div>
                     </div>
                   </div>
@@ -1303,20 +1294,16 @@ export function TeamDetail({ teamId }: { teamId: string }) {
       {tab === 'badges' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-500">{badges.length} достижений</span>
-            <button onClick={() => setShowBadge(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-medium hover:bg-amber-600">
-              🏅 Выдать бейдж
-            </button>
+            <span className="text-sm text-slate-500">{badges.length}{translateText(" достижений")}</span>
+            <button onClick={() => setShowBadge(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-medium hover:bg-amber-600">{translateText("🏅 Выдать бейдж")}</button>
           </div>
 
           {badges.length === 0
             ? <div className="bg-white rounded-2xl border border-slate-200 text-center py-14">
               <div className="text-5xl mb-3">🏅</div>
-              <p className="font-semibold text-slate-700 mb-1">Нет бейджей</p>
-              <p className="text-sm text-slate-400 mb-4">Выдайте первый бейдж за достижение команды</p>
-              <button onClick={() => setShowBadge(true)} className="px-5 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 inline-flex items-center gap-2">
-                🏅 Выдать бейдж
-              </button>
+              <p className="font-semibold text-slate-700 mb-1">{translateText("Нет бейджей")}</p>
+              <p className="text-sm text-slate-400 mb-4">{translateText("Выдайте первый бейдж за достижение команды")}</p>
+              <button onClick={() => setShowBadge(true)} className="px-5 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 inline-flex items-center gap-2">{translateText("🏅 Выдать бейдж")}</button>
             </div>
             : <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[...badges].reverse().map((b) => (
@@ -1324,7 +1311,7 @@ export function TeamDetail({ teamId }: { teamId: string }) {
                   <div className="text-3xl mb-2">{b.icon}</div>
                   <h4 className="font-bold text-slate-900 text-sm">{b.title}</h4>
                   {b.description && <p className="text-xs text-slate-500 mt-0.5">{b.description}</p>}
-                  <p className="text-xs text-slate-400 mt-2">{fmtDate(b.awardedAt)}</p>
+                  <p className="text-xs text-slate-400 mt-2">{fmtDate(b.awardedAt, locale)}</p>
                   <button onClick={() => removeBadge(teamId, b.id)}
                     className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded-lg text-slate-300 hover:text-red-400 hover:bg-red-50 transition-all">
                     <X className="size-3.5" />
@@ -1342,17 +1329,17 @@ export function TeamDetail({ teamId }: { teamId: string }) {
           <div className="flex flex-wrap gap-2">
             <div className="relative flex-1 min-w-[160px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
-              <input type="text" placeholder="Поиск по причине..." value={histSearch} onChange={(e) => setHistSearch(e.target.value)}
+              <input type="text" placeholder={translateText("Поиск по причине...")} value={histSearch} onChange={(e) => setHistSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
             </div>
             <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-medium">
               {([
-                ['all', 'Все'],
-                ['preset', 'Быстрые'],
-                ['manual', 'Вручную'],
-                ['game', 'Игра'],
-                ['badge', 'Бейдж'],
-                ['penalty', 'Штрафы'],
+                ['all', translateText('Все')],
+                ['preset', translateText('Быстрые')],
+                ['manual', translateText('Вручную')],
+                ['game', translateText('Игра')],
+                ['badge', translateText('Бейдж')],
+                ['penalty', translateText('Штрафы')],
               ] as const).map(([v, label]) => (
                 <button key={v} onClick={() => setHistSource(v)}
                   className={cn('px-2.5 py-2 transition-colors', histSource === v ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50')}>
@@ -1364,21 +1351,21 @@ export function TeamDetail({ teamId }: { teamId: string }) {
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             {filteredHistory.length === 0
-              ? <p className="text-center text-sm text-slate-400 py-10">Нет записей</p>
+              ? <p className="text-center text-sm text-slate-400 py-10">{translateText("Нет записей")}</p>
               : <div className="divide-y divide-slate-100">
                 <div className="grid grid-cols-[1fr_auto_auto] gap-4 px-5 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wide bg-slate-50">
-                  <span>Причина</span>
-                  <span>Источник</span>
-                  <span className="text-right">Баллы</span>
+                  <span>{translateText("Причина")}</span>
+                  <span>{translateText("Источник")}</span>
+                  <span className="text-right">{translateText("Баллы")}</span>
                 </div>
                 {filteredHistory.map((h) => (
                   <div key={h.id} className="grid grid-cols-[1fr_auto_auto] gap-4 px-5 py-3.5 items-center hover:bg-slate-50/50">
                     <div className="min-w-0">
                       <p className="text-sm text-slate-700 truncate">{h.reason}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{fmtDate(h.createdAt)}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{fmtDate(h.createdAt, locale)}</p>
                     </div>
                     <span className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-500 whitespace-nowrap">
-                      {TEAM_SOURCE_LABELS[h.source]}
+                      {localizeUI(TEAM_SOURCE_LABELS, locale)[h.source]}
                     </span>
                     <span className={cn('text-sm font-bold text-right', h.points >= 0 ? cls.text : 'text-red-500')}>
                       {h.points >= 0 ? `+${h.points}` : h.points}
@@ -1413,25 +1400,24 @@ export function TeamDetail({ teamId }: { teamId: string }) {
       {/* Finish game */}
       {finishGameId && finishingGame && (
         <Modal onClose={() => setFinishGameId(null)}>
-          <h2 className="text-lg font-bold text-slate-900 mb-1">Завершить игру</h2>
-          <p className="text-sm text-slate-500 mb-4">{finishingGame.title} · +{finishingGame.pointsForWinner} баллов победителю</p>
+          <h2 className="text-lg font-bold text-slate-900 mb-1">{translateText("Завершить игру")}</h2>
+          <p className="text-sm text-slate-500 mb-4">{finishingGame.title} · +{finishingGame.pointsForWinner}{translateText(" баллов победителю")}</p>
           <div className="space-y-2 mb-5">
             {finishingGameTeams.map((t) => (
               <label key={t.id} className={cn('flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all',
                 finishWinnerId === t.id ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:bg-slate-50')}>
                 <input type="radio" name="winner" value={t.id} checked={finishWinnerId === t.id} onChange={(e) => setFinishWinnerId(e.target.value)} className="text-emerald-600" />
                 <span className="text-sm font-medium flex-1">{t.emoji} {t.name}</span>
-                <span className="text-xs text-slate-400">{t.points} баллов</span>
+                <span className="text-xs text-slate-400">{t.points}{translateText(" баллов")}</span>
               </label>
             ))}
           </div>
           <div className="flex gap-3">
-            <button onClick={() => setFinishGameId(null)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+            <button onClick={() => setFinishGameId(null)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
             <button onClick={() => { finishGame(finishGameId, finishWinnerId); setFinishGameId(null); setFinishWinnerId(''); }}
               disabled={!finishWinnerId}
               className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 flex items-center justify-center gap-1.5">
-              <Trophy className="size-4" /> Завершить
-            </button>
+              <Trophy className="size-4" />{translateText("Завершить")}</button>
           </div>
         </Modal>
       )}
@@ -1444,8 +1430,8 @@ export function TeamDetail({ teamId }: { teamId: string }) {
               <Trash2 className="size-5 text-red-500" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Удалить команду?</h2>
-              <p className="text-sm text-slate-500">Это действие нельзя отменить</p>
+              <h2 className="text-lg font-bold text-slate-900">{translateText("Удалить команду?")}</h2>
+              <p className="text-sm text-slate-500">{translateText("Это действие нельзя отменить")}</p>
             </div>
           </div>
           <div className="bg-slate-50 rounded-xl p-3 mb-4 space-y-1.5">
@@ -1454,17 +1440,16 @@ export function TeamDetail({ teamId }: { teamId: string }) {
               <span className="font-semibold text-slate-800">{team.name}</span>
             </div>
             <div className="flex gap-4 text-xs text-slate-500">
-              <span><Users className="size-3 inline mr-1" />{members.length} участник{members.length === 1 ? '' : members.length < 5 ? 'а' : 'ов'}</span>
-              <span><Star className="size-3 inline mr-1" />{team.points} баллов</span>
+              <span><Users className="size-3 inline mr-1" />{members.length}{translateText(" участник")}{members.length === 1 ? '' : members.length < 5 ? translateText('а') : translateText('ов')}</span>
+              <span><Star className="size-3 inline mr-1" />{team.points}{translateText(" баллов")}</span>
             </div>
           </div>
-          <p className="text-sm text-slate-500 mb-5">Команда будет удалена, но ученики останутся в системе. История этой команды и связанные цели будут удалены.</p>
+          <p className="text-sm text-slate-500 mb-5">{translateText("Команда будет удалена, но ученики останутся в системе. История этой команды и связанные цели будут удалены.")}</p>
           <div className="flex gap-3">
-            <button onClick={() => setDeleteConfirm(false)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+            <button onClick={() => setDeleteConfirm(false)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
             <button onClick={() => { deleteTeam(teamId); router.push('/teams'); }}
               className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 flex items-center justify-center gap-1.5">
-              <Trash2 className="size-4" /> Удалить команду
-            </button>
+              <Trash2 className="size-4" />{translateText("Удалить команду")}</button>
           </div>
         </Modal>
       )}

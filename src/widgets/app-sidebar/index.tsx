@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
@@ -37,6 +41,8 @@ const bottomItems = [
 ];
 
 function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
+  const { t: translateText, locale } = useTranslation();
+
   const pathname = usePathname();
 
   function isActive(href: string) {
@@ -54,18 +60,18 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
           </div>
           <div className="leading-tight">
             <span className="text-sm font-bold text-slate-900">QuranLearn</span>
-            <p className="text-[10px] text-slate-400">Система обучения</p>
+            <p className="text-[10px] text-slate-400">{translateText("Система обучения")}</p>
           </div>
         </Link>
         {onNavigate && (
-          <button type="button" onClick={onNavigate} aria-label="Закрыть меню" className="size-11 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-emerald-600">
+          <button type="button" onClick={onNavigate} aria-label={translateText("Закрыть меню")} className="size-11 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-emerald-600">
             <X className="size-5" />
           </button>
         )}
       </div>
 
-      <nav aria-label="Основная навигация" className="flex-1 min-h-0 px-3 py-4 flex flex-col gap-1 overflow-y-auto overscroll-contain">
-        {navItems.map(({ href, label, icon: Icon }) => (
+      <nav aria-label={translateText("Основная навигация")} className="flex-1 min-h-0 px-3 py-4 flex flex-col gap-1 overflow-y-auto overscroll-contain">
+        {localizeUI(navItems, locale).map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
@@ -90,7 +96,7 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="px-3 py-3 border-t border-slate-100">
-        {bottomItems.map(({ href, label, icon: Icon }) => (
+        {localizeUI(bottomItems, locale).map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
@@ -118,6 +124,8 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function AppSidebar() {
+  const { t: translateText } = useTranslation();
+
   const dialogRef = useRef<HTMLDialogElement>(null);
   const open = useUIStore((s) => s.mobileNavigationOpen);
   const setOpen = useUIStore((s) => s.setMobileNavigationOpen);
@@ -154,7 +162,7 @@ export function AppSidebar() {
       <dialog
         ref={dialogRef}
         id="mobile-navigation"
-        aria-label="Меню QuranLearn"
+        aria-label={translateText("Меню QuranLearn")}
         onCancel={(event) => { event.preventDefault(); setOpen(false); }}
         onClose={() => setOpen(false)}
         onClick={(event) => { if (event.target === event.currentTarget) setOpen(false); }}

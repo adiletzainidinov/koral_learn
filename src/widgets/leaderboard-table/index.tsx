@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
 
 import { useState, useMemo } from 'react';
@@ -84,6 +88,8 @@ function Chip({
 }
 
 function PodiumCard({ student, rank, metrics }: { student: Student; rank: 1 | 2 | 3; metrics: StudentMetrics | undefined }) {
+  const { t: translateText } = useTranslation();
+
   const cfg = PODIUM[rank];
   return (
     <Link href={`/students/${student.id}`} className="block">
@@ -113,7 +119,7 @@ function PodiumCard({ student, rank, metrics }: { student: Student; rank: 1 | 2 
         </div>
 
         <p className="font-semibold text-slate-900 text-sm leading-tight">{student.fullName}</p>
-        <p className={`text-xs mt-0.5 break-words ${cfg.label}`}>Группа {getStudentGroupLabel(student.group)}</p>
+        <p className={`text-xs mt-0.5 break-words ${cfg.label}`}>{translateText("Группа ")}{getStudentGroupLabel(student.group)}</p>
 
         <div className={[
           'mt-3 font-bold tabular-nums',
@@ -122,12 +128,12 @@ function PodiumCard({ student, rank, metrics }: { student: Student; rank: 1 | 2 
         ].join(' ')}>
           {student.totalPoints}
         </div>
-        <p className="text-xs text-slate-400 mt-0.5">баллов</p>
+        <p className="text-xs text-slate-400 mt-0.5">{translateText("баллов")}</p>
 
         {metrics && (
           <div className="mt-3 flex justify-center gap-4 text-xs text-slate-500">
-            <span title="Посещений">📅 {metrics.presentCount}</span>
-            <span title="Заданий">📝 {metrics.doneCount}</span>
+            <span title={translateText("Посещений")}>📅 {metrics.presentCount}</span>
+            <span title={translateText("Заданий")}>📝 {metrics.doneCount}</span>
           </div>
         )}
       </div>
@@ -174,6 +180,8 @@ function SortHeader({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function LeaderboardTable() {
+  const { t: translateText, locale } = useTranslation();
+
   const allStudents  = useStudents().filter((s) => s.isActive);
   const assignments  = useAssignments();
   const attendance   = useAttendanceRecords();
@@ -249,37 +257,37 @@ export function LeaderboardTable() {
   return (
     <div>
       <PageHeader
-        title="Рейтинг"
-        description="Топ учеников по баллам · кликните строку для перехода в профиль"
+        title={translateText("Рейтинг")}
+        description={translateText("Топ учеников по баллам · кликните строку для перехода в профиль")}
       />
 
       {/* ── Summary cards ────────────────────────────────────────────────── */}
       {allStudents.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
-            label="Всего учеников"
+            label={translateText("Всего учеников")}
             value={allStudents.length}
             icon={<Users className="size-5" />}
             accent="emerald"
           />
           <StatCard
-            label="Средний балл"
+            label={translateText("Средний балл")}
             value={avgPoints}
-            sub="б. на ученика"
+            sub={translateText("б. на ученика")}
             icon={<Trophy className="size-5" />}
             accent="blue"
           />
           <StatCard
-            label="Отмечались сегодня"
+            label={translateText("Отмечались сегодня")}
             value={activeTodayCount}
-            sub={`из ${allStudents.length} учеников`}
+            sub={translateText(`из ${allStudents.length} учеников`)}
             icon={<CalendarDays className="size-5" />}
             accent="amber"
           />
           <StatCard
-            label="Растут за неделю"
+            label={translateText("Растут за неделю")}
             value={growingCount}
-            sub="набрали баллы"
+            sub={translateText("набрали баллы")}
             icon={<TrendingUp className="size-5" />}
             accent="purple"
           />
@@ -289,7 +297,7 @@ export function LeaderboardTable() {
       {/* ── Podium — only when unfiltered and 3+ students ────────────────── */}
       {!filtersActive && top3.length >= 3 && (
         <div className="mb-8">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">Топ 3</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">{translateText("Топ 3")}</p>
           {/* items-end: cards align at bottom — taller gold card extends higher */}
           <div className="grid grid-cols-3 gap-4 items-end max-w-2xl mx-auto">
             <div className="mt-6"><PodiumCard rank={2} student={top3[1]} metrics={metrics.get(top3[1].id)} /></div>
@@ -305,16 +313,14 @@ export function LeaderboardTable() {
         {/* ── Row 1: search + group + level chips ──────────────────────────── */}
         <div className="flex flex-wrap items-center gap-2 pb-2">
           {/* Label */}
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0 mr-1">
-            Фильтры
-          </span>
+          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0 mr-1">{translateText("Фильтры")}</span>
 
           {/* Search */}
           <div className="relative shrink-0">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Поиск..."
+              placeholder={translateText("Поиск...")}
               value={filters.search}
               onChange={(e) => setFilter('search', e.target.value)}
               className="pl-8 pr-7 h-7 w-44 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
@@ -334,9 +340,9 @@ export function LeaderboardTable() {
             <>
               <div className="h-3.5 w-px bg-slate-200 shrink-0" />
               <div className="flex flex-wrap gap-1">
-                <Chip label="Все группы" active={filters.group === 'ALL'} onClick={() => setFilter('group', 'ALL')} />
+                <Chip label={translateText("Все группы")} active={filters.group === 'ALL'} onClick={() => setFilter('group', 'ALL')} />
                 {groups.map((g) => (
-                  <Chip key={g} label={`Группа ${getStudentGroupLabel(g)}`} active={filters.group === g} onClick={() => setFilter('group', g)} />
+                  <Chip key={g} label={translateText(translateText(`Группа ${getStudentGroupLabel(g)}`))} active={filters.group === g} onClick={() => setFilter('group', g)} />
                 ))}
               </div>
             </>
@@ -345,11 +351,11 @@ export function LeaderboardTable() {
           {/* Level chips */}
           <div className="h-3.5 w-px bg-slate-200 shrink-0" />
           <div className="flex flex-wrap gap-1">
-            <Chip label="Все уровни" active={filters.level === 'ALL'} onClick={() => setFilter('level', 'ALL')} />
+            <Chip label={translateText("Все уровни")} active={filters.level === 'ALL'} onClick={() => setFilter('level', 'ALL')} />
             {(['beginner', 'intermediate', 'advanced'] as const).map((l) => (
               <Chip
                 key={l}
-                label={STUDENT_LEVEL_LABELS[l]}
+                label={translateText(localizeUI(STUDENT_LEVEL_LABELS, locale)[l])}
                 active={filters.level === l}
                 activeClass={
                   l === 'beginner'     ? 'bg-slate-600 text-white shadow-sm'
@@ -368,14 +374,12 @@ export function LeaderboardTable() {
                 onClick={resetFilters}
                 className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
               >
-                <X className="size-3" />
-                Сбросить
-              </button>
+                <X className="size-3" />{translateText("Сбросить")}</button>
             )}
             <span className="text-xs text-slate-400 tabular-nums">
               {filtersActive
-                ? `${sorted.length} из ${allStudents.length}`
-                : `${allStudents.length} учеников`}
+                ? translateText(`${sorted.length} из ${allStudents.length}`)
+                : translateText(`${allStudents.length} учеников`)}
             </span>
           </div>
         </div>
@@ -389,14 +393,12 @@ export function LeaderboardTable() {
 
             {/* FILTER zone */}
             <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0">
-                Активность
-              </span>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide shrink-0">{translateText("Активность")}</span>
               <div className="flex flex-wrap gap-1">
-                {(Object.entries(ACTIVITY_LABELS) as [typeof filters.activity, string][]).map(([key, label]) => (
+                {(Object.entries(localizeUI(ACTIVITY_LABELS, locale)) as [typeof filters.activity, string][]).map(([key, label]) => (
                   <Chip
                     key={key}
-                    label={label}
+                    label={translateText(label)}
                     active={filters.activity === key}
                     activeClass={
                       key === 'ALL'           ? 'bg-slate-800 text-white shadow-sm'
@@ -417,11 +419,9 @@ export function LeaderboardTable() {
 
             {/* SORT zone */}
             <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto min-w-0 xl:shrink-0 mt-2 xl:mt-0">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
-                Сортировка
-              </span>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{translateText("Сортировка")}</span>
               <div className="flex flex-wrap gap-1">
-                {(Object.entries(SORT_LABELS) as [SortKey, string][]).map(([key, label]) => {
+                {(Object.entries(localizeUI(SORT_LABELS, locale)) as [SortKey, string][]).map(([key, label]) => {
                   const active = filters.sortKey === key;
                   return (
                     <button
@@ -454,8 +454,8 @@ export function LeaderboardTable() {
         <Card>
           <EmptyState
             icon={<Trophy className="size-5" />}
-            title="Учеников пока нет"
-            description="Добавьте активных учеников чтобы увидеть рейтинг"
+            title={translateText("Учеников пока нет")}
+            description={translateText("Добавьте активных учеников чтобы увидеть рейтинг")}
             className="py-20"
           />
         </Card>
@@ -465,16 +465,14 @@ export function LeaderboardTable() {
         <Card>
           <EmptyState
             icon={<Users className="size-5" />}
-            title="Ученики не найдены"
-            description="Попробуйте изменить поиск или сбросить фильтры"
+            title={translateText("Ученики не найдены")}
+            description={translateText("Попробуйте изменить поиск или сбросить фильтры")}
             className="py-16"
             action={
               <button
                 onClick={resetFilters}
                 className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 text-white hover:bg-slate-700 transition-colors"
-              >
-                Сбросить фильтры
-              </button>
+              >{translateText("Сбросить фильтры")}</button>
             }
           />
         </Card>
@@ -483,18 +481,18 @@ export function LeaderboardTable() {
       {/* ── Main table ────────────────────────────────────────────────────── */}
       {sorted.length > 0 && (
         <Card padding="none">
-          <div className="table-scroll" role="region" aria-label="Таблица с горизонтальной прокруткой" tabIndex={0}>
+          <div className="table-scroll" role="region" aria-label={translateText("Таблица с горизонтальной прокруткой")} tabIndex={0}>
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
                 <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-12">#</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ученик</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Группа</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Уровень</th>
-                <SortHeader label="Задания"   sortKey="assignments" current={filters.sortKey} dir={filters.sortDir} onClick={handleSort} />
-                <SortHeader label="Посещения" sortKey="attendance"  current={filters.sortKey} dir={filters.sortDir} onClick={handleSort} />
-                <SortHeader label="Рост"      sortKey="growth"      current={filters.sortKey} dir={filters.sortDir} onClick={handleSort} />
-                <SortHeader label="Баллы"     sortKey="points"      current={filters.sortKey} dir={filters.sortDir} onClick={handleSort} />
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Ученик")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Группа")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Уровень")}</th>
+                <SortHeader label={translateText("Задания")}   sortKey="assignments" current={filters.sortKey} dir={filters.sortDir} onClick={handleSort} />
+                <SortHeader label={translateText("Посещения")} sortKey="attendance"  current={filters.sortKey} dir={filters.sortDir} onClick={handleSort} />
+                <SortHeader label={translateText("Рост")}      sortKey="growth"      current={filters.sortKey} dir={filters.sortDir} onClick={handleSort} />
+                <SortHeader label={translateText("Баллы")}     sortKey="points"      current={filters.sortKey} dir={filters.sortDir} onClick={handleSort} />
                 <th className="w-24" />
               </tr>
             </thead>
@@ -544,7 +542,7 @@ export function LeaderboardTable() {
                           <p className={`text-sm font-medium text-slate-900 group-hover:text-emerald-700 transition-colors ${isTop ? 'font-semibold' : ''}`}>
                             {student.fullName}
                           </p>
-                          <p className="text-xs text-slate-400">{student.age} лет</p>
+                          <p className="text-xs text-slate-400">{student.age}{translateText(" лет")}</p>
                         </div>
                       </div>
                     </td>
@@ -580,7 +578,7 @@ export function LeaderboardTable() {
                         <span className={`font-bold tabular-nums ${isTop ? 'text-xl' : 'text-lg'} ${rank === 1 ? 'text-amber-600' : rank === 2 ? 'text-slate-600' : rank === 3 ? 'text-orange-500' : 'text-slate-900'}`}>
                           {student.totalPoints}
                         </span>
-                        <span className="text-xs text-slate-400">б.</span>
+                        <span className="text-xs text-slate-400">{translateText("б.")}</span>
                       </div>
                     </td>
 
@@ -592,21 +590,21 @@ export function LeaderboardTable() {
                       >
                         <Link
                           href={`/students/${student.id}`}
-                          title="Профиль"
+                          title={translateText("Профиль")}
                           className="p-1.5 rounded-lg text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
                         >
                           <User className="size-3.5" />
                         </Link>
                         <Link
                           href={`/students/${student.id}/tasks/create`}
-                          title="Выдать задание"
+                          title={translateText("Выдать задание")}
                           className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                         >
                           <BookOpen className="size-3.5" />
                         </Link>
                         <Link
                           href="/attendance"
-                          title="Отметить посещение"
+                          title={translateText("Отметить посещение")}
                           className="p-1.5 rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition-colors"
                         >
                           <CalendarDays className="size-3.5" />

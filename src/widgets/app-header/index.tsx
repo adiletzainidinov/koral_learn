@@ -1,10 +1,15 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { usePathname } from 'next/navigation';
 import { GraduationCap, Menu } from 'lucide-react';
 import { formatShortDate } from '@/shared/lib/dates';
 import { Container } from '@/shared/ui/container';
 import { useUIStore } from '@/store/ui-store';
+import { LanguageSwitcher } from '@/shared/i18n/language-switcher';
 
 const pageMeta: Record<string, { title: string; description: string }> = {
   '/dashboard': { title: 'Дашборд', description: 'Общая сводка по ученикам и заданиям' },
@@ -28,18 +33,20 @@ function getPageMeta(pathname: string) {
 }
 
 export function AppHeader() {
+  const { t: translateText, locale } = useTranslation();
+
   const mobileNavigationOpen = useUIStore((s) => s.mobileNavigationOpen);
   const setMobileNavigationOpen = useUIStore((s) => s.setMobileNavigationOpen);
   const pathname = usePathname();
-  const { title, description } = getPageMeta(pathname);
-  const today = formatShortDate(new Date());
+  const { title, description } = localizeUI(getPageMeta(pathname), locale);
+  const today = formatShortDate(new Date(), locale);
 
   return (
     <header className="sticky top-0 z-20 h-16 sm:h-14 shrink-0 bg-white border-b border-slate-200">
       <Container className="h-full flex items-center justify-between gap-3 py-0">
         <button
           type="button"
-          aria-label="Открыть меню"
+          aria-label={translateText("Открыть меню")}
           aria-expanded={mobileNavigationOpen}
           aria-controls="mobile-navigation"
           onClick={() => setMobileNavigationOpen(true)}
@@ -55,12 +62,13 @@ export function AppHeader() {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          <LanguageSwitcher />
           <span className="hidden sm:inline text-xs text-slate-400">{today}</span>
-          <div className="flex items-center gap-2 sm:pl-3 sm:border-l border-slate-200" title="Преподаватель">
+          <div className="hidden sm:flex items-center gap-2 sm:pl-3 sm:border-l border-slate-200" title={translateText("Преподаватель")}>
             <div className="size-7 rounded-full bg-emerald-100 flex items-center justify-center">
               <GraduationCap className="size-3.5 text-emerald-700" />
             </div>
-            <span className="sr-only md:not-sr-only text-sm font-medium text-slate-700">Преподаватель</span>
+            <span className="sr-only md:not-sr-only text-sm font-medium text-slate-700">{translateText("Преподаватель")}</span>
           </div>
         </div>
       </Container>

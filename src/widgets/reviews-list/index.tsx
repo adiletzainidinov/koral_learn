@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
 
 import { useState, useRef, useEffect } from 'react';
@@ -87,6 +91,8 @@ interface StudentMultiSelectProps {
 }
 
 function StudentMultiSelect({ students, selectedIds, onChange }: StudentMultiSelectProps) {
+  const { t: translateText } = useTranslation();
+
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -134,7 +140,7 @@ function StudentMultiSelect({ students, selectedIds, onChange }: StudentMultiSel
       >
         <Users className="size-4 text-slate-400 shrink-0" />
         <span className={`flex-1 text-left ${selectedIds.length > 0 ? 'text-slate-900 font-medium' : 'text-slate-500'}`}>
-          {selectedIds.length === 0 ? 'Все ученики' : `${selectedIds.length} учен.`}
+          {selectedIds.length === 0 ? translateText('Все ученики') : translateText(`${selectedIds.length} учен.`)}
         </span>
         <ChevronDown className={`size-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -148,7 +154,7 @@ function StudentMultiSelect({ students, selectedIds, onChange }: StudentMultiSel
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Поиск ученика…"
+                placeholder={translateText("Поиск ученика…")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-colors"
@@ -160,7 +166,7 @@ function StudentMultiSelect({ students, selectedIds, onChange }: StudentMultiSel
           {/* list */}
           <div className="max-h-52 overflow-y-auto p-1">
             {visible.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">Не найдено</p>
+              <p className="text-sm text-slate-400 text-center py-6">{translateText("Не найдено")}</p>
             ) : (
               visible.map((s) => {
                 const isSelected = selectedIds.includes(s.id);
@@ -181,7 +187,7 @@ function StudentMultiSelect({ students, selectedIds, onChange }: StudentMultiSel
                       <p className={`truncate ${isSelected ? 'text-emerald-900 font-medium' : 'text-slate-700'}`}>
                         {s.fullName}
                       </p>
-                      <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(s.group)}</p>
+                      <p className="text-xs text-slate-400">{translateText("Группа ")}{getStudentGroupLabel(s.group)}</p>
                     </div>
                   </button>
                 );
@@ -195,8 +201,7 @@ function StudentMultiSelect({ students, selectedIds, onChange }: StudentMultiSel
               <button
                 onClick={clearAll}
                 className="w-full text-xs text-center text-slate-500 hover:text-red-500 transition-colors cursor-pointer py-1"
-              >
-                Снять выбор ({selectedIds.length})
+              >{translateText("Снять выбор (")}{selectedIds.length})
               </button>
             </div>
           )}
@@ -243,6 +248,8 @@ function AssignmentDetailModal({
   onStatusChange,
   onLightbox,
 }: DetailModalProps) {
+  const { t: translateText, locale } = useTranslation();
+
   const updateAssignment = useAppStore((s) => s.updateAssignment);
   const updateComment    = useAppStore((s) => s.updateAssignmentComment);
 
@@ -304,12 +311,8 @@ function AssignmentDetailModal({
 
   const footer = isEditing ? (
     <div className="flex items-center justify-between w-full">
-      <Button variant="outline" onClick={handleCancelEdit}>
-        Отмена
-      </Button>
-      <Button onClick={handleSave}>
-        Сохранить изменения
-      </Button>
+      <Button variant="outline" onClick={handleCancelEdit}>{translateText("Отмена")}</Button>
+      <Button onClick={handleSave}>{translateText("Сохранить изменения")}</Button>
     </div>
   ) : (
     <div className="flex items-center justify-between w-full gap-3">
@@ -318,20 +321,16 @@ function AssignmentDetailModal({
         <button
           onClick={onClose}
           className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
-        >
-          Закрыть
-        </button>
+        >{translateText("Закрыть")}</button>
         <button
           onClick={handleStartEdit}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
         >
-          <Pencil className="size-3.5" />
-          Редактировать
-        </button>
+          <Pencil className="size-3.5" />{translateText("Редактировать")}</button>
       </div>
       {/* RIGHT: primary actions */}
       <div className="flex items-center gap-2">
-        {REVIEW_ACTIONS.map(({ status, label, cls }) => (
+        {localizeUI(REVIEW_ACTIONS, locale).map(({ status, label, cls }) => (
           <button
             key={status}
             onClick={() => handleStatus(status)}
@@ -339,8 +338,7 @@ function AssignmentDetailModal({
           >
             {label}
             <span className="opacity-60 ml-1">
-              +{getAssignmentPoints(status, assignment.assignmentType)}б
-            </span>
+              +{getAssignmentPoints(status, assignment.assignmentType)}{translateText("б")}</span>
           </button>
         ))}
       </div>
@@ -351,12 +349,12 @@ function AssignmentDetailModal({
     <Modal
       isOpen
       onClose={isEditing ? handleCancelEdit : onClose}
-      title={isEditing ? 'Редактировать задание' : assignment.title}
+      title={isEditing ? translateText('Редактировать задание') : assignment.title}
       description={
         isEditing
           ? undefined
           : student
-          ? `${student.fullName} · Группа ${getStudentGroupLabel(student.group)}`
+          ? translateText(`${student.fullName} · Группа ${getStudentGroupLabel(student.group)}`)
           : undefined
       }
       size="lg"
@@ -368,25 +366,21 @@ function AssignmentDetailModal({
         <div className="flex flex-col gap-5">
           {/* title */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Название *
-            </label>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Название *")}</label>
             <input
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               className="px-4 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors"
-              placeholder="Название задания…"
+              placeholder={translateText("Название задания…")}
             />
           </div>
 
           {/* type */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Тип задания
-            </label>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Тип задания")}</label>
             <div className="grid grid-cols-2 gap-2">
-              {TYPE_BUTTONS.map((opt) => (
+              {localizeUI(TYPE_BUTTONS, locale).map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -408,22 +402,18 @@ function AssignmentDetailModal({
 
           {/* description */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Описание
-            </label>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Описание")}</label>
             <textarea
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
               className="px-4 py-3 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors resize-none min-h-[100px] placeholder:text-slate-400"
-              placeholder="Что нужно сделать ученику…"
+              placeholder={translateText("Что нужно сделать ученику…")}
             />
           </div>
 
           {/* due date */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Дедлайн
-            </label>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Дедлайн")}</label>
             <input
               type="date"
               value={editDueDate}
@@ -434,22 +424,18 @@ function AssignmentDetailModal({
               <button
                 onClick={() => setEditDueDate('')}
                 className="text-xs text-slate-400 hover:text-red-500 self-start transition-colors cursor-pointer"
-              >
-                Убрать дедлайн
-              </button>
+              >{translateText("Убрать дедлайн")}</button>
             )}
           </div>
 
           {/* comment */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Комментарий преподавателя
-            </label>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Комментарий преподавателя")}</label>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               className="px-4 py-3 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors resize-none min-h-[80px] placeholder:text-slate-400"
-              placeholder="Хорошо, но нужно повторить…"
+              placeholder={translateText("Хорошо, но нужно повторить…")}
             />
           </div>
         </div>
@@ -458,28 +444,28 @@ function AssignmentDetailModal({
         <>
           {/* info grid */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-6">
-            <InfoCell label="Тип">
+            <InfoCell label={translateText("Тип")}>
               {assignment.assignmentType
                 ? <AssignmentTypeBadge type={assignment.assignmentType} />
                 : <span className="text-sm text-slate-400">—</span>}
             </InfoCell>
-            <InfoCell label="Статус">
+            <InfoCell label={translateText("Статус")}>
               <AssignmentStatusBadge status={assignment.status} />
             </InfoCell>
-            <InfoCell label="Выдано">
+            <InfoCell label={translateText("Выдано")}>
               <span className="text-sm text-slate-700">{formatDate(assignment.issuedAt)}</span>
             </InfoCell>
-            <InfoCell label="Дедлайн">
+            <InfoCell label={translateText("Дедлайн")}>
               {assignment.dueDate ? (
                 <span className={`text-sm font-medium ${
                   dueDateOverdue ? 'text-red-600' : dueDateToday ? 'text-amber-600' : 'text-slate-700'
                 }`}>
                   {formatDate(assignment.dueDate)}
-                  {dueDateOverdue && <span className="ml-1 text-xs">(просрочен)</span>}
-                  {dueDateToday   && <span className="ml-1 text-xs">(сегодня)</span>}
+                  {dueDateOverdue && <span className="ml-1 text-xs">{translateText("(просрочен)")}</span>}
+                  {dueDateToday   && <span className="ml-1 text-xs">{translateText("(сегодня)")}</span>}
                 </span>
               ) : (
-                <span className="text-sm text-slate-400">Без дедлайна</span>
+                <span className="text-sm text-slate-400">{translateText("Без дедлайна")}</span>
               )}
             </InfoCell>
           </div>
@@ -487,7 +473,7 @@ function AssignmentDetailModal({
           {/* description */}
           {assignment.description && (
             <div className="mb-6">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Описание</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{translateText("Описание")}</p>
               <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                 {assignment.description}
               </p>
@@ -497,8 +483,7 @@ function AssignmentDetailModal({
           {/* attachments */}
           {attachments.length > 0 && (
             <div className="mb-6">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                Вложения ({attachments.length})
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{translateText("Вложения (")}{attachments.length})
               </p>
               <div className="grid grid-cols-4 gap-2">
                 {attachments.map((att) => {
@@ -532,19 +517,15 @@ function AssignmentDetailModal({
 
           {/* comment */}
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-              Комментарий преподавателя
-            </p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{translateText("Комментарий преподавателя")}</p>
             <textarea
               className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors resize-none min-h-[80px] placeholder:text-slate-400"
-              placeholder="Хорошо, но нужно повторить…"
+              placeholder={translateText("Хорошо, но нужно повторить…")}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               onBlur={saveComment}
             />
-            <p className="text-xs text-slate-400 mt-1.5">
-              Сохраняется автоматически · также сохраняется при нажатии кнопки проверки
-            </p>
+            <p className="text-xs text-slate-400 mt-1.5">{translateText("Сохраняется автоматически · также сохраняется при нажатии кнопки проверки")}</p>
           </div>
         </>
       )}
@@ -555,6 +536,8 @@ function AssignmentDetailModal({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function ReviewsList() {
+  const { t: translateText, locale } = useTranslation();
+
   const pending  = usePendingAssignments();
   const students = useStudents();
   const updateStatus = useAppStore((s) => s.updateAssignmentStatus);
@@ -666,8 +649,8 @@ export function ReviewsList() {
   return (
     <div>
       <PageHeader
-        title="Проверка заданий"
-        description={`${pending.length} заданий ожидают проверки`}
+        title={translateText("Проверка заданий")}
+        description={translateText(`${pending.length} заданий ожидают проверки`)}
       />
 
       {/* ── filter panel ─────────────────────────────────────────────────── */}
@@ -677,7 +660,7 @@ export function ReviewsList() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
           <input
             type="text"
-            placeholder="Поиск по названию, описанию или ученику…"
+            placeholder={translateText("Поиск по названию, описанию или ученику…")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-9 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors bg-white"
@@ -708,9 +691,9 @@ export function ReviewsList() {
               onChange={(e) => setGroupFilter(e.target.value)}
               className="px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-slate-700 cursor-pointer"
             >
-              <option value="all">Все группы</option>
+              <option value="all">{translateText("Все группы")}</option>
               {groups.map((g) => (
-                <option key={g} value={g}>Группа {getStudentGroupLabel(g)}</option>
+                <option key={g} value={g}>{translateText("Группа ")}{getStudentGroupLabel(g)}</option>
               ))}
             </select>
           )}
@@ -721,7 +704,7 @@ export function ReviewsList() {
             onChange={(e) => setSortKey(e.target.value as SortKey)}
             className="px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-slate-700 cursor-pointer"
           >
-            {SORT_OPTIONS.map((o) => (
+            {localizeUI(SORT_OPTIONS, locale).map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
@@ -732,15 +715,13 @@ export function ReviewsList() {
               onClick={resetFilters}
               className="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-500 hover:text-red-500 border border-slate-200 hover:border-red-200 rounded-xl transition-colors cursor-pointer bg-white"
             >
-              <X className="size-3.5" />
-              Сбросить
-            </button>
+              <X className="size-3.5" />{translateText("Сбросить")}</button>
           )}
         </div>
 
         {/* type + deadline pills */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {TYPE_OPTS.map((opt) => (
+          {localizeUI(TYPE_OPTS, locale).map((opt) => (
             <button
               key={opt.value}
               onClick={() => setTypeFilter(opt.value)}
@@ -754,7 +735,7 @@ export function ReviewsList() {
             </button>
           ))}
           <span className="text-slate-200 mx-1">|</span>
-          {DEADLINE_OPTS.map((opt) => (
+          {localizeUI(DEADLINE_OPTS, locale).map((opt) => (
             <button
               key={opt.value}
               onClick={() => setDeadlineFilter(opt.value)}
@@ -774,8 +755,8 @@ export function ReviewsList() {
       {pending.length > 0 && (
         <p className="text-xs text-slate-400 mb-3">
           {hasActiveFilters
-            ? `Показано ${sorted.length} из ${pending.length}`
-            : `${pending.length} заданий на проверке`}
+            ? translateText(`Показано ${sorted.length} из ${pending.length}`)
+            : translateText(`${pending.length} заданий на проверке`)}
         </p>
       )}
 
@@ -784,8 +765,8 @@ export function ReviewsList() {
         <Card>
           <EmptyState
             icon={<ClipboardCheck className="size-5" />}
-            title="Нет заданий на проверку"
-            description="Все задания уже проверены. Отличная работа!"
+            title={translateText("Нет заданий на проверку")}
+            description={translateText("Все задания уже проверены. Отличная работа!")}
             className="py-16"
           />
         </Card>
@@ -793,12 +774,11 @@ export function ReviewsList() {
         <Card>
           <EmptyState
             icon={<Search className="size-5" />}
-            title="Ничего не найдено"
-            description="Попробуйте изменить фильтры или поисковый запрос"
+            title={translateText("Ничего не найдено")}
+            description={translateText("Попробуйте изменить фильтры или поисковый запрос")}
             action={
               <Button variant="outline" onClick={resetFilters}>
-                <X className="size-4" />Сбросить фильтры
-              </Button>
+                <X className="size-4" />{translateText("Сбросить фильтры")}</Button>
             }
             className="py-16"
           />
@@ -826,14 +806,10 @@ export function ReviewsList() {
                         <AssignmentTypeBadge type={assignment.assignmentType} />
                       )}
                       {overdue && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-red-100 text-red-700">
-                          Просрочен
-                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-red-100 text-red-700">{translateText("Просрочен")}</span>
                       )}
                       {todayDue && !overdue && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-700">
-                          Сегодня
-                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-700">{translateText("Сегодня")}</span>
                       )}
                     </div>
 
@@ -852,19 +828,18 @@ export function ReviewsList() {
                         <>
                           <span>{student.fullName}</span>
                           <span>·</span>
-                          <span>Группа {getStudentGroupLabel(student.group)}</span>
+                          <span>{translateText("Группа ")}{getStudentGroupLabel(student.group)}</span>
                           <span>·</span>
                         </>
                       )}
-                      <span>Выдано {formatDate(assignment.issuedAt)}</span>
+                      <span>{translateText("Выдано ")}{formatDate(assignment.issuedAt)}</span>
                       {assignment.dueDate && (
                         <>
                           <span>·</span>
                           <span className={
                             overdue ? 'text-red-500 font-medium' :
                             todayDue ? 'text-amber-500 font-medium' : ''
-                          }>
-                            до {formatDate(assignment.dueDate)}
+                          }>{translateText("до")}{formatDate(assignment.dueDate)}
                           </span>
                         </>
                       )}
@@ -879,7 +854,7 @@ export function ReviewsList() {
                       {assignment.teacherComment && (
                         <>
                           <span>·</span>
-                          <span className="text-emerald-600">💬 комментарий</span>
+                          <span className="text-emerald-600">{translateText("💬 комментарий")}</span>
                         </>
                       )}
                     </div>
@@ -891,7 +866,7 @@ export function ReviewsList() {
                       className="hidden sm:flex items-center gap-1 flex-wrap justify-end"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {REVIEW_ACTIONS.map(({ status, label, cls }) => (
+                      {localizeUI(REVIEW_ACTIONS, locale).map(({ status, label, cls }) => (
                         <button
                           key={status}
                           onClick={(e) => handleQuickStatus(assignment.id, status, e)}
@@ -910,7 +885,7 @@ export function ReviewsList() {
                   className="flex sm:hidden items-center gap-1.5 mt-3 pt-3 border-t border-slate-100 flex-wrap"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {REVIEW_ACTIONS.map(({ status, label, cls }) => (
+                  {localizeUI(REVIEW_ACTIONS, locale).map(({ status, label, cls }) => (
                     <button
                       key={status}
                       onClick={(e) => handleQuickStatus(assignment.id, status, e)}

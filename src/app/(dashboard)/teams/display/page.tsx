@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { useEffect, useMemo, useState } from 'react';
 import { useAppStore, useTeams, useActiveSeason, useTeamGoals } from '@/store/app-store';
 import { TEAM_COLOR_CLASSES, TEAM_LEVEL_CONFIGS, TEAM_BADGE_META, getTeamLevel, getNextLevelInfo } from '@/entities/team/model/types';
@@ -39,6 +43,8 @@ function daysUntil(dateStr: string): number {
 }
 
 export default function TeamsDisplayPage() {
+  const { t: translateText, locale } = useTranslation();
+
   const hydrated = useHydrated();
   const teams = useTeams();
   const activeSeason = useActiveSeason();
@@ -69,7 +75,7 @@ export default function TeamsDisplayPage() {
   if (!hydrated) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-white text-2xl animate-pulse">Загрузка...</div>
+        <div className="text-white text-2xl animate-pulse">{translateText("Загрузка...")}</div>
       </div>
     );
   }
@@ -93,8 +99,8 @@ export default function TeamsDisplayPage() {
 
   const seasonDaysLeft = activeSeason?.endDate ? daysUntil(activeSeason.endDate) : null;
 
-  const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const dateStr = now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  const timeStr = now.toLocaleTimeString(locale === 'ky' ? 'ky-KG' : 'ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const dateStr = now.toLocaleDateString(locale === 'ky' ? 'ky-KG' : 'ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
 
   const podiumOrder = top3.length === 3 ? [top3[1], top3[0], top3[2]] : top3.length === 2 ? [top3[1], top3[0]] : top3;
 
@@ -104,13 +110,13 @@ export default function TeamsDisplayPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight">🏆 Рейтинг команд</h1>
+          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight">{translateText("🏆 Рейтинг команд")}</h1>
           {activeSeason && (
             <p className="text-slate-400 text-lg mt-1">
               {activeSeason.title}
               {seasonDaysLeft !== null && (
                 <span className="ml-3 bg-amber-500/20 text-amber-300 text-sm px-2 py-0.5 rounded-full">
-                  {seasonDaysLeft === 0 ? 'Последний день!' : `Осталось ${seasonDaysLeft} дн.`}
+                  {seasonDaysLeft === 0 ? translateText('Последний день!') : translateText(`Осталось ${seasonDaysLeft} дн.`)}
                 </span>
               )}
             </p>
@@ -123,7 +129,7 @@ export default function TeamsDisplayPage() {
             onClick={toggleFullscreen}
             className="mt-2 text-xs text-slate-500 hover:text-slate-300 transition-colors"
           >
-            {isFullscreen ? '✕ Выйти из полного экрана' : '⛶ Полный экран'}
+            {isFullscreen ? translateText('✕ Выйти из полного экрана') : translateText('⛶ Полный экран')}
           </button>
         </div>
       </div>
@@ -142,7 +148,7 @@ export default function TeamsDisplayPage() {
                   const pts = activeSeason ? (team.seasonPoints ?? 0) : team.points;
                   const colors = TEAM_COLOR_CLASSES[team.color];
                   const level = getTeamLevel(team.points);
-                  const levelCfg = TEAM_LEVEL_CONFIGS[level];
+                  const levelCfg = localizeUI(TEAM_LEVEL_CONFIGS, locale)[level];
                   const isFirst = rank === 1;
                   const isSecond = rank === 2;
                   const heights = { 1: 220, 2: 170, 3: 140 };
@@ -162,7 +168,7 @@ export default function TeamsDisplayPage() {
                         <div className="text-3xl mb-1">{team.emoji ?? levelCfg.emoji}</div>
                         <div className={`font-bold text-lg ${colors.text} truncate`}>{team.name}</div>
                         <div className="text-2xl font-bold text-slate-800 mt-1">
-                          {pts.toLocaleString('ru-RU')} <span className="text-sm font-normal text-slate-500">балл.</span>
+                          {pts.toLocaleString(locale === 'ky' ? 'ky-KG' : 'ru-RU')} <span className="text-sm font-normal text-slate-500">{translateText("балл.")}</span>
                         </div>
                         <div className="text-xs text-slate-500 mt-1">{levelCfg.emoji} {levelCfg.label}</div>
                         {/* Badges row */}
@@ -193,14 +199,14 @@ export default function TeamsDisplayPage() {
           {/* Rest of teams */}
           {rest.length > 0 && (
             <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700">
-              <h3 className="text-slate-400 text-sm font-medium mb-3">Остальные команды</h3>
+              <h3 className="text-slate-400 text-sm font-medium mb-3">{translateText("Остальные команды")}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {rest.map((team, idx) => {
                   const rank = idx + 4;
                   const pts = activeSeason ? (team.seasonPoints ?? 0) : team.points;
                   const colors = TEAM_COLOR_CLASSES[team.color];
                   const level = getTeamLevel(team.points);
-                  const levelCfg = TEAM_LEVEL_CONFIGS[level];
+                  const levelCfg = localizeUI(TEAM_LEVEL_CONFIGS, locale)[level];
                   const attendance = todayAttendance.find((a) => a.teamId === team.id);
 
                   return (
@@ -231,7 +237,7 @@ export default function TeamsDisplayPage() {
           {/* Team of the week */}
           {teamOfWeek && (
             <div className="bg-gradient-to-br from-amber-500/20 to-yellow-600/10 rounded-2xl p-5 border border-amber-500/30">
-              <div className="text-amber-400 font-semibold text-sm mb-2">🏆 Команда недели</div>
+              <div className="text-amber-400 font-semibold text-sm mb-2">{translateText("🏆 Команда недели")}</div>
               <div className="flex items-center gap-3">
                 <span className="text-4xl">{teamOfWeek.emoji ?? '⭐'}</span>
                 <div>
@@ -239,8 +245,7 @@ export default function TeamsDisplayPage() {
                     {teamOfWeek.name}
                   </div>
                   <div className="text-slate-400 text-sm">
-                    {(activeSeason ? (teamOfWeek.seasonPoints ?? 0) : teamOfWeek.points)} балл.
-                  </div>
+                    {(activeSeason ? (teamOfWeek.seasonPoints ?? 0) : teamOfWeek.points)}{translateText("балл.")}</div>
                 </div>
               </div>
             </div>
@@ -248,7 +253,7 @@ export default function TeamsDisplayPage() {
 
           {/* Today's attendance per team */}
           <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700">
-            <div className="text-slate-400 font-semibold text-sm mb-3">📅 Сегодня присутствуют</div>
+            <div className="text-slate-400 font-semibold text-sm mb-3">{translateText("📅 Сегодня присутствуют")}</div>
             <div className="space-y-2">
               {sorted.slice(0, 6).map((team) => {
                 const att = todayAttendance.find((a) => a.teamId === team.id);
@@ -280,7 +285,7 @@ export default function TeamsDisplayPage() {
           {/* Active goals */}
           {activeGoals.length > 0 && (
             <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700">
-              <div className="text-slate-400 font-semibold text-sm mb-3">🎯 Цели</div>
+              <div className="text-slate-400 font-semibold text-sm mb-3">{translateText("🎯 Цели")}</div>
               <div className="space-y-3">
                 {activeGoals.map((goal) => {
                   const team = teams.find((t) => t.id === goal.teamId);
@@ -316,10 +321,10 @@ export default function TeamsDisplayPage() {
           {/* Recent badges */}
           {recentBadges.length > 0 && (
             <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700">
-              <div className="text-slate-400 font-semibold text-sm mb-3">🎖 Последние достижения</div>
+              <div className="text-slate-400 font-semibold text-sm mb-3">{translateText("🎖 Последние достижения")}</div>
               <div className="space-y-2">
                 {recentBadges.map((badge) => {
-                  const meta = TEAM_BADGE_META[badge.type];
+                  const meta = localizeUI(TEAM_BADGE_META, locale)[badge.type];
                   const colors = TEAM_COLOR_CLASSES[badge.teamColor];
                   return (
                     <div key={badge.id} className="flex items-center gap-3">
@@ -339,12 +344,12 @@ export default function TeamsDisplayPage() {
           {sorted[0] && (() => {
             const team = sorted[0];
             const { currentLevel, nextLevel, progress, pointsToNext } = getNextLevelInfo(team.points);
-            const levelCfg = TEAM_LEVEL_CONFIGS[currentLevel];
-            const nextCfg = nextLevel ? TEAM_LEVEL_CONFIGS[nextLevel] : null;
+            const levelCfg = localizeUI(TEAM_LEVEL_CONFIGS, locale)[currentLevel];
+            const nextCfg = nextLevel ? localizeUI(TEAM_LEVEL_CONFIGS, locale)[nextLevel] : null;
             const colors = TEAM_COLOR_CLASSES[team.color];
             return (
               <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700">
-                <div className="text-slate-400 font-semibold text-sm mb-3">📈 Прогресс лидера</div>
+                <div className="text-slate-400 font-semibold text-sm mb-3">{translateText("📈 Прогресс лидера")}</div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-2xl">{team.emoji ?? levelCfg.emoji}</span>
                   <div>
@@ -362,12 +367,12 @@ export default function TeamsDisplayPage() {
                     </div>
                     <div className="flex justify-between text-xs text-slate-500">
                       <span>{levelCfg.label}</span>
-                      <span>До «{nextCfg.label}» — {pointsToNext} балл.</span>
+                      <span>{translateText("До «")}{nextCfg.label}» — {pointsToNext}{translateText(" балл.")}</span>
                     </div>
                   </>
                 )}
                 {!nextCfg && (
-                  <div className="text-center text-amber-400 text-sm font-medium mt-1">🏆 Максимальный уровень!</div>
+                  <div className="text-center text-amber-400 text-sm font-medium mt-1">{translateText("🏆 Максимальный уровень!")}</div>
                 )}
               </div>
             );

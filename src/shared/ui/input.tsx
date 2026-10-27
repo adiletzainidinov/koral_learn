@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { forwardRef } from 'react';
 import { cn } from '../lib/cn';
 
@@ -11,6 +14,8 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, hint, className, id, ...props }, ref) => {
+  const { t: translateText } = useTranslation();
+
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
     return (
       <div className="flex flex-col gap-1.5">
@@ -31,8 +36,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
           {...props}
         />
-        {error && <p className="text-xs text-red-500">{error}</p>}
-        {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
+        {error && <p className="text-xs text-red-500">{translateText(error)}</p>}
+        {hint && !error && <p className="text-xs text-slate-500">{translateText(hint)}</p>}
       </div>
     );
   }

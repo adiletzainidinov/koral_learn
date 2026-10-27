@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
 
 import { useState } from 'react';
@@ -26,6 +30,8 @@ interface Props {
 type InnerTab = 'assignments' | 'attendance' | 'history';
 
 export function StudyTab({ studentId }: Props) {
+  const { t: translateText } = useTranslation();
+
   const student = useStudentById(studentId);
   const assignments = useStudentAssignments(studentId);
   const attendance = useStudentAttendance(studentId);
@@ -39,9 +45,9 @@ export function StudyTab({ studentId }: Props) {
   const doneAssignments = assignments.filter((a) => a.status !== 'pending').length;
 
   const innerTabs = [
-    { id: 'assignments' as const, label: 'Задания', count: assignments.length },
-    { id: 'attendance' as const, label: 'Посещаемость', count: attendance.length },
-    { id: 'history' as const, label: 'История баллов', count: pointHistory.length },
+    { id: 'assignments' as const, label: translateText('Задания'), count: assignments.length },
+    { id: 'attendance' as const, label: translateText('Посещаемость'), count: attendance.length },
+    { id: 'history' as const, label: translateText('История баллов'), count: pointHistory.length },
   ];
 
 
@@ -61,9 +67,9 @@ export function StudyTab({ studentId }: Props) {
           <h2 className="text-lg font-bold text-slate-900">{student.fullName}</h2>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <LevelBadge level={student.level} />
-            <Badge variant="slate">Группа {getStudentGroupLabel(student.group)}</Badge>
+            <Badge variant="slate">{translateText("Группа ")}{getStudentGroupLabel(student.group)}</Badge>
             <Badge variant={student.isActive ? 'success' : 'danger'}>
-              {student.isActive ? 'Активен' : 'Неактивен'}
+              {student.isActive ? translateText('Активен') : translateText('Неактивен')}
             </Badge>
           </div>
 
@@ -72,28 +78,28 @@ export function StudyTab({ studentId }: Props) {
               <Star className="size-4 text-amber-500" />
               <div>
                 <p className="text-xl font-bold text-slate-900">{student.totalPoints}</p>
-                <p className="text-xs text-slate-400">баллов</p>
+                <p className="text-xs text-slate-400">{translateText("баллов")}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <BookOpen className="size-4 text-blue-500" />
               <div>
                 <p className="text-xl font-bold text-slate-900">{doneAssignments}</p>
-                <p className="text-xs text-slate-400">заданий</p>
+                <p className="text-xs text-slate-400">{translateText("заданий")}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <CalendarDays className="size-4 text-emerald-500" />
               <div>
                 <p className="text-xl font-bold text-slate-900">{presentCount}</p>
-                <p className="text-xs text-slate-400">посещений</p>
+                <p className="text-xs text-slate-400">{translateText("посещений")}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="size-4 text-slate-400" />
               <div>
                 <p className="text-sm font-semibold text-slate-900">{formatDate(student.startedAt)}</p>
-                <p className="text-xs text-slate-400">начало</p>
+                <p className="text-xs text-slate-400">{translateText("начало")}</p>
               </div>
             </div>
           </div>
@@ -130,22 +136,24 @@ export function StudyTab({ studentId }: Props) {
 
 
 function HistoryPanel({ history }: { history: ReturnType<typeof useStudentPointHistory> }) {
+  const { t: translateText, locale } = useTranslation();
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   if (history.length === 0)
-    return <EmptyState icon={<Star className="size-5" />} title="История баллов пуста" />;
+    return <EmptyState icon={<Star className="size-5" />} title={translateText("История баллов пуста")} />;
 
   return (
     <>
       <Card padding="none">
-        <div className="table-scroll" role="region" aria-label="Таблица с горизонтальной прокруткой" tabIndex={0}>
+        <div className="table-scroll" role="region" aria-label={translateText("Таблица с горизонтальной прокруткой")} tabIndex={0}>
           <table className="w-full">
           <thead>
             <tr className="border-b border-slate-100">
-              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Причина</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Источник</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Баллы</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Дата</th>
+              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Причина")}</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Источник")}</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Баллы")}</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Дата")}</th>
               <th className="px-4 py-3 w-8" />
             </tr>
           </thead>
@@ -160,11 +168,11 @@ function HistoryPanel({ history }: { history: ReturnType<typeof useStudentPointH
                   <span className="text-sm text-slate-700">{item.reason}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <Badge variant="slate">{POINT_SOURCE_LABELS[item.source]}</Badge>
+                  <Badge variant="slate">{localizeUI(POINT_SOURCE_LABELS, locale)[item.source]}</Badge>
                 </td>
                 <td className="px-4 py-3"><PointsBadge points={item.points} /></td>
                 <td className="px-4 py-3">
-                  <span className="text-xs text-slate-400">{formatRelative(item.createdAt)}</span>
+                  <span className="text-xs text-slate-400">{formatRelative(item.createdAt, locale)}</span>
                 </td>
                 <td className="px-4 py-3 text-right">
                   {item.source === 'bonus' && (

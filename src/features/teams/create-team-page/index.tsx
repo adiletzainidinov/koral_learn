@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { getStudentGroupLabel } from '@/entities/student/model/groups';
 
 import { useState, useMemo } from 'react';
@@ -13,6 +16,8 @@ import { cn } from '@/shared/lib/cn';
 const EMOJI_OPTIONS = ['🌿', '💡', '✨', '🌟', '🔥', '⚡', '🎯', '🏆', '🌙', '📖', '🕌', '🌺'];
 
 export function CreateTeamPage() {
+  const { t: translateText } = useTranslation();
+
   const router = useRouter();
   const createTeam = useAppStore((s) => s.createTeam);
   const students = useActiveStudents();
@@ -88,16 +93,15 @@ export function CreateTeamPage() {
     <div className="max-w-2xl mx-auto p-6">
       {/* Back */}
       <Link href="/teams" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-6 transition-colors">
-        <ArrowLeft className="size-4" /> Назад к командам
-      </Link>
+        <ArrowLeft className="size-4" />{translateText("Назад к командам")}</Link>
 
-      <h1 className="text-2xl font-bold text-slate-900 mb-1">Новая команда</h1>
-      <p className="text-sm text-slate-500 mb-8">Заполните основные данные и добавьте участников</p>
+      <h1 className="text-2xl font-bold text-slate-900 mb-1">{translateText("Новая команда")}</h1>
+      <p className="text-sm text-slate-500 mb-8">{translateText("Заполните основные данные и добавьте участников")}</p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* ── Section 1: Basics ── */}
         <section className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-          <h2 className="font-semibold text-slate-800">Основное</h2>
+          <h2 className="font-semibold text-slate-800">{translateText("Основное")}</h2>
 
           {/* Preview */}
           <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
@@ -105,37 +109,37 @@ export function CreateTeamPage() {
               {emoji}
             </div>
             <div>
-              <p className="font-bold text-slate-900">{name || 'Название команды'}</p>
-              <p className="text-xs text-slate-400">{description || 'Описание команды'}</p>
+              <p className="font-bold text-slate-900">{name || translateText('Название команды')}</p>
+              <p className="text-xs text-slate-400">{description || translateText('Описание команды')}</p>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Название <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Название ")}<span className="text-red-500">*</span></label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Например: Аль-Фатиха"
+              placeholder={translateText("Например: Аль-Фатиха")}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Описание</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Описание")}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              placeholder="Краткое описание команды"
+              placeholder={translateText("Краткое описание команды")}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none"
             />
           </div>
 
           {/* Emoji */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Иконка</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">{translateText("Иконка")}</label>
             <div className="flex flex-wrap gap-2">
               {EMOJI_OPTIONS.map((e) => (
                 <button
@@ -155,7 +159,7 @@ export function CreateTeamPage() {
 
           {/* Color */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Цвет</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">{translateText("Цвет")}</label>
             <div className="flex flex-wrap gap-2">
               {TEAM_COLORS.map((c) => (
                 <button
@@ -176,10 +180,9 @@ export function CreateTeamPage() {
         {/* ── Section 2: Students ── */}
         <section className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-slate-800">Участники</h2>
+            <h2 className="font-semibold text-slate-800">{translateText("Участники")}</h2>
             {selectedIds.size > 0 && (
-              <span className={cn('text-xs font-medium px-2.5 py-1 rounded-full', cls.badge)}>
-                Выбрано: {selectedIds.size}
+              <span className={cn('text-xs font-medium px-2.5 py-1 rounded-full', cls.badge)}>{translateText("Выбрано:")}{selectedIds.size}
               </span>
             )}
           </div>
@@ -202,9 +205,7 @@ export function CreateTeamPage() {
                 type="button"
                 onClick={() => setSelectedIds(new Set())}
                 className="text-xs text-slate-400 hover:text-slate-600 px-1 py-1"
-              >
-                Снять все
-              </button>
+              >{translateText("Снять все")}</button>
             </div>
           )}
 
@@ -214,7 +215,7 @@ export function CreateTeamPage() {
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Поиск по имени..."
+                placeholder={translateText("Поиск по имени...")}
                 value={studentSearch}
                 onChange={(e) => setStudentSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
@@ -225,15 +226,15 @@ export function CreateTeamPage() {
               onChange={(e) => setGroupFilter(e.target.value)}
               className="px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             >
-              <option value="all">Все группы</option>
-              {groups.map((g) => <option key={g} value={g}>Группа {getStudentGroupLabel(g)}</option>)}
+              <option value="all">{translateText("Все группы")}</option>
+              {groups.map((g) => <option key={g} value={g}>{translateText("Группа ")}{getStudentGroupLabel(g)}</option>)}
             </select>
           </div>
 
           {/* Student list */}
           <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-64 overflow-y-auto">
             {filteredStudents.length === 0 ? (
-              <p className="text-center text-sm text-slate-400 py-6">Ученики не найдены</p>
+              <p className="text-center text-sm text-slate-400 py-6">{translateText("Ученики не найдены")}</p>
             ) : (
               filteredStudents.map((s) => (
                 <label
@@ -248,7 +249,7 @@ export function CreateTeamPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-800 truncate">{s.fullName}</p>
-                    <p className="text-xs text-slate-400">Группа {getStudentGroupLabel(s.group)} · {s.totalPoints} баллов</p>
+                    <p className="text-xs text-slate-400">{translateText("Группа ")}{getStudentGroupLabel(s.group)} · {s.totalPoints}{translateText(" баллов")}</p>
                   </div>
                 </label>
               ))
@@ -264,8 +265,8 @@ export function CreateTeamPage() {
             className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-slate-50 transition-colors"
           >
             <div>
-              <h2 className="font-semibold text-slate-800">Первая цель</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Опционально — создать цель для команды</p>
+              <h2 className="font-semibold text-slate-800">{translateText("Первая цель")}</h2>
+              <p className="text-xs text-slate-400 mt-0.5">{translateText("Опционально — создать цель для команды")}</p>
             </div>
             {showGoal ? <ChevronUp className="size-4 text-slate-400" /> : <ChevronDown className="size-4 text-slate-400" />}
           </button>
@@ -273,18 +274,18 @@ export function CreateTeamPage() {
           {showGoal && (
             <div className="px-5 pb-5 space-y-4 border-t border-slate-100">
               <div className="pt-4">
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Цель <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Цель ")}<span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={goalTitle}
                   onChange={(e) => setGoalTitle(e.target.value)}
-                  placeholder="Например: Набрать 100 баллов за месяц"
+                  placeholder={translateText("Например: Набрать 100 баллов за месяц")}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Баллов нужно <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Баллов нужно ")}<span className="text-red-500">*</span></label>
                   <input
                     type="number"
                     min="1"
@@ -295,7 +296,7 @@ export function CreateTeamPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Дедлайн</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Дедлайн")}</label>
                   <input
                     type="date"
                     value={goalDeadline}
@@ -305,12 +306,12 @@ export function CreateTeamPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Награда</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Награда")}</label>
                 <input
                   type="text"
                   value={goalReward}
                   onChange={(e) => setGoalReward(e.target.value)}
-                  placeholder="Например: Мороженое всей команде"
+                  placeholder={translateText("Например: Мороженое всей команде")}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                 />
               </div>
@@ -320,16 +321,12 @@ export function CreateTeamPage() {
 
         {/* Submit */}
         <div className="flex gap-3">
-          <Link href="/teams" className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors text-center">
-            Отмена
-          </Link>
+          <Link href="/teams" className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors text-center">{translateText("Отмена")}</Link>
           <button
             type="submit"
             disabled={!name.trim()}
             className="flex-1 px-4 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors disabled:opacity-40"
-          >
-            Создать команду
-          </button>
+          >{translateText("Создать команду")}</button>
         </div>
       </form>
     </div>
