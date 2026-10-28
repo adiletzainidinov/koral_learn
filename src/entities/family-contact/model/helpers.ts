@@ -1,3 +1,5 @@
+import { translate } from '@/shared/i18n/translate';
+import type { Locale } from '@/shared/i18n/locale-store';
 import {
   FAMILY_RELATION_LABELS,
   type FamilyContact,
@@ -19,9 +21,9 @@ export function normalizePersonName(value: string): string {
 export function formatContactRelation(link: {
   relation: FamilyRelationType;
   customRelation?: string;
-}): string {
+}, locale: Locale = 'ru'): string {
   if (link.relation === 'other' && link.customRelation) return link.customRelation;
-  return FAMILY_RELATION_LABELS[link.relation];
+  return translate(FAMILY_RELATION_LABELS[link.relation], locale);
 }
 
 export function formatWhatsappLink(whatsapp: string): string {

@@ -1,5 +1,10 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, X, Users } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
@@ -9,6 +14,8 @@ import type { Student } from '@/entities/student/model/types';
 // ─── Selected friend card ─────────────────────────────────────────────────────
 
 function FriendCard({ student, onRemove }: { student: Student; onRemove: () => void }) {
+  const { t: translateText } = useTranslation();
+
   const initials = student.fullName.slice(0, 2).toUpperCase();
   const contactLine = student.studentWhatsapp || student.studentPhone || student.studentTelegram;
 
@@ -23,9 +30,9 @@ function FriendCard({ student, onRemove }: { student: Student; onRemove: () => v
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-slate-900">{student.fullName}</p>
         <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
-          <span>Группа {student.group}</span>
+          <span>{translateText("Группа ")}{getStudentGroupLabel(student.group)}</span>
           <span>·</span>
-          <span>{student.age} лет</span>
+          <span>{student.age}{translateText(" лет")}</span>
           {contactLine && (
             <>
               <span>·</span>
@@ -67,6 +74,8 @@ interface Props {
 }
 
 export function StudentFriendsSelector({ value, onChange, allStudents, excludeStudentId }: Props) {
+  const { t: translateText } = useTranslation();
+
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -82,7 +91,7 @@ export function StudentFriendsSelector({ value, onChange, allStudents, excludeSt
       if (value.includes(s.id)) return false;
       if (!search) return true;
       const q = search.toLowerCase();
-      return s.fullName.toLowerCase().includes(q) || s.group.toLowerCase().includes(q);
+      return s.fullName.toLowerCase().includes(q) || s.group.toLowerCase().includes(q) || getStudentGroupLabel(s.group).toLowerCase().includes(q);
     });
   }, [allStudents, excludeStudentId, value, search]);
 
@@ -126,7 +135,7 @@ export function StudentFriendsSelector({ value, onChange, allStudents, excludeSt
             value={search}
             onChange={(e) => { setSearch(e.target.value); setIsOpen(true); }}
             onFocus={() => setIsOpen(true)}
-            placeholder="Поиск ученика по имени или группе..."
+            placeholder={translateText("Поиск ученика по имени или группе...")}
             className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
           />
         </div>
@@ -137,7 +146,7 @@ export function StudentFriendsSelector({ value, onChange, allStudents, excludeSt
               <div className="flex flex-col items-center py-4 gap-1">
                 <Users className="size-4 text-slate-300" />
                 <p className="text-sm text-slate-400">
-                  {search ? 'Ученики не найдены' : 'Все ученики уже выбраны'}
+                  {search ? translateText('Ученики не найдены') : translateText('Все ученики уже выбраны')}
                 </p>
               </div>
             ) : (
@@ -158,9 +167,7 @@ export function StudentFriendsSelector({ value, onChange, allStudents, excludeSt
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-900 truncate">{s.fullName}</p>
-                      <p className="text-xs text-slate-400">
-                        Группа {s.group} · {s.age} лет
-                        {s.studentPhone && ` · ${s.studentPhone}`}
+                      <p className="text-xs text-slate-400">{translateText("Группа")}{getStudentGroupLabel(s.group)} · {s.age}{translateText("лет")}{s.studentPhone && ` · ${s.studentPhone}`}
                       </p>
                     </div>
                   </button>
@@ -174,7 +181,7 @@ export function StudentFriendsSelector({ value, onChange, allStudents, excludeSt
       {selectedStudents.length > 0 && (
         <p className="text-xs text-slate-400">
           {selectedStudents.length}{' '}
-          {selectedStudents.length === 1 ? 'ученик выбран' : 'ученика выбраны'}
+          {selectedStudents.length === 1 ? translateText('ученик выбран') : translateText('ученика выбраны')}
         </p>
       )}
     </div>

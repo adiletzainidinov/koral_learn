@@ -1,11 +1,16 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { useMemo } from 'react';
 import { Users, BookOpen, CalendarCheck, Trophy } from 'lucide-react';
 import { StatCard } from '@/shared/ui/card';
 import { useAppStore, useActiveStudents, usePendingAssignments, useTodayAttendance } from '@/store/app-store';
 
 export function DashboardStats() {
+  const { t: translateText } = useTranslation();
+
   const allStudents = useAppStore((s) => s.students);
   const activeStudents = useActiveStudents();
   const pending = usePendingAssignments();
@@ -25,30 +30,30 @@ export function DashboardStats() {
   );
 
   return (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
       <StatCard
-        label="Всего учеников"
+        label={translateText("Всего учеников")}
         value={allStudents.length}
-        sub={`${activeStudents.length} активных`}
+        sub={translateText(`${activeStudents.length} активных`)}
         icon={<Users className="size-5" />}
         accent="emerald"
       />
       <StatCard
-        label="На проверке"
+        label={translateText("На проверке")}
         value={pending.length}
-        sub="заданий ожидают"
+        sub={translateText("заданий ожидают")}
         icon={<BookOpen className="size-5" />}
         accent="amber"
       />
       <StatCard
-        label="Сегодня присутствовали"
+        label={translateText("Сегодня присутствовали")}
         value={presentToday}
-        sub={`из ${activeStudents.length} активных`}
+        sub={translateText(`из ${activeStudents.length} активных`)}
         icon={<CalendarCheck className="size-5" />}
         accent="blue"
       />
       <StatCard
-        label="Лучший ученик"
+        label={translateText("Лучший ученик")}
         value={topStudent?.totalPoints ?? 0}
         sub={topStudent?.fullName ?? '—'}
         icon={<Trophy className="size-5" />}

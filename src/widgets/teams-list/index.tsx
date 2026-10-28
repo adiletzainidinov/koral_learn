@@ -1,5 +1,11 @@
 'use client';
 
+import { formatLocalizedDate } from '@/shared/i18n/date-format';
+
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -27,6 +33,8 @@ function useHydrated() {
 // ─── Preset Award Modal ───────────────────────────────────────────────────────
 
 function PresetAwardModal({ teamId, teamName, onClose }: { teamId: string; teamName: string; onClose: () => void }) {
+  const { t: translateText, locale } = useTranslation();
+
   const award = useAppStore((s) => s.awardTeamPoints);
   const [selected, setSelected] = useState<typeof TEAM_POINT_PRESETS[number] | null>(null);
   const [customPts, setCustomPts] = useState('');
@@ -45,8 +53,8 @@ function PresetAwardModal({ teamId, teamName, onClose }: { teamId: string; teamN
     }
   }
 
-  const positivePresets = TEAM_POINT_PRESETS.filter((p) => p.points > 0);
-  const negativePresets = TEAM_POINT_PRESETS.filter((p) => p.points < 0);
+  const positivePresets = localizeUI(TEAM_POINT_PRESETS, locale).filter((p) => p.points > 0);
+  const negativePresets = localizeUI(TEAM_POINT_PRESETS, locale).filter((p) => p.points < 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -54,23 +62,23 @@ function PresetAwardModal({ teamId, teamName, onClose }: { teamId: string; teamN
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Начислить баллы</h2>
-            <p className="text-sm text-slate-500 mt-0.5">Команда: <span className="font-medium text-slate-700">{teamName}</span></p>
+            <h2 className="text-lg font-bold text-slate-900">{translateText("Начислить баллы")}</h2>
+            <p className="text-sm text-slate-500 mt-0.5">{translateText("Команда: ")}<span className="font-medium text-slate-700">{teamName}</span></p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X className="size-4" /></button>
         </div>
 
         {/* Mode tabs */}
         <div className="flex gap-1 p-4 pb-0">
-          <button onClick={() => setMode('preset')} className={cn('flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors', mode === 'preset' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100')}>Быстрые</button>
-          <button onClick={() => setMode('manual')} className={cn('flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors', mode === 'manual' ? 'bg-slate-700 text-white' : 'text-slate-600 hover:bg-slate-100')}>Вручную</button>
+          <button onClick={() => setMode('preset')} className={cn('flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors', mode === 'preset' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100')}>{translateText("Быстрые")}</button>
+          <button onClick={() => setMode('manual')} className={cn('flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors', mode === 'manual' ? 'bg-slate-700 text-white' : 'text-slate-600 hover:bg-slate-100')}>{translateText("Вручную")}</button>
         </div>
 
         <div className="p-4 space-y-4">
           {mode === 'preset' ? (
             <>
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Положительные</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{translateText("Положительные")}</p>
                 <div className="grid grid-cols-2 gap-2">
                   {positivePresets.map((p) => (
                     <button key={p.id} onClick={() => setSelected(selected?.id === p.id ? null : p)}
@@ -81,14 +89,14 @@ function PresetAwardModal({ teamId, teamName, onClose }: { teamId: string; teamN
                       <span className="text-lg">{p.icon}</span>
                       <div>
                         <div className="font-medium text-xs">{p.label}</div>
-                        <div className="text-emerald-600 font-bold text-xs">+{p.points} бал.</div>
+                        <div className="text-emerald-600 font-bold text-xs">+{p.points}{translateText(" бал.")}</div>
                       </div>
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Штрафы</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{translateText("Штрафы")}</p>
                 <div className="grid grid-cols-2 gap-2">
                   {negativePresets.map((p) => (
                     <button key={p.id} onClick={() => setSelected(selected?.id === p.id ? null : p)}
@@ -99,47 +107,43 @@ function PresetAwardModal({ teamId, teamName, onClose }: { teamId: string; teamN
                       <span className="text-lg">{p.icon}</span>
                       <div>
                         <div className="font-medium text-xs">{p.label}</div>
-                        <div className="text-red-600 font-bold text-xs">{p.points} бал.</div>
+                        <div className="text-red-600 font-bold text-xs">{p.points}{translateText(" бал.")}</div>
                       </div>
                     </button>
                   ))}
                 </div>
               </div>
               {selected && (
-                <div className={cn('rounded-xl px-4 py-3 text-sm font-medium text-center border', selected.points > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700')}>
-                  Команда получит <span className="font-bold">{selected.points > 0 ? `+${selected.points}` : selected.points} баллов</span> — {selected.label}
+                <div className={cn('rounded-xl px-4 py-3 text-sm font-medium text-center border', selected.points > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700')}>{translateText("Команда получит")}<span className="font-bold">{selected.points > 0 ? `+${selected.points}` : selected.points}{translateText(" баллов")}</span> — {selected.label}
                 </div>
               )}
             </>
           ) : (
             <>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Баллы (отрицательные — штраф)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Баллы (отрицательные — штраф)")}</label>
                 <input type="number" value={customPts} onChange={(e) => setCustomPts(e.target.value)}
-                  placeholder="+20 или -5"
+                  placeholder={translateText("+20 или -5")}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Причина</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Причина")}</label>
                 <input type="text" value={customReason} onChange={(e) => setCustomReason(e.target.value)}
-                  placeholder="Например: Отличное чтение сегодня"
+                  placeholder={translateText("Например: Отличное чтение сегодня")}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
               </div>
               {customPts && customReason && (
-                <div className={cn('rounded-xl px-4 py-3 text-sm font-medium text-center border', parseInt(customPts) > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700')}>
-                  Команда получит <span className="font-bold">{parseInt(customPts) > 0 ? `+${customPts}` : customPts} баллов</span>
+                <div className={cn('rounded-xl px-4 py-3 text-sm font-medium text-center border', parseInt(customPts) > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700')}>{translateText("Команда получит")}<span className="font-bold">{parseInt(customPts) > 0 ? `+${customPts}` : customPts}{translateText(" баллов")}</span>
                 </div>
               )}
             </>
           )}
 
           <div className="flex gap-3 pt-1">
-            <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+            <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
             <button onClick={submit}
               disabled={mode === 'preset' ? !selected : (!customPts || !customReason.trim())}
-              className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 transition-colors">
-              Начислить
-            </button>
+              className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 transition-colors">{translateText("Начислить")}</button>
           </div>
         </div>
       </div>
@@ -150,16 +154,18 @@ function PresetAwardModal({ teamId, teamName, onClose }: { teamId: string; teamN
 // ─── Badge Award Modal ────────────────────────────────────────────────────────
 
 function BadgeAwardModal({ teamId, teamName, onClose }: { teamId: string; teamName: string; onClose: () => void }) {
+  const { t: translateText, locale } = useTranslation();
+
   const awardBadge = useAppStore((s) => s.awardTeamBadge);
   const [selected, setSelected] = useState<TeamBadgeType | null>(null);
 
-  const badgeTypes = Object.entries(TEAM_BADGE_META) as [TeamBadgeType, typeof TEAM_BADGE_META[TeamBadgeType]][];
+  const badgeTypes = Object.entries(localizeUI(TEAM_BADGE_META, locale)) as [TeamBadgeType, typeof TEAM_BADGE_META[TeamBadgeType]][];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-bold text-slate-900 mb-1">Выдать бейдж</h2>
-        <p className="text-sm text-slate-500 mb-4">Команда: <span className="font-medium text-slate-700">{teamName}</span></p>
+        <h2 className="text-lg font-bold text-slate-900 mb-1">{translateText("Выдать бейдж")}</h2>
+        <p className="text-sm text-slate-500 mb-4">{translateText("Команда: ")}<span className="font-medium text-slate-700">{teamName}</span></p>
         <div className="grid grid-cols-2 gap-2 mb-5">
           {badgeTypes.map(([type, meta]) => (
             <button key={type} onClick={() => setSelected(selected === type ? null : type)}
@@ -174,12 +180,10 @@ function BadgeAwardModal({ teamId, teamName, onClose }: { teamId: string; teamNa
           ))}
         </div>
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+          <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
           <button onClick={() => { if (selected) { awardBadge(teamId, selected); onClose(); } }}
             disabled={!selected}
-            className="flex-1 px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 disabled:opacity-40">
-            Выдать бейдж 🏅
-          </button>
+            className="flex-1 px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 disabled:opacity-40">{translateText("Выдать бейдж 🏅")}</button>
         </div>
       </div>
     </div>
@@ -189,6 +193,8 @@ function BadgeAwardModal({ teamId, teamName, onClose }: { teamId: string; teamNa
 // ─── Season Modal ─────────────────────────────────────────────────────────────
 
 function SeasonModal({ onClose }: { onClose: () => void }) {
+  const { t: translateText } = useTranslation();
+
   const createSeason = useAppStore((s) => s.createTeamSeason);
   const [title, setTitle] = useState('');
   const [start, setStart] = useState(new Date().toISOString().split('T')[0]);
@@ -197,7 +203,7 @@ function SeasonModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-bold text-slate-900 mb-5">Создать сезон</h2>
+        <h2 className="text-lg font-bold text-slate-900 mb-5">{translateText("Создать сезон")}</h2>
         <form onSubmit={(e) => {
           e.preventDefault();
           if (!title.trim()) return;
@@ -205,26 +211,26 @@ function SeasonModal({ onClose }: { onClose: () => void }) {
           onClose();
         }} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Название сезона <span className="text-red-400">*</span></label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Название сезона ")}<span className="text-red-400">*</span></label>
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus
-              placeholder="Весенний сезон 2026"
+              placeholder={translateText("Весенний сезон 2026")}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Начало</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Начало")}</label>
               <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Конец</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Конец")}</label>
               <input type="date" value={end} onChange={(e) => setEnd(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
             </div>
           </div>
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
-            <button type="submit" disabled={!title.trim()} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">Создать</button>
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
+            <button type="submit" disabled={!title.trim()} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">{translateText("Создать")}</button>
           </div>
         </form>
       </div>
@@ -237,6 +243,8 @@ function SeasonModal({ onClose }: { onClose: () => void }) {
 type DistPreview = { name: string; color: TeamColor; emoji: string; studentIds: string[] };
 
 function AutoDistributionModal({ onClose }: { onClose: () => void }) {
+  const { t: translateText } = useTranslation();
+
   const students = useStudents();
   const createTeam = useAppStore((s) => s.createTeam);
   const [count, setCount] = useState('3');
@@ -263,12 +271,12 @@ function AutoDistributionModal({ onClose }: { onClose: () => void }) {
       }
     }
 
-    const teamNames = ['Ан-Нур', 'Аль-Фатиха', 'Аль-Ихлас', 'Аль-Бакара', 'Ар-Рахман', 'Аль-Имран', 'Аль-Каусар', 'Аль-Аср'];
+    const teamNames = [translateText('Ан-Нур'), translateText('Аль-Фатиха'), translateText('Аль-Ихлас'), translateText('Аль-Бакара'), translateText('Ар-Рахман'), translateText('Аль-Имран'), translateText('Аль-Каусар'), translateText('Аль-Аср')];
     const teamEmojis = ['💡', '🌿', '✨', '📖', '🌙', '⭐', '🌊', '🔥'];
     const colors: TeamColor[] = ['blue', 'emerald', 'amber', 'purple', 'teal', 'rose', 'indigo', 'orange'];
 
     const teams: DistPreview[] = Array.from({ length: n }, (_, i) => ({
-      name: teamNames[i] ?? `Команда ${i + 1}`,
+      name: teamNames[i] ?? translateText(`Команда ${i + 1}`),
       color: colors[i] ?? 'blue',
       emoji: teamEmojis[i] ?? '🏆',
       studentIds: [] as string[],
@@ -302,33 +310,32 @@ function AutoDistributionModal({ onClose }: { onClose: () => void }) {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-white px-6 pt-5 pb-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Авто-распределение</h2>
-            <p className="text-sm text-slate-500">{activeStudents.length} учеников доступно</p>
+            <h2 className="text-lg font-bold text-slate-900">{translateText("Авто-распределение")}</h2>
+            <p className="text-sm text-slate-500">{activeStudents.length}{translateText(" учеников доступно")}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X className="size-4 text-slate-400" /></button>
         </div>
 
         <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Количество команд</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Количество команд")}</label>
               <input type="number" min="2" max="8" value={count} onChange={(e) => setCount(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Принцип</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Принцип")}</label>
               <select value={strategy} onChange={(e) => setStrategy(e.target.value as typeof strategy)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
-                <option value="balanced">Сбалансированно</option>
-                <option value="level">По уровню</option>
-                <option value="equal">Поровну</option>
+                <option value="balanced">{translateText("Сбалансированно")}</option>
+                <option value="level">{translateText("По уровню")}</option>
+                <option value="equal">{translateText("Поровну")}</option>
               </select>
             </div>
           </div>
 
           <button onClick={generate} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-700 text-white text-sm font-medium hover:bg-slate-800">
-            <Shuffle className="size-4" /> Сформировать команды
-          </button>
+            <Shuffle className="size-4" />{translateText("Сформировать команды")}</button>
 
           {preview && (
             <>
@@ -341,7 +348,7 @@ function AutoDistributionModal({ onClose }: { onClose: () => void }) {
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className="text-lg">{t.emoji}</span>
                         <span className={cn('font-semibold text-sm', cls.text)}>{t.name}</span>
-                        <span className="text-xs text-slate-400 ml-auto">{members.length} уч.</span>
+                        <span className="text-xs text-slate-400 ml-auto">{members.length}{translateText(" уч.")}</span>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {members.map((s) => (
@@ -354,11 +361,8 @@ function AutoDistributionModal({ onClose }: { onClose: () => void }) {
               </div>
               <div className="flex gap-3">
                 <button onClick={generate} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-1.5">
-                  <Shuffle className="size-3.5" /> Перегенерировать
-                </button>
-                <button onClick={apply} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-                  Применить
-                </button>
+                  <Shuffle className="size-3.5" />{translateText("Перегенерировать")}</button>
+                <button onClick={apply} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">{translateText("Применить")}</button>
               </div>
             </>
           )}
@@ -373,6 +377,8 @@ function AutoDistributionModal({ onClose }: { onClose: () => void }) {
 function EditTeamModal({ teamId, initialName, initialDescription, initialColor, onClose }: {
   teamId: string; initialName: string; initialDescription?: string; initialColor: TeamColor; onClose: () => void;
 }) {
+  const { t: translateText } = useTranslation();
+
   const updateTeam = useAppStore((s) => s.updateTeam);
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription ?? '');
@@ -381,7 +387,7 @@ function EditTeamModal({ teamId, initialName, initialDescription, initialColor, 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-bold text-slate-900 mb-5">Изменить команду</h2>
+        <h2 className="text-lg font-bold text-slate-900 mb-5">{translateText("Изменить команду")}</h2>
         <form onSubmit={(e) => {
           e.preventDefault();
           if (!name.trim()) return;
@@ -389,17 +395,17 @@ function EditTeamModal({ teamId, initialName, initialDescription, initialColor, 
           onClose();
         }} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Название</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Название")}</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} autoFocus
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Описание</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{translateText("Описание")}</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-none" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Цвет</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">{translateText("Цвет")}</label>
             <div className="flex flex-wrap gap-2">
               {TEAM_COLORS.map((c) => (
                 <button key={c} type="button" onClick={() => setColor(c)}
@@ -408,8 +414,8 @@ function EditTeamModal({ teamId, initialName, initialDescription, initialColor, 
             </div>
           </div>
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
-            <button type="submit" disabled={!name.trim()} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">Сохранить</button>
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
+            <button type="submit" disabled={!name.trim()} className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">{translateText("Сохранить")}</button>
           </div>
         </form>
       </div>
@@ -424,6 +430,8 @@ function TeamPodium({ teams, students, useSeasonPoints }: {
   students: ReturnType<typeof useStudents>;
   useSeasonPoints: boolean;
 }) {
+  const { t: translateText, locale } = useTranslation();
+
   const router = useRouter();
   const sorted = [...teams].sort((a, b) => {
     const ap = useSeasonPoints ? (a.seasonPoints ?? 0) : a.points;
@@ -441,8 +449,8 @@ function TeamPodium({ teams, students, useSeasonPoints }: {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-bold text-slate-900 flex items-center gap-2"><Trophy className="size-4 text-amber-500" /> Рейтинг команд</h2>
-        <span className="text-xs text-slate-400">{useSeasonPoints ? 'По сезону' : 'За всё время'}</span>
+        <h2 className="font-bold text-slate-900 flex items-center gap-2"><Trophy className="size-4 text-amber-500" />{translateText(" Рейтинг команд")}</h2>
+        <span className="text-xs text-slate-400">{useSeasonPoints ? translateText('По сезону') : translateText('За всё время')}</span>
       </div>
       <div className="flex items-end justify-center gap-3">
         {order.map((team, i) => {
@@ -451,18 +459,18 @@ function TeamPodium({ teams, students, useSeasonPoints }: {
           const pts = useSeasonPoints ? (team.seasonPoints ?? 0) : team.points;
           const memberCount = students.filter((s) => team.studentIds.includes(s.id)).length;
           const level = getTeamLevel(pts);
-          const levelCfg = TEAM_LEVEL_CONFIGS[level];
+          const levelCfg = localizeUI(TEAM_LEVEL_CONFIGS, locale)[level];
           const actualRank = order.length >= 2 ? [2, 1, 3][i] : 1;
 
           return (
             <div key={team.id} className={cn('flex flex-col items-center flex-1 cursor-pointer group')} onClick={() => router.push(`/teams/${team.id}`)}>
               <div className="text-2xl mb-1">{team.emoji ?? '🏆'}</div>
               <div className={cn('font-bold text-sm text-center mb-1 truncate max-w-full', cls.text)}>{team.name}</div>
-              <div className="text-xs text-slate-400 mb-2">{memberCount} уч. · {levelCfg.emoji}</div>
+              <div className="text-xs text-slate-400 mb-2">{memberCount}{translateText(" уч. · ")}{levelCfg.emoji}</div>
               <div className={cn('w-full rounded-t-xl flex flex-col items-center justify-end pb-3 transition-all group-hover:opacity-90', heights[i] ?? 'h-24', cls.light, 'border border-b-0', 'border-slate-200')}>
                 <div className="text-xl">{medals[i]}</div>
                 <div className={cn('font-bold text-lg', cls.text)}>{pts}</div>
-                <div className="text-[10px] text-slate-400">баллов</div>
+                <div className="text-[10px] text-slate-400">{translateText("баллов")}</div>
               </div>
             </div>
           );
@@ -475,6 +483,8 @@ function TeamPodium({ teams, students, useSeasonPoints }: {
 // ─── Season Card ──────────────────────────────────────────────────────────────
 
 function SeasonCard({ onNewSeason }: { onNewSeason: () => void }) {
+  const { t: translateText, locale } = useTranslation();
+
   const season = useActiveSeason();
   const teams = useTeams();
   const finishSeason = useAppStore((s) => s.finishTeamSeason);
@@ -484,12 +494,11 @@ function SeasonCard({ onNewSeason }: { onNewSeason: () => void }) {
     return (
       <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl border border-slate-200 p-5 mb-6 flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-slate-500">Активный сезон</p>
-          <p className="font-bold text-slate-700 mt-0.5">Нет активного сезона</p>
+          <p className="text-sm font-medium text-slate-500">{translateText("Активный сезон")}</p>
+          <p className="font-bold text-slate-700 mt-0.5">{translateText("Нет активного сезона")}</p>
         </div>
         <button onClick={onNewSeason} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-          <Plus className="size-4" /> Создать сезон
-        </button>
+          <Plus className="size-4" />{translateText("Создать сезон")}</button>
       </div>
     );
   }
@@ -504,26 +513,26 @@ function SeasonCard({ onNewSeason }: { onNewSeason: () => void }) {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">● Активный сезон</span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{translateText("● Активный сезон")}</span>
             {daysLeft !== null && (
-              <span className="text-xs text-slate-500">Осталось {daysLeft} дн.</span>
+              <span className="text-xs text-slate-500">{translateText("Осталось ")}{daysLeft}{translateText(" дн.")}</span>
             )}
           </div>
           <h3 className="font-bold text-slate-900 text-lg">{season.title}</h3>
           {season.description && <p className="text-sm text-slate-500 mt-0.5">{season.description}</p>}
           <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
-            <span className="flex items-center gap-1"><Calendar className="size-3.5" /> {new Date(season.startDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>
-            {season.endDate && <span>— {new Date(season.endDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>}
+            <span className="flex items-center gap-1"><Calendar className="size-3.5" /> {formatLocalizedDate(new Date(season.startDate), { day: 'numeric', month: 'short' }, locale)}</span>
+            {season.endDate && <span>— {formatLocalizedDate(new Date(season.endDate), { day: 'numeric', month: 'short' }, locale)}</span>}
             {leader && <span className="flex items-center gap-1 font-medium text-amber-600"><Crown className="size-3.5" /> {leader.emoji} {leader.name}</span>}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onNewSeason} className="px-3 py-1.5 rounded-xl border border-emerald-300 text-sm font-medium text-emerald-700 hover:bg-emerald-100">+ Новый</button>
+          <button onClick={onNewSeason} className="px-3 py-1.5 rounded-xl border border-emerald-300 text-sm font-medium text-emerald-700 hover:bg-emerald-100">{translateText("+ Новый")}</button>
           <button onClick={() => {
-            if (confirm('Завершить сезон? Будет определён победитель по сезонным баллам.')) {
+            if (confirm(translateText('Завершить сезон? Будет определён победитель по сезонным баллам.'))) {
               finishSeason(season.id);
             }
-          }} className="px-3 py-1.5 rounded-xl bg-slate-700 text-white text-sm font-medium hover:bg-slate-800">Завершить</button>
+          }} className="px-3 py-1.5 rounded-xl bg-slate-700 text-white text-sm font-medium hover:bg-slate-800">{translateText("Завершить")}</button>
         </div>
       </div>
     </div>
@@ -544,6 +553,8 @@ function TeamCard({
   onBadge: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const { t: translateText, locale } = useTranslation();
+
   const router = useRouter();
   const cls = TEAM_COLOR_CLASSES[team.color as TeamColor] ?? TEAM_COLOR_CLASSES.emerald;
   const members = students.filter((s) => team.studentIds.includes(s.id));
@@ -551,7 +562,7 @@ function TeamCard({
   const goalPct = goal ? Math.min(100, Math.round((goal.currentPoints / goal.targetPoints) * 100)) : 0;
   const pts = useSeasonPoints ? (team.seasonPoints ?? 0) : team.points;
   const level = getTeamLevel(pts);
-  const levelCfg = TEAM_LEVEL_CONFIGS[level];
+  const levelCfg = localizeUI(TEAM_LEVEL_CONFIGS, locale)[level];
   const badges = team.badges ?? [];
 
   return (
@@ -583,7 +594,7 @@ function TeamCard({
               <Star className="size-3.5" /> {pts}
             </div>
             {useSeasonPoints && team.points !== pts && (
-              <span className="text-[10px] text-slate-400">{team.points} всего</span>
+              <span className="text-[10px] text-slate-400">{team.points}{translateText(" всего")}</span>
             )}
           </div>
         </div>
@@ -591,7 +602,7 @@ function TeamCard({
         {/* Members */}
         <div className="flex items-center gap-1.5 mt-3">
           <Users className="size-3.5 text-slate-400 shrink-0" />
-          <span className="text-xs text-slate-500">{members.length} участник{members.length === 1 ? '' : members.length < 5 ? 'а' : 'ов'}</span>
+          <span className="text-xs text-slate-500">{members.length}{translateText(" участник")}{members.length === 1 ? '' : members.length < 5 ? translateText('а') : translateText('ов')}</span>
           <div className="flex gap-1 ml-2 flex-wrap">
             {members.slice(0, 3).map((s) => (
               <span key={s.id} className="text-xs text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-md">{s.fullName.split(' ')[0]}</span>
@@ -627,14 +638,12 @@ function TeamCard({
       {/* Actions */}
       <div className="px-5 pb-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
         <Link href={`/teams/${team.id}`}
-          className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
-          Открыть <ChevronRight className="size-3" />
+          className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">{translateText("Открыть")}<ChevronRight className="size-3" />
         </Link>
         <button onClick={() => onAward(team.id)}
           className={cn('flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium', cls.badge, 'hover:opacity-90')}>
-          <Zap className="size-3.5" /> Баллы
-        </button>
-        <button onClick={() => onBadge(team.id)} title="Выдать бейдж"
+          <Zap className="size-3.5" />{translateText("Баллы")}</button>
+        <button onClick={() => onBadge(team.id)} title={translateText("Выдать бейдж")}
           className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-600 hover:bg-amber-50 hover:border-amber-200">
           🏅
         </button>
@@ -642,7 +651,7 @@ function TeamCard({
           className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
           ✏️
         </button>
-        <button onClick={() => onDelete(team.id)} title="Удалить команду"
+        <button onClick={() => onDelete(team.id)} title={translateText("Удалить команду")}
           className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-400 hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-colors">
           <Trash2 className="size-3.5" />
         </button>
@@ -654,6 +663,8 @@ function TeamCard({
 // ─── Main Widget ──────────────────────────────────────────────────────────────
 
 export function TeamsList() {
+  const { t: translateText } = useTranslation();
+
   const hydrated = useHydrated();
   const teams = useTeams();
   const students = useStudents();
@@ -707,34 +718,31 @@ export function TeamsList() {
     });
 
   if (!hydrated) return (
-    <div className="p-6 max-w-7xl mx-auto animate-pulse space-y-4">
+    <div className="p-0 sm:p-6 max-w-7xl mx-auto animate-pulse space-y-4">
       <div className="h-8 w-48 bg-slate-100 rounded-xl" />
       <div className="h-32 bg-slate-100 rounded-2xl" />
-      <div className="grid grid-cols-4 gap-4">{Array(4).fill(0).map((_, i) => <div key={i} className="h-24 bg-slate-100 rounded-2xl" />)}</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{Array(4).fill(0).map((_, i) => <div key={i} className="h-24 bg-slate-100 rounded-2xl" />)}</div>
     </div>
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-0 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Команды</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Командная мотивация, рейтинги и игры</p>
+          <h1 className="text-2xl font-bold text-slate-900">{translateText("Команды")}</h1>
+          <p className="text-sm text-slate-500 mt-0.5">{translateText("Командная мотивация, рейтинги и игры")}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Link href="/teams/display"
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-            <Monitor className="size-4" /> Экран
-          </Link>
+            <Monitor className="size-4" />{translateText("Экран")}</Link>
           <button onClick={() => setShowAutoModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-            <Shuffle className="size-4" /> Авто-распределение
-          </button>
+            <Shuffle className="size-4" />{translateText("Авто-распределение")}</button>
           <Link href="/teams/new"
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-            <Plus className="size-4" /> Создать команду
-          </Link>
+            <Plus className="size-4" />{translateText("Создать команду")}</Link>
         </div>
       </div>
 
@@ -744,10 +752,10 @@ export function TeamsList() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { label: 'Команд', value: teams.length, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'В командах', value: `${totalStudentsInTeams} уч.`, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Лидер сезона', value: topTeam ? `${topTeam.emoji ?? ''} ${topTeam.name}` : '—', icon: Trophy, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'Всего баллов', value: totalPoints, icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' },
+          { label: translateText('Команд'), value: teams.length, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: translateText('В командах'), value: translateText(`${totalStudentsInTeams} уч.`), icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: translateText('Лидер сезона'), value: topTeam ? `${topTeam.emoji ?? ''} ${topTeam.name}` : '—', icon: Trophy, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: translateText('Всего баллов'), value: totalPoints, icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
             <div className={cn('size-10 rounded-xl flex items-center justify-center', bg)}>
@@ -768,24 +776,24 @@ export function TeamsList() {
       <div className="flex flex-wrap gap-3 mb-5">
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-          <input type="text" placeholder="Поиск команды..." value={search} onChange={(e) => setSearch(e.target.value)}
+          <input type="text" placeholder={translateText("Поиск команды...")} value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
         </div>
         <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-medium">
           {(['all', 'goal', 'empty', 'top'] as const).map((v) => (
             <button key={v} onClick={() => setFilter(v)}
               className={cn('px-3 py-2 transition-colors', filter === v ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50')}>
-              {v === 'all' ? 'Все' : v === 'goal' ? 'С целью' : v === 'empty' ? 'Пустые' : 'Лидеры'}
+              {v === 'all' ? translateText('Все') : v === 'goal' ? translateText('С целью') : v === 'empty' ? translateText('Пустые') : translateText('Лидеры')}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-medium">
-          <span className="text-slate-500 py-2">Рейтинг:</span>
+          <span className="text-slate-500 py-2">{translateText("Рейтинг:")}</span>
           <button onClick={() => { setUseSeasonPoints(true); setSort('season'); }}
-            className={cn('py-2 px-1', useSeasonPoints ? 'text-emerald-600 font-bold' : 'text-slate-400')}>По сезону</button>
+            className={cn('py-2 px-1', useSeasonPoints ? 'text-emerald-600 font-bold' : 'text-slate-400')}>{translateText("По сезону")}</button>
           <span className="text-slate-200">|</span>
           <button onClick={() => { setUseSeasonPoints(false); setSort('points'); }}
-            className={cn('py-2 px-1', !useSeasonPoints ? 'text-slate-700 font-bold' : 'text-slate-400')}>Всего</button>
+            className={cn('py-2 px-1', !useSeasonPoints ? 'text-slate-700 font-bold' : 'text-slate-400')}>{translateText("Всего")}</button>
         </div>
       </div>
 
@@ -795,12 +803,11 @@ export function TeamsList() {
           <div className="size-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
             <Users className="size-8 text-slate-400" />
           </div>
-          <h3 className="font-semibold text-slate-700 mb-1">{teams.length === 0 ? 'Команд пока нет' : 'Ничего не найдено'}</h3>
-          <p className="text-sm text-slate-400">{teams.length === 0 ? 'Создайте первую команду' : 'Попробуйте изменить фильтры'}</p>
+          <h3 className="font-semibold text-slate-700 mb-1">{teams.length === 0 ? translateText('Команд пока нет') : translateText('Ничего не найдено')}</h3>
+          <p className="text-sm text-slate-400">{teams.length === 0 ? translateText('Создайте первую команду') : translateText('Попробуйте изменить фильтры')}</p>
           {teams.length === 0 && (
             <Link href="/teams/new" className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-              <Plus className="size-4" /> Создать команду
-            </Link>
+              <Plus className="size-4" />{translateText("Создать команду")}</Link>
           )}
         </div>
       ) : (
@@ -837,8 +844,8 @@ export function TeamsList() {
                   <Trash2 className="size-5 text-red-500" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">Удалить команду?</h2>
-                  <p className="text-sm text-slate-500">Это действие нельзя отменить</p>
+                  <h2 className="text-lg font-bold text-slate-900">{translateText("Удалить команду?")}</h2>
+                  <p className="text-sm text-slate-500">{translateText("Это действие нельзя отменить")}</p>
                 </div>
               </div>
               {dt && (
@@ -848,18 +855,17 @@ export function TeamsList() {
                     <span className="font-semibold text-slate-800">{dt.name}</span>
                   </div>
                   <div className="flex gap-4 text-xs text-slate-500">
-                    <span><Users className="size-3 inline mr-1" />{dtMembers} участник{dtMembers === 1 ? '' : dtMembers < 5 ? 'а' : 'ов'}</span>
-                    <span><Star className="size-3 inline mr-1" />{dtPts} баллов</span>
+                    <span><Users className="size-3 inline mr-1" />{dtMembers}{translateText(" участник")}{dtMembers === 1 ? '' : dtMembers < 5 ? translateText('а') : translateText('ов')}</span>
+                    <span><Star className="size-3 inline mr-1" />{dtPts}{translateText(" баллов")}</span>
                   </div>
                 </div>
               )}
-              <p className="text-sm text-slate-500 mb-5">Команда будет удалена, но ученики останутся в системе. История этой команды и связанные цели будут удалены.</p>
+              <p className="text-sm text-slate-500 mb-5">{translateText("Команда будет удалена, но ученики останутся в системе. История этой команды и связанные цели будут удалены.")}</p>
               <div className="flex gap-3">
-                <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Отмена</button>
+                <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Отмена")}</button>
                 <button onClick={() => { deleteTeam(deleteConfirm); setDeleteConfirm(null); }}
                   className="flex-1 px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 flex items-center justify-center gap-1.5">
-                  <Trash2 className="size-4" /> Удалить команду
-                </button>
+                  <Trash2 className="size-4" />{translateText("Удалить команду")}</button>
               </div>
             </div>
           </div>

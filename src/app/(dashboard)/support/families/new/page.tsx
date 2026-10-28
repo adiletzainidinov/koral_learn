@@ -1,5 +1,11 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -56,6 +62,8 @@ function ContactCombobox({
   error?: string;
   inputRef?: React.RefObject<HTMLInputElement | null>;
 }) {
+  const { t: translateText } = useTranslation();
+
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -100,7 +108,7 @@ function ContactCombobox({
               setIsOpen(true);
             }}
             onFocus={() => setIsOpen(true)}
-            placeholder="Поиск по имени, WhatsApp или телефону..."
+            placeholder={translateText("Поиск по имени, WhatsApp или телефону...")}
             className={cn(
               'h-10 w-full rounded-xl border pl-9 pr-8 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors',
               error ? 'border-red-300 bg-red-50/40' : 'border-slate-200 bg-white'
@@ -122,11 +130,9 @@ function ContactCombobox({
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center py-6 gap-2">
                 <UserRound className="size-5 text-slate-300" />
-                <p className="text-sm text-slate-400">Представители не найдены</p>
+                <p className="text-sm text-slate-400">{translateText("Представители не найдены")}</p>
                 <a href="/parents/new" target="_blank" rel="noopener noreferrer"
-                  className="text-xs text-emerald-600 hover:underline font-medium">
-                  + Создать представителя
-                </a>
+                  className="text-xs text-emerald-600 hover:underline font-medium">{translateText("+ Создать представителя")}</a>
               </div>
             ) : (
               filtered.map((c) => {
@@ -156,7 +162,7 @@ function ContactCombobox({
           </div>
         )}
       </div>
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      {error && <p className="text-xs text-red-500 mt-1">{translateText(error)}</p>}
     </div>
   );
 }
@@ -164,6 +170,8 @@ function ContactCombobox({
 // ─── Selected contact card ───────────────────────────────────────────────────
 
 function ContactCard({ contact, onClear }: { contact: FamilyContact; onClear: () => void }) {
+  const { t: translateText } = useTranslation();
+
   const initials = getContactInitials(contact.fullName);
   return (
     <div className="mt-4 p-4 rounded-xl border border-emerald-200 bg-emerald-50/60">
@@ -200,8 +208,7 @@ function ContactCard({ contact, onClear }: { contact: FamilyContact; onClear: ()
         <div className="flex items-center gap-2 shrink-0">
           <Link href={`/parents/${contact.id}`} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-            <UserRound className="size-3" />Открыть
-          </Link>
+            <UserRound className="size-3" />{translateText("Открыть")}</Link>
           <button type="button" onClick={onClear}
             className="size-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors">
             <X className="size-3.5" />
@@ -235,6 +242,8 @@ function StudentPlanRow({
   config: StudentConfig;
   onChange: (cfg: StudentConfig) => void;
 }) {
+  const { t: translateText, locale } = useTranslation();
+
   const colors = PLAN_COLORS[config.planType];
   const initials = student.fullName.slice(0, 2).toUpperCase();
 
@@ -249,7 +258,7 @@ function StudentPlanRow({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-slate-800">{student.fullName}</p>
-          <p className="text-xs text-slate-400">Группа {student.group} · {student.age} лет</p>
+          <p className="text-xs text-slate-400">{translateText("Группа ")}{getStudentGroupLabel(student.group)} · {student.age}{translateText(" лет")}</p>
         </div>
         <div className="flex items-center gap-1 text-xs text-slate-400 shrink-0">
           <Star className="size-3" />{student.totalPoints}
@@ -259,7 +268,7 @@ function StudentPlanRow({
       <div className="p-3 space-y-2.5">
         <div className="flex flex-wrap gap-1.5">
           {PLAN_ORDER.map((pt) => {
-            const plan = SUPPORT_PLANS[pt];
+            const plan = localizeUI(SUPPORT_PLANS, locale)[pt];
             const c = PLAN_COLORS[pt];
             const isActive = config.planType === pt;
             return (
@@ -290,8 +299,8 @@ function StudentPlanRow({
             onChange={(e) => onChange({ ...config, lessonType: e.target.value as LessonType })}
             className="flex-1 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           >
-            {(Object.keys(LESSON_TYPE_LABELS) as LessonType[]).map((lt) => (
-              <option key={lt} value={lt}>{LESSON_TYPE_LABELS[lt]}</option>
+            {(Object.keys(localizeUI(LESSON_TYPE_LABELS, locale)) as LessonType[]).map((lt) => (
+              <option key={lt} value={lt}>{localizeUI(LESSON_TYPE_LABELS, locale)[lt]}</option>
             ))}
           </select>
 
@@ -303,7 +312,7 @@ function StudentPlanRow({
                 onChange={(e) => onChange({ ...config, monthlyAmount: Number(e.target.value) || 0 })}
                 className="w-24 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
-              <span className="text-xs text-slate-400">сом</span>
+              <span className="text-xs text-slate-400">{translateText("сом")}</span>
             </div>
           ) : (
             <div className={cn('px-2.5 py-1 rounded-lg text-xs font-semibold', colors.badge)}>
@@ -319,16 +328,15 @@ function StudentPlanRow({
 // ─── Existing family warning ───────────────────────────────────────────────────
 
 function ExistingFamilyWarning({ familyId }: { familyId: string }) {
+  const { t: translateText } = useTranslation();
+
   return (
     <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
       <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-amber-800">Этот представитель уже привязан к семье</p>
-        <p className="text-xs text-amber-700 mt-0.5">
-          Создание дубликата не разрешено.{' '}
-          <Link href={`/support/families/${familyId}`} className="underline font-medium">
-            Открыть существующую запись →
-          </Link>
+        <p className="text-sm font-medium text-amber-800">{translateText("Этот представитель уже привязан к семье")}</p>
+        <p className="text-xs text-amber-700 mt-0.5">{translateText("Создание дубликата не разрешено.")}{' '}
+          <Link href={`/support/families/${familyId}`} className="underline font-medium">{translateText("Открыть существующую запись →")}</Link>
         </p>
       </div>
     </div>
@@ -343,6 +351,8 @@ interface FormErrors {
 }
 
 export default function NewFamilyPage() {
+  const { t: translateText, locale } = useTranslation();
+
   const router = useRouter();
   const allContacts = useAllFamilyContacts();
   const families = useFamilies();
@@ -433,8 +443,8 @@ export default function NewFamilyPage() {
 
   function validate(): boolean {
     const errs: FormErrors = {};
-    if (!contactId) errs.contactId = 'Выберите представителя';
-    if (selectedStudentIds.length === 0) errs.studentIds = 'Выберите хотя бы одного ребёнка';
+    if (!contactId) errs.contactId = translateText('Выберите представителя');
+    if (selectedStudentIds.length === 0) errs.studentIds = translateText('Выберите хотя бы одного ребёнка');
     setErrors(errs);
     if (errs.contactId) { contactInputRef.current?.focus(); return false; }
     return Object.keys(errs).length === 0;
@@ -444,7 +454,7 @@ export default function NewFamilyPage() {
     setHasAttempted(true);
     if (!validate() || !contactId || submitting || existingFamily) return;
     setSubmitting(true);
-    const name = selectedContact ? `Семья ${selectedContact.fullName}` : undefined;
+    const name = selectedContact ? translateText(`Семья ${selectedContact.fullName}`) : undefined;
     const id = createFamily({
       name,
       contactIds: [contactId],
@@ -459,7 +469,7 @@ export default function NewFamilyPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto pb-28">
+    <div className="p-0 sm:p-6 max-w-2xl mx-auto pb-28">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link href="/support"
@@ -467,8 +477,8 @@ export default function NewFamilyPage() {
           <ArrowLeft className="size-4" />
         </Link>
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Добавить семью</h1>
-          <p className="text-sm text-slate-500">Выберите представителя, детей и формат обучения для каждого</p>
+          <h1 className="text-xl font-bold text-slate-900">{translateText("Добавить семью")}</h1>
+          <p className="text-sm text-slate-500">{translateText("Выберите представителя, детей и формат обучения для каждого")}</p>
         </div>
       </div>
 
@@ -476,12 +486,11 @@ export default function NewFamilyPage() {
       {hasAttempted && Object.keys(errors).length > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 mb-5 rounded-xl bg-red-50 border border-red-200">
           <AlertTriangle className="size-4 text-red-500 shrink-0" />
-          <p className="text-sm text-red-700">
-            Заполните обязательные поля:{' '}
+          <p className="text-sm text-red-700">{translateText("Заполните обязательные поля:")}{' '}
             <span className="font-medium">
               {[
-                errors.contactId && 'Представитель',
-                errors.studentIds && 'Дети',
+                errors.contactId && translateText('Представитель'),
+                errors.studentIds && translateText('Дети'),
               ].filter(Boolean).join(', ')}
             </span>
           </p>
@@ -490,20 +499,19 @@ export default function NewFamilyPage() {
 
       <div className="space-y-5">
         {/* ── Block 1: Contact ────────────────────────────────────────────── */}
-        <Section title="Представитель *" description="Основной контакт семьи">
+        <Section title={translateText("Представитель *")} description={translateText("Основной контакт семьи")}>
           {activeContacts.length === 0 ? (
             <div className="flex flex-col items-center py-6 gap-3 text-center">
               <div className="size-12 rounded-2xl bg-slate-100 flex items-center justify-center">
                 <UserRound className="size-6 text-slate-400" />
               </div>
               <div>
-                <p className="font-medium text-slate-700">Представители не добавлены</p>
-                <p className="text-sm text-slate-500 mt-0.5">Сначала создайте представителя в разделе Представители</p>
+                <p className="font-medium text-slate-700">{translateText("Представители не добавлены")}</p>
+                <p className="text-sm text-slate-500 mt-0.5">{translateText("Сначала создайте представителя в разделе Представители")}</p>
               </div>
               <Link href="/parents/new"
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
-                <Plus className="size-4" />Создать представителя
-              </Link>
+                <Plus className="size-4" />{translateText("Создать представителя")}</Link>
             </div>
           ) : (
             <>
@@ -514,7 +522,7 @@ export default function NewFamilyPage() {
                   if (hasAttempted) setErrors((e) => ({ ...e, contactId: undefined }));
                 }}
                 contacts={activeContacts}
-                error={errors.contactId}
+                error={translateText(errors.contactId)}
                 inputRef={contactInputRef}
               />
 
@@ -524,11 +532,9 @@ export default function NewFamilyPage() {
 
               {!selectedContact && (
                 <div className="flex items-center gap-2 mt-3">
-                  <span className="text-xs text-slate-400">Нет нужного представителя?</span>
+                  <span className="text-xs text-slate-400">{translateText("Нет нужного представителя?")}</span>
                   <a href="/parents/new" target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-emerald-600 hover:underline font-medium">
-                    + Создать представителя
-                  </a>
+                    className="text-xs text-emerald-600 hover:underline font-medium">{translateText("+ Создать представителя")}</a>
                 </div>
               )}
 
@@ -544,8 +550,8 @@ export default function NewFamilyPage() {
         {/* ── Block 2: Children + per-student plan ───────────────────────────── */}
         {contactId && !existingFamily && (
           <Section
-            title="Дети и формат обучения"
-            description="Настройте план для каждого ребёнка отдельно"
+            title={translateText("Дети и формат обучения")}
+            description={translateText("Настройте план для каждого ребёнка отдельно")}
             badge={
               candidateStudents.length > 0 ? (
                 <span className="text-xs font-medium text-slate-500">
@@ -560,13 +566,11 @@ export default function NewFamilyPage() {
                   <Users className="size-5 text-slate-400" />
                 </div>
                 <div>
-                  <p className="font-medium text-slate-700">У этого представителя пока нет учеников</p>
-                  <p className="text-sm text-slate-500 mt-0.5">Сначала привяжите ученика к семье представителя</p>
+                  <p className="font-medium text-slate-700">{translateText("У этого представителя пока нет учеников")}</p>
+                  <p className="text-sm text-slate-500 mt-0.5">{translateText("Сначала привяжите ученика к семье представителя")}</p>
                 </div>
                 <Link href="/students/new"
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-                  Добавить ученика
-                </Link>
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">{translateText("Добавить ученика")}</Link>
               </div>
             ) : (
               <>
@@ -581,15 +585,11 @@ export default function NewFamilyPage() {
                         return next;
                       });
                     }}
-                    className="text-xs font-medium text-emerald-600 hover:underline">
-                    Выбрать всех
-                  </button>
+                    className="text-xs font-medium text-emerald-600 hover:underline">{translateText("Выбрать всех")}</button>
                   <span className="text-slate-300">·</span>
                   <button type="button"
                     onClick={() => setSelectedStudentIds([])}
-                    className="text-xs font-medium text-slate-500 hover:underline">
-                    Снять выбор
-                  </button>
+                    className="text-xs font-medium text-slate-500 hover:underline">{translateText("Снять выбор")}</button>
                 </div>
 
                 <div className="space-y-3">
@@ -619,17 +619,17 @@ export default function NewFamilyPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-slate-800">{s.fullName}</p>
                             <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
-                              <span>Группа {s.group}</span>
+                              <span>{translateText("Группа ")}{getStudentGroupLabel(s.group)}</span>
                               <span>·</span>
-                              <span>{s.age} лет</span>
+                              <span>{s.age}{translateText(" лет")}</span>
                               <span>·</span>
-                              <span>{STUDENT_LEVEL_LABELS[s.level as keyof typeof STUDENT_LEVEL_LABELS]}</span>
+                              <span>{localizeUI(STUDENT_LEVEL_LABELS, locale)[s.level as keyof typeof STUDENT_LEVEL_LABELS]}</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-slate-400 shrink-0">
                             <Star className="size-3" />{s.totalPoints}
                             {!s.isActive && (
-                              <span className="ml-1 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 text-[10px]">неактивен</span>
+                              <span className="ml-1 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 text-[10px]">{translateText("неактивен")}</span>
                             )}
                           </div>
                         </label>
@@ -659,16 +659,16 @@ export default function NewFamilyPage() {
           <div className={cn('rounded-2xl p-5 border', PLAN_COLORS[dominantPlan].border, PLAN_COLORS[dominantPlan].light)}>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-sm font-semibold text-slate-700">Итого в месяц</p>
+                <p className="text-sm font-semibold text-slate-700">{translateText("Итого в месяц")}</p>
                 <p className="text-xs text-slate-500 mt-0.5">{selectedStudentIds.length}{' '}
-                  {selectedStudentIds.length === 1 ? 'ребёнок' : selectedStudentIds.length < 5 ? 'ребёнка' : 'детей'}
+                  {selectedStudentIds.length === 1 ? translateText('ребёнок') : selectedStudentIds.length < 5 ? translateText('ребёнка') : translateText('детей')}
                 </p>
               </div>
               <div className="text-right">
                 <p className={cn('text-2xl font-bold', PLAN_COLORS[dominantPlan].text)}>
                   {formatAmount(totalAmount)}
                 </p>
-                <p className="text-xs text-slate-400">в месяц</p>
+                <p className="text-xs text-slate-400">{translateText("в месяц")}</p>
               </div>
             </div>
 
@@ -680,10 +680,10 @@ export default function NewFamilyPage() {
                   <div key={sel.studentId} className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2 text-slate-600">
                       <span className={cn('px-1.5 py-0.5 rounded-md font-medium', c.badge)}>
-                        {SUPPORT_PLANS[sel.planType].emoji}
+                        {localizeUI(SUPPORT_PLANS, locale)[sel.planType].emoji}
                       </span>
                       <span className="truncate">{student?.fullName ?? sel.studentId}</span>
-                      <span className="text-slate-400">{LESSON_TYPE_LABELS[sel.lessonType]}</span>
+                      <span className="text-slate-400">{localizeUI(LESSON_TYPE_LABELS, locale)[sel.lessonType]}</span>
                     </div>
                     <span className={cn('font-semibold shrink-0', c.text)}>
                       {formatAmount(sel.monthlyAmount)}
@@ -698,11 +698,11 @@ export default function NewFamilyPage() {
         {/* ── Block 4: Notes ────────────────────────────────────────────────── */}
         {!existingFamily && (
           <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <h2 className="font-semibold text-slate-800 mb-3">Заметки</h2>
+            <h2 className="font-semibold text-slate-800 mb-3">{translateText("Заметки")}</h2>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Дополнительная информация о поддержке этой семьи..."
+              placeholder={translateText("Дополнительная информация о поддержке этой семьи...")}
               rows={3}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none placeholder:text-slate-400"
             />
@@ -717,24 +717,19 @@ export default function NewFamilyPage() {
             {selectedStudentIds.length > 0 && totalAmount > 0 && !existingFamily && (
               <span>
                 {selectedStudentIds.length}{' '}
-                {selectedStudentIds.length === 1 ? 'ребёнок' : 'детей'}{' '}
-                · {formatAmount(totalAmount)}/мес
-              </span>
+                {selectedStudentIds.length === 1 ? translateText('ребёнок') : translateText('детей')}{' '}
+                · {formatAmount(totalAmount)}{translateText("/мес")}</span>
             )}
           </div>
           <div className="flex items-center gap-3">
             <Link href="/support"
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-              Отмена
-            </Link>
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">{translateText("Отмена")}</Link>
             {existingFamily ? (
               <Link
                 href={`/support/families/${existingFamily.id}`}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors"
               >
-                <Users className="size-4" />
-                Открыть запись
-              </Link>
+                <Users className="size-4" />{translateText("Открыть запись")}</Link>
             ) : (
               <button
                 type="button"
@@ -742,9 +737,7 @@ export default function NewFamilyPage() {
                 disabled={submitting}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 transition-colors"
               >
-                <Users className="size-4" />
-                Создать семью
-              </button>
+                <Users className="size-4" />{translateText("Создать семью")}</button>
             )}
           </div>
         </div>

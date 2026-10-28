@@ -1,3 +1,7 @@
+'use client';
+
+import { useTranslation } from '@/shared/i18n/use-translation';
+
 import { cn } from '../lib/cn';
 import type { AssignmentStatus, AssignmentType } from '@/entities/assignment/model/types';
 import type { AttendanceStatus } from '@/entities/attendance/model/types';
@@ -45,51 +49,60 @@ export function Badge({ variant = 'default', className, children }: BadgeProps) 
 }
 
 export function AssignmentStatusBadge({ status }: { status: AssignmentStatus }) {
+  const { t: translateText } = useTranslation();
+
   const config: Record<AssignmentStatus, { label: string; variant: BadgeVariant }> = {
-    pending: { label: 'На проверке', variant: 'warning' },
-    not_done: { label: 'Не сделано', variant: 'danger' },
-    done: { label: 'Сделано', variant: 'info' },
-    good: { label: 'Хорошо', variant: 'success' },
-    excellent: { label: 'Отлично', variant: 'emerald' },
+    pending: { label: translateText('На проверке'), variant: 'warning' },
+    not_done: { label: translateText('Не сделано'), variant: 'danger' },
+    done: { label: translateText('Сделано'), variant: 'info' },
+    good: { label: translateText('Хорошо'), variant: 'success' },
+    excellent: { label: translateText('Отлично'), variant: 'emerald' },
   };
   const { label, variant } = config[status];
   return <Badge variant={variant}>{label}</Badge>;
 }
 
 export function AssignmentTypeBadge({ type }: { type: AssignmentType }) {
+  const { t: translateText } = useTranslation();
+
   const config: Record<AssignmentType, { label: string; variant: BadgeVariant }> = {
-    intermediate: { label: 'Промежуточная', variant: 'info' },
-    homework: { label: 'Домашняя', variant: 'purple' },
+    intermediate: { label: translateText('Промежуточная'), variant: 'info' },
+    homework: { label: translateText('Домашняя'), variant: 'purple' },
   };
   const { label, variant } = config[type];
   return <Badge variant={variant}>{label}</Badge>;
 }
 
 export function AttendanceStatusBadge({ status }: { status: AttendanceStatus }) {
+  const { t: translateText } = useTranslation();
+
   const config: Record<AttendanceStatus, { label: string; variant: BadgeVariant }> = {
-    present: { label: 'Присутствовал', variant: 'success' },
-    late: { label: 'Опоздал', variant: 'warning' },
-    absent: { label: 'Отсутствовал', variant: 'danger' },
-    excused: { label: 'Уваж. причина', variant: 'info' },
+    present: { label: translateText('Присутствовал'), variant: 'success' },
+    late: { label: translateText('Опоздал'), variant: 'warning' },
+    absent: { label: translateText('Отсутствовал'), variant: 'danger' },
+    excused: { label: translateText('Уваж. причина'), variant: 'info' },
   };
   const { label, variant } = config[status];
   return <Badge variant={variant}>{label}</Badge>;
 }
 
 export function LevelBadge({ level }: { level: StudentLevel }) {
+  const { t: translateText } = useTranslation();
+
   const config: Record<StudentLevel, { label: string; variant: BadgeVariant }> = {
-    beginner: { label: 'Начинающий', variant: 'slate' },
-    intermediate: { label: 'Средний', variant: 'info' },
-    advanced: { label: 'Продвинутый', variant: 'purple' },
+    beginner: { label: translateText('Начинающий'), variant: 'slate' },
+    intermediate: { label: translateText('Средний'), variant: 'info' },
+    advanced: { label: translateText('Продвинутый'), variant: 'purple' },
   };
   const { label, variant } = config[level];
   return <Badge variant={variant}>{label}</Badge>;
 }
 
 export function PointsBadge({ points }: { points: number }) {
+  const { t: translateText } = useTranslation();
+
   return (
     <Badge variant={points > 0 ? 'emerald' : points < 0 ? 'danger' : 'slate'}>
-      {points > 0 ? `+${points}` : points} б.
-    </Badge>
+      {points > 0 ? `+${points}` : points}{translateText("б.")}</Badge>
   );
 }

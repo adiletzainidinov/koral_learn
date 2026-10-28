@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check, X } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
@@ -34,6 +37,8 @@ export function CreatableCombobox({
   error,
   className,
 }: CreatableComboboxProps) {
+  const { t: translateText } = useTranslation();
+
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -60,7 +65,7 @@ export function CreatableCombobox({
   const listItems: ListItem[] = [
     ...filtered.map((o): ListItem => ({ type: 'option', value: o.value, label: o.label })),
     ...(showCreateOption
-      ? [{ type: 'create' as const, value: trimmedQuery, label: `Использовать «${trimmedQuery}»` }]
+      ? [{ type: 'create' as const, value: trimmedQuery, label: translateText(`Использовать «${trimmedQuery}»`) }]
       : [{ type: 'hint' as const }]),
   ];
 
@@ -164,7 +169,7 @@ export function CreatableCombobox({
           />
         </div>
       </button>
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      {error && <p className="text-xs text-red-500 mt-1">{translateText(error)}</p>}
 
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden max-h-[260px] flex flex-col">
@@ -175,7 +180,7 @@ export function CreatableCombobox({
               value={query}
               onChange={(e) => { setQuery(e.target.value); setActiveIdx(-1); }}
               onKeyDown={handleKeyDown}
-              placeholder="Поиск..."
+              placeholder={translateText("Поиск...")}
               className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-200 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
             />
           </div>
@@ -183,9 +188,7 @@ export function CreatableCombobox({
             {listItems.map((item, idx) => {
               if (item.type === 'hint') {
                 return (
-                  <div key="__hint__" className="px-3 py-2 text-xs text-slate-400 border-t border-slate-100 mt-1">
-                    Введите выше для своего варианта
-                  </div>
+                  <div key="__hint__" className="px-3 py-2 text-xs text-slate-400 border-t border-slate-100 mt-1">{translateText("Введите выше для своего варианта")}</div>
                 );
               }
               const navigableIdx = listItems
@@ -219,7 +222,7 @@ export function CreatableCombobox({
               );
             })}
             {listItems.length === 0 && (
-              <p className="text-center text-sm text-slate-400 py-4">Нет вариантов</p>
+              <p className="text-center text-sm text-slate-400 py-4">{translateText("Нет вариантов")}</p>
             )}
           </div>
         </div>

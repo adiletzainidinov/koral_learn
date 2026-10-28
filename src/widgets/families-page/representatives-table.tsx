@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -34,6 +37,8 @@ interface Props {
 }
 
 export function RepresentativesTable({ search }: Props) {
+  const { t: translateText, locale } = useTranslation();
+
   const contacts = useAllFamilyContacts();
   const families = useFamilies();
   const students = useStudents();
@@ -58,7 +63,7 @@ export function RepresentativesTable({ search }: Props) {
       for (const link of contactLinks) {
         const student = studentById.get(link.studentId);
         if (!student) continue;
-        const rel = formatContactRelation(link);
+        const rel = formatContactRelation(link, locale);
         const existing = relationGroups.get(rel) ?? [];
         existing.push(student.fullName.split(' ')[0]); // first name only for brevity
         relationGroups.set(rel, existing);
@@ -79,7 +84,7 @@ export function RepresentativesTable({ search }: Props) {
       };
     }
     return map;
-  }, [contacts, families, students, links]);
+  }, [contacts, families, students, links, locale]);
 
   const visible = useMemo(() => {
     let result = showArchived ? contacts : contacts.filter((c) => !c.isArchived);
@@ -106,16 +111,16 @@ export function RepresentativesTable({ search }: Props) {
     return (
       <EmptyState
         icon={<UserRound className="size-5" />}
-        title="Представителей пока нет"
-        description={hasFamilies ? 'Добавьте маму, папу, опекуна или другого представителя в существующую семью.' : 'Сначала создайте семью.'}
+        title={translateText("Представителей пока нет")}
+        description={hasFamilies ? translateText('Добавьте маму, папу, опекуна или другого представителя в существующую семью.') : translateText('Сначала создайте семью.')}
         action={
           hasFamilies ? (
             <Link href="/parents/new">
-              <Button><UserPlus className="size-4" />Добавить представителя</Button>
+              <Button><UserPlus className="size-4" />{translateText("Добавить представителя")}</Button>
             </Link>
           ) : (
             <Link href="/families/new">
-              <Button>Создать семью</Button>
+              <Button>{translateText("Создать семью")}</Button>
             </Link>
           )
         }
@@ -132,7 +137,7 @@ export function RepresentativesTable({ search }: Props) {
             onClick={() => setShowArchived((v) => !v)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
           >
-            {showArchived ? 'Скрыть архив' : `Показать архив (${archivedCount})`}
+            {showArchived ? translateText('Скрыть архив') : translateText(`Показать архив (${archivedCount})`)}
           </button>
         </div>
       )}
@@ -141,8 +146,8 @@ export function RepresentativesTable({ search }: Props) {
         {visible.length === 0 ? (
           <EmptyState
             icon={<UserRound className="size-5" />}
-            title="Представители не найдены"
-            description="Попробуйте изменить запрос"
+            title={translateText("Представители не найдены")}
+            description={translateText("Попробуйте изменить запрос")}
             className="py-16"
           />
         ) : (
@@ -151,11 +156,11 @@ export function RepresentativesTable({ search }: Props) {
               const meta = metaMap[contact.id];
               const initials = getContactInitials(contact.fullName);
               const roles: string[] = [];
-              if (meta?.isPrimaryContact) roles.push('Основной контакт');
-              if (meta?.canDecideEducation) roles.push('Принимает решения');
-              if (meta?.isBillingContact) roles.push('Плательщик');
-              if (meta?.canReceiveNotifications) roles.push('Получает уведомления');
-              if (meta?.isEmergencyContact) roles.push('Экстренный контакт');
+              if (meta?.isPrimaryContact) roles.push(translateText('Основной контакт'));
+              if (meta?.canDecideEducation) roles.push(translateText('Принимает решения'));
+              if (meta?.isBillingContact) roles.push(translateText('Плательщик'));
+              if (meta?.canReceiveNotifications) roles.push(translateText('Получает уведомления'));
+              if (meta?.isEmergencyContact) roles.push(translateText('Экстренный контакт'));
 
               return (
                 <div
@@ -174,7 +179,7 @@ export function RepresentativesTable({ search }: Props) {
                       <span className="text-sm font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors">
                         {contact.fullName}
                       </span>
-                      {contact.isArchived && <Badge variant="slate" className="text-[10px]">В архиве</Badge>}
+                      {contact.isArchived && <Badge variant="slate" className="text-[10px]">{translateText("В архиве")}</Badge>}
                     </div>
 
                     <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
@@ -201,11 +206,11 @@ export function RepresentativesTable({ search }: Props) {
                             key={role}
                             className={cn(
                               'inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium',
-                              role === 'Основной контакт' && 'bg-emerald-50 text-emerald-700',
-                              role === 'Принимает решения' && 'bg-blue-50 text-blue-700',
-                              role === 'Плательщик' && 'bg-amber-50 text-amber-700',
-                              role === 'Получает уведомления' && 'bg-purple-50 text-purple-700',
-                              role === 'Экстренный контакт' && 'bg-red-50 text-red-700',
+                              role === translateText('Основной контакт') && 'bg-emerald-50 text-emerald-700',
+                              role === translateText('Принимает решения') && 'bg-blue-50 text-blue-700',
+                              role === translateText('Плательщик') && 'bg-amber-50 text-amber-700',
+                              role === translateText('Получает уведомления') && 'bg-purple-50 text-purple-700',
+                              role === translateText('Экстренный контакт') && 'bg-red-50 text-red-700',
                             )}
                           >
                             {role}
@@ -239,7 +244,7 @@ export function RepresentativesTable({ search }: Props) {
                       size="sm"
                       onClick={() => router.push(`/parents/${contact.id}/edit`)}
                       className="size-7 p-0 text-slate-400 hover:text-emerald-600"
-                      aria-label="Редактировать"
+                      aria-label={translateText("Редактировать")}
                     >
                       <Pencil className="size-3.5" />
                     </Button>
@@ -249,7 +254,7 @@ export function RepresentativesTable({ search }: Props) {
                         size="sm"
                         onClick={() => restoreFamilyContact(contact.id)}
                         className="size-7 p-0 text-slate-400 hover:text-emerald-600"
-                        aria-label="Восстановить"
+                        aria-label={translateText("Восстановить")}
                       >
                         <ArchiveRestore className="size-3.5" />
                       </Button>
@@ -259,7 +264,7 @@ export function RepresentativesTable({ search }: Props) {
                         size="sm"
                         onClick={() => setArchiveId(contact.id)}
                         className="size-7 p-0 text-slate-400 hover:text-amber-600"
-                        aria-label="В архив"
+                        aria-label={translateText("В архив")}
                       >
                         <Archive className="size-3.5" />
                       </Button>
@@ -276,27 +281,24 @@ export function RepresentativesTable({ search }: Props) {
         isOpen={archiveId !== null}
         onClose={() => setArchiveId(null)}
         size="sm"
-        title="Отправить в архив?"
-        description={contactToArchive ? `«${contactToArchive.fullName}» будет скрыт из активного списка.` : undefined}
+        title={translateText("Отправить в архив?")}
+        description={contactToArchive ? translateText(`«${contactToArchive.fullName}» будет скрыт из активного списка.`) : undefined}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setArchiveId(null)}>Отмена</Button>
+            <Button variant="ghost" onClick={() => setArchiveId(null)}>{translateText("Отмена")}</Button>
             <Button
               variant="primary"
               onClick={() => { if (archiveId) { archiveFamilyContact(archiveId); setArchiveId(null); } }}
             >
-              <Archive className="size-4" />В архив
-            </Button>
+              <Archive className="size-4" />{translateText("В архив")}</Button>
           </>
         }
       >
         {archiveStudentCount > 0 ? (
-          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            Связан с {archiveStudentCount}{' '}
-            {archiveStudentCount === 1 ? 'учеником' : 'учениками'}. Связи сохранятся, можно восстановить позже.
-          </p>
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{translateText("Связан с")}{archiveStudentCount}{' '}
+            {archiveStudentCount === 1 ? translateText('учеником') : translateText('учениками')}{translateText(". Связи сохранятся, можно восстановить позже.")}</p>
         ) : (
-          <p className="text-sm text-slate-500">Связанных учеников нет — архивирование безопасно.</p>
+          <p className="text-sm text-slate-500">{translateText("Связанных учеников нет — архивирование безопасно.")}</p>
         )}
       </Modal>
     </>

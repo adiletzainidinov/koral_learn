@@ -1,5 +1,11 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
+import { STUDENT_GROUP_OPTIONS } from '@/entities/student/model/groups';
+
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -66,13 +72,6 @@ const LEVEL_OPTIONS = [
   { value: 'intermediate', label: 'Средний' },
   { value: 'advanced', label: 'Продвинутый' },
 ];
-
-const GROUP_OPTIONS = [
-  { value: 'A', label: 'Группа A' },
-  { value: 'B', label: 'Группа B' },
-  { value: 'C', label: 'Группа C' },
-];
-
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -163,6 +162,8 @@ function AvatarUploader({
   onFile: (file: File) => void;
   onRemove: () => void;
 }) {
+  const { t: translateText } = useTranslation();
+
   const inputRef = useRef<HTMLInputElement>(null);
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -186,19 +187,18 @@ function AvatarUploader({
         </button>
       </div>
       <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-slate-700">Фото ученика</p>
+        <p className="text-sm font-medium text-slate-700">{translateText("Фото ученика")}</p>
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
-            <Camera className="size-3.5" />{avatar ? 'Изменить фото' : 'Загрузить фото'}
+            <Camera className="size-3.5" />{avatar ? translateText('Изменить фото') : translateText('Загрузить фото')}
           </Button>
           {avatar && (
             <Button type="button" variant="ghost" size="sm" onClick={onRemove}
               className="text-red-500 hover:text-red-600 hover:bg-red-50">
-              <X className="size-3.5" />Удалить
-            </Button>
+              <X className="size-3.5" />{translateText("Удалить")}</Button>
           )}
         </div>
-        <p className="text-xs text-slate-400">JPG, PNG, WEBP · до 5 МБ</p>
+        <p className="text-xs text-slate-400">{translateText("JPG, PNG, WEBP · до 5 МБ")}</p>
       </div>
       <input ref={inputRef} type="file" accept="image/*" className="sr-only" onChange={handleChange} />
     </div>
@@ -208,6 +208,8 @@ function AvatarUploader({
 // ─── attachment item ──────────────────────────────────────────────────────────
 
 function AttachmentItem({ attachment, onRemove }: { attachment: AttachmentEntry; onRemove: () => void }) {
+  const { t: translateText } = useTranslation();
+
   const isImage = attachment.type.startsWith('image/');
   const preview = attachment.base64 ?? attachment.previewUrl;
   return (
@@ -224,8 +226,8 @@ function AttachmentItem({ attachment, onRemove }: { attachment: AttachmentEntry;
         <p className="text-sm font-medium text-slate-800 truncate">{attachment.name}</p>
         <p className="text-xs text-slate-400">
           {formatFileSize(attachment.size)}
-          {!isImage && ' · только метаданные'}
-          {isImage && !attachment.base64 && ' · превью временное'}
+          {!isImage && translateText(' · только метаданные')}
+          {isImage && !attachment.base64 && translateText(' · превью временное')}
         </p>
       </div>
       <button type="button" onClick={onRemove}
@@ -239,6 +241,8 @@ function AttachmentItem({ attachment, onRemove }: { attachment: AttachmentEntry;
 // ─── existing contacts panel (edit mode only) ────────────────────────────────
 
 function ExistingContactsPanel({ studentId }: { studentId: string }) {
+  const { t: translateText, locale } = useTranslation();
+
   const links = useAppStore((s) => s.studentFamilyContactLinks);
   const contacts = useAppStore((s) => s.familyContacts);
   const families = useAppStore((s) => s.families);
@@ -253,11 +257,9 @@ function ExistingContactsPanel({ studentId }: { studentId: string }) {
       <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
         <Info className="size-4 text-slate-400 mt-0.5 shrink-0" />
         <div>
-          <p className="text-sm text-slate-700">Представители не привязаны.</p>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Привяжите ученика к семье на странице{' '}
-            <Link href="/support" className="text-emerald-600 hover:underline">Поддержки</Link>, а затем добавьте представителей через карточку семьи.
-          </p>
+          <p className="text-sm text-slate-700">{translateText("Представители не привязаны.")}</p>
+          <p className="text-xs text-slate-500 mt-0.5">{translateText("Привяжите ученика к семье на странице")}{' '}
+            <Link href="/support" className="text-emerald-600 hover:underline">{translateText("Поддержки")}</Link>{translateText(", а затем добавьте представителей через карточку семьи.")}</p>
         </div>
       </div>
     );
@@ -269,7 +271,7 @@ function ExistingContactsPanel({ studentId }: { studentId: string }) {
         const contact = contacts.find((c) => c.id === link.contactId);
         const family = families.find((f) => f.id === link.familyId);
         if (!contact) return null;
-        const relation = formatContactRelation(link);
+        const relation = formatContactRelation(link, locale);
         return (
           <div
             key={link.id}
@@ -300,16 +302,12 @@ function ExistingContactsPanel({ studentId }: { studentId: string }) {
               <Link
                 href={`/parents/${contact.id}`}
                 className="px-2 py-1 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100"
-              >
-                Открыть
-              </Link>
+              >{translateText("Открыть")}</Link>
             </div>
           </div>
         );
       })}
-      <p className="text-xs text-slate-400 mt-1">
-        Управление представителями выполняется через карточку семьи.
-      </p>
+      <p className="text-xs text-slate-400 mt-1">{translateText("Управление представителями выполняется через карточку семьи.")}</p>
     </div>
   );
 }
@@ -327,6 +325,8 @@ interface Props {
 }
 
 export function StudentForm({ mode = 'create', studentId }: Props) {
+  const { t: translateText, locale } = useTranslation();
+
   const router = useRouter();
   const addStudent = useAppStore((s) => s.addStudent);
   const updateStudent = useAppStore((s) => s.updateStudent);
@@ -354,7 +354,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
   // ── avatar ─────────────────────────────────────────────────────────────────
 
   async function handleAvatarFile(file: File) {
-    if (file.size > 5 * 1024 * 1024) { alert('Файл слишком большой. Максимальный размер — 5 МБ.'); return; }
+    if (file.size > 5 * 1024 * 1024) { alert(translateText('Файл слишком большой. Максимальный размер — 5 МБ.')); return; }
     try { upd('avatar', await compressAvatar(file)); }
     catch { try { upd('avatar', await fileToBase64(file)); } catch { /* ignore */ } }
   }
@@ -402,9 +402,9 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
 
   function validate(): boolean {
     const errs: Errors = {};
-    if (!form.fullName.trim()) errs.fullName = 'Введите имя ученика';
-    if (!form.age.trim()) errs.age = 'Введите возраст ученика';
-    else if (isNaN(Number(form.age)) || Number(form.age) <= 0) errs.age = 'Введите корректный возраст';
+    if (!form.fullName.trim()) errs.fullName = translateText('Введите имя ученика');
+    if (!form.age.trim()) errs.age = translateText('Введите возраст ученика');
+    else if (isNaN(Number(form.age)) || Number(form.age) <= 0) errs.age = translateText('Введите корректный возраст');
     setErrors(errs);
     if (errs.fullName) fullNameRef.current?.focus();
     else if (errs.age) ageRef.current?.focus();
@@ -501,7 +501,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
   }
 
   function handleCancel() {
-    if (isDirty && !confirm('Есть несохранённые изменения. Покинуть страницу?')) return;
+    if (isDirty && !confirm(translateText('Есть несохранённые изменения. Покинуть страницу?'))) return;
     router.push('/students');
   }
 
@@ -513,10 +513,9 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <AlertTriangle className="size-8 text-red-400" />
-        <p className="text-lg font-semibold text-slate-700">Ученик не найден</p>
+        <p className="text-lg font-semibold text-slate-700">{translateText("Ученик не найден")}</p>
         <Button variant="outline" onClick={() => router.push('/students')}>
-          <ArrowLeft className="size-4" />Назад к списку
-        </Button>
+          <ArrowLeft className="size-4" />{translateText("Назад к списку")}</Button>
       </div>
     );
   }
@@ -525,7 +524,7 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
     <div className="flex flex-col gap-6">
 
       {/* ── sticky page header ─────────────────────────────────────────────── */}
-      <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+      <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
         <div className="flex items-center gap-3">
           <button type="button" onClick={handleCancel}
             className="size-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors shrink-0">
@@ -533,10 +532,10 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
           </button>
           <div>
             <h1 className="text-xl font-bold text-slate-900">
-              {mode === 'edit' ? 'Редактировать ученика' : 'Новый ученик'}
+              {mode === 'edit' ? translateText('Редактировать ученика') : translateText('Новый ученик')}
             </h1>
             <p className="text-sm text-slate-500">
-              {mode === 'edit' ? 'Измените данные и сохраните' : 'Заполните информацию об ученике'}
+              {mode === 'edit' ? translateText('Измените данные и сохраните') : translateText('Заполните информацию об ученике')}
             </p>
           </div>
         </div>
@@ -546,12 +545,11 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       {hasAttemptedSubmit && Object.keys(errors).length > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
           <AlertTriangle className="size-4 text-red-500 shrink-0" />
-          <p className="text-sm text-red-700">
-            Заполните обязательные поля:{' '}
+          <p className="text-sm text-red-700">{translateText("Заполните обязательные поля:")}{' '}
             <span className="font-medium">
               {[
-                errors.fullName && 'Полное имя',
-                errors.age && 'Возраст',
+                errors.fullName && translateText('Полное имя'),
+                errors.age && translateText('Возраст'),
               ].filter(Boolean).join(', ')}
             </span>
           </p>
@@ -559,8 +557,8 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       )}
 
       {/* ── section 1: basic info ─────────────────────────────────────────── */}
-      <Section icon={<User className="size-4" />} title="Основная информация"
-        description="Имя, возраст, группа и уровень обучения">
+      <Section icon={<User className="size-4" />} title={translateText("Основная информация")}
+        description={translateText("Имя, возраст, группа и уровень обучения")}>
         <div className="flex flex-col gap-4">
           <AvatarUploader
             avatar={form.avatar}
@@ -568,40 +566,39 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
             onFile={handleAvatarFile}
             onRemove={() => upd('avatar', undefined)}
           />
-          <Input ref={fullNameRef} label="Полное имя *" placeholder="Айбек Маматов"
+          <Input ref={fullNameRef} label={translateText("Полное имя *")} placeholder={translateText("Айбек Маматов")}
             value={form.fullName}
             onChange={(e) => { upd('fullName', e.target.value); clearError('fullName'); }}
-            error={errors.fullName} />
-          <div className="grid grid-cols-3 gap-4">
-            <Input ref={ageRef} label="Возраст *" type="number" min={1} max={100} placeholder="12"
+            error={translateText(errors.fullName)} />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Input ref={ageRef} label={translateText("Возраст *")} type="number" min={1} max={100} placeholder="12"
               value={form.age}
               onChange={(e) => { upd('age', e.target.value); clearError('age'); }}
-              error={errors.age} />
-            <Select label="Группа" options={GROUP_OPTIONS} value={form.group}
+              error={translateText(errors.age)} />
+            <Select label={translateText("Группа")} options={localizeUI(STUDENT_GROUP_OPTIONS, locale)} value={form.group}
               onChange={(e) => upd('group', e.target.value)} />
-            <Select label="Уровень" options={LEVEL_OPTIONS} value={form.level}
+            <Select label={translateText("Уровень")} options={localizeUI(LEVEL_OPTIONS, locale)} value={form.level}
               onChange={(e) => upd('level', e.target.value as StudentLevel)} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Дата начала обучения" type="date" value={form.startedAt}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label={translateText("Дата начала обучения")} type="date" value={form.startedAt}
               onChange={(e) => upd('startedAt', e.target.value)} />
           </div>
         </div>
       </Section>
 
       {/* ── section 2: family contacts info ────────────────────────────── */}
-      <Section icon={<UserRound className="size-4" />} title="Представители семьи"
-        description="Управление контактами семьи происходит через карточку семьи">
+      <Section icon={<UserRound className="size-4" />} title={translateText("Представители семьи")}
+        description={translateText("Управление контактами семьи происходит через карточку семьи")}>
         {mode === 'edit' && studentId ? (
           <ExistingContactsPanel studentId={studentId} />
         ) : (
           <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
             <Info className="size-4 text-slate-400 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm text-slate-700">Представители добавляются после создания семьи.</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Сначала сохраните ученика, затем создайте семью в разделе{' '}
-                <Link href="/support" className="text-emerald-600 hover:underline">Поддержки</Link>.
+              <p className="text-sm text-slate-700">{translateText("Представители добавляются после создания семьи.")}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{translateText("Сначала сохраните ученика, затем создайте семью в разделе")}{' '}
+                <Link href="/support" className="text-emerald-600 hover:underline">{translateText("Поддержки")}</Link>.
               </p>
             </div>
           </div>
@@ -609,10 +606,10 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       </Section>
 
       {/* ── section 3: student contacts ──────────────────────────────────── */}
-      <Section icon={<Phone className="size-4" />} title="Контакты ученика"
-        description="Личные контакты ученика, если он сам пользуется телефоном или мессенджерами">
-        <div className="grid grid-cols-2 gap-4">
-          <Input label="Телефон" placeholder="+996 550 000 000" value={form.studentPhone}
+      <Section icon={<Phone className="size-4" />} title={translateText("Контакты ученика")}
+        description={translateText("Личные контакты ученика, если он сам пользуется телефоном или мессенджерами")}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input label={translateText("Телефон")} placeholder="+996 550 000 000" value={form.studentPhone}
             onChange={(e) => upd('studentPhone', e.target.value)} />
           <Input label="WhatsApp" placeholder="+996550000000" value={form.studentWhatsapp}
             onChange={(e) => upd('studentWhatsapp', e.target.value)} />
@@ -624,16 +621,16 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       </Section>
 
       {/* ── section 4: address ───────────────────────────────────────────── */}
-      <Section icon={<MapPin className="size-4" />} title="Адрес"
-        description="Место проживания ученика">
-        <Input label="Адрес" placeholder="г. Бишкек, ул. Токтогула, д. 14, кв. 5"
+      <Section icon={<MapPin className="size-4" />} title={translateText("Адрес")}
+        description={translateText("Место проживания ученика")}>
+        <Input label={translateText("Адрес")} placeholder={translateText("г. Бишкек, ул. Токтогула, д. 14, кв. 5")}
           value={form.address}
           onChange={(e) => upd('address', e.target.value)} />
       </Section>
 
       {/* ── section 5: friends ───────────────────────────────────────────── */}
-      <Section icon={<Users className="size-4" />} title="Друзья и связи"
-        description="Выберите учеников, через которых можно связаться или которые хорошо знают этого ученика">
+      <Section icon={<Users className="size-4" />} title={translateText("Друзья и связи")}
+        description={translateText("Выберите учеников, через которых можно связаться или которые хорошо знают этого ученика")}>
         <StudentFriendsSelector
           value={form.friendIds}
           onChange={(ids) => upd('friendIds', ids)}
@@ -643,13 +640,13 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       </Section>
 
       {/* ── section 6: notes + attachments ──────────────────────────────── */}
-      <Section icon={<FileText className="size-4" />} title="Заметки и вложения"
-        description="Пишите важную информацию, прикладывайте скриншоты, фото и документы">
+      <Section icon={<FileText className="size-4" />} title={translateText("Заметки и вложения")}
+        description={translateText("Пишите важную информацию, прикладывайте скриншоты, фото и документы")}>
         <div ref={attachmentZoneRef} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}
           className="flex flex-col gap-3">
           <div className="rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-transparent overflow-hidden transition-all">
             <textarea
-              placeholder="Прилежный ученик, хорошо запоминает. Нужна помощь с произношением..."
+              placeholder={translateText("Прилежный ученик, хорошо запоминает. Нужна помощь с произношением...")}
               value={form.notes}
               onChange={(e) => upd('notes', e.target.value)}
               onPaste={handlePaste}
@@ -659,20 +656,16 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
             <div className="flex items-center gap-1 px-3 py-2 border-t border-slate-100 bg-slate-50/60">
               <button type="button" onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors">
-                <Paperclip className="size-3.5" />Прикрепить файл
-              </button>
-              <span className="text-xs text-slate-400 pl-2">
-                или{' '}
-                <kbd className="px-1 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-500">Ctrl+V</kbd>{' '}
-                для скриншота
-              </span>
+                <Paperclip className="size-3.5" />{translateText("Прикрепить файл")}</button>
+              <span className="text-xs text-slate-400 pl-2">{translateText("или")}{' '}
+                <kbd className="px-1 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-500">Ctrl+V</kbd>{' '}{translateText("для скриншота")}</span>
               <input ref={fileInputRef} type="file" multiple className="sr-only" onChange={handleFileInput} />
             </div>
           </div>
           {hasNonPersistedFiles && (
             <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200">
               <AlertTriangle className="size-4 text-amber-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-700">Файлы (не изображения) не сохраняются в браузере — только метаданные.</p>
+              <p className="text-xs text-amber-700">{translateText("Файлы (не изображения) не сохраняются в браузере — только метаданные.")}</p>
             </div>
           )}
           {form.attachments.length > 0 && (
@@ -686,15 +679,15 @@ export function StudentForm({ mode = 'create', studentId }: Props) {
       </Section>
 
       {/* ── bottom action bar ─────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between py-4 border-t border-slate-200 mt-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-4 border-t border-slate-200 mt-2">
         <div className="flex items-center gap-2 text-xs text-slate-400">
-          {isDirty && (<><div className="size-1.5 rounded-full bg-amber-400" />Есть несохранённые изменения</>)}
+          {isDirty && (<><div className="size-1.5 rounded-full bg-amber-400" />{translateText("Есть несохранённые изменения")}</>)}
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={handleCancel}>Отмена</Button>
+          <Button variant="outline" onClick={handleCancel}>{translateText("Отмена")}</Button>
           <Button onClick={handleSubmit} loading={saving}>
             <Save className="size-4" />
-            {mode === 'edit' ? 'Сохранить изменения' : 'Сохранить ученика'}
+            {mode === 'edit' ? translateText('Сохранить изменения') : translateText('Сохранить ученика')}
           </Button>
         </div>
       </div>

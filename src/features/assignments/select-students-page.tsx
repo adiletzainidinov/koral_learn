@@ -1,5 +1,10 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Check, Users } from 'lucide-react';
@@ -16,6 +21,8 @@ function pluralStudents(n: number) {
 }
 
 export function SelectStudentsPage() {
+  const { t: translateText } = useTranslation();
+
   const router = useRouter();
   const students = useStudents();
   const { selectedStudentIds, setSelectedStudentIds } = useUIStore();
@@ -62,17 +69,15 @@ export function SelectStudentsPage() {
               <ArrowLeft className="size-4" />
             </Button>
           </Link>
-          <Link href="/assignments" className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
-            Задания
-          </Link>
+          <Link href="/assignments" className="text-sm text-slate-400 hover:text-slate-600 transition-colors">{translateText("Задания")}</Link>
           <span className="text-slate-300">/</span>
-          <span className="text-sm font-medium text-slate-900">Выберите учеников</span>
+          <span className="text-sm font-medium text-slate-900">{translateText("Выберите учеников")}</span>
         </div>
 
         {/* header */}
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Выберите учеников</h1>
-          <p className="text-sm text-slate-500 mt-1">Задание будет создано для каждого выбранного ученика</p>
+          <h1 className="text-xl font-bold text-slate-900">{translateText("Выберите учеников")}</h1>
+          <p className="text-sm text-slate-500 mt-1">{translateText("Задание будет создано для каждого выбранного ученика")}</p>
         </div>
 
         <div className="max-w-2xl flex flex-col gap-4">
@@ -81,7 +86,7 @@ export function SelectStudentsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Поиск по имени..."
+              placeholder={translateText("Поиск по имени...")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors bg-white"
@@ -98,9 +103,7 @@ export function SelectStudentsPage() {
                     ? 'bg-slate-800 text-white'
                     : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
-              >
-                Все группы
-              </button>
+              >{translateText("Все группы")}</button>
               {groups.map((g) => (
                 <button
                   key={g}
@@ -110,8 +113,7 @@ export function SelectStudentsPage() {
                       ? 'bg-slate-800 text-white'
                       : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
-                >
-                  Группа {g}
+                >{translateText("Группа")}{getStudentGroupLabel(g)}
                 </button>
               ))}
             </div>
@@ -123,18 +125,14 @@ export function SelectStudentsPage() {
               <button
                 onClick={selectAll}
                 className="text-sm text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer"
-              >
-                Выбрать всех
-              </button>
+              >{translateText("Выбрать всех")}</button>
               {selected.length > 0 && (
                 <>
                   <span className="text-slate-300">·</span>
                   <button
                     onClick={clearAll}
                     className="text-sm text-slate-500 hover:text-slate-700 cursor-pointer"
-                  >
-                    Снять выбор
-                  </button>
+                  >{translateText("Снять выбор")}</button>
                 </>
               )}
             </div>
@@ -144,13 +142,13 @@ export function SelectStudentsPage() {
           {activeStudents.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <Users className="size-8 text-slate-300" />
-              <p className="text-sm text-slate-500">Нет активных учеников</p>
+              <p className="text-sm text-slate-500">{translateText("Нет активных учеников")}</p>
               <Link href="/students/new">
-                <Button variant="outline" size="sm">Добавить ученика</Button>
+                <Button variant="outline" size="sm">{translateText("Добавить ученика")}</Button>
               </Link>
             </div>
           ) : visibleStudents.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-12">Ученики не найдены</p>
+            <p className="text-sm text-slate-400 text-center py-12">{translateText("Ученики не найдены")}</p>
           ) : (
             <div className="flex flex-col gap-1">
               {visibleStudents.map((s) => {
@@ -184,11 +182,11 @@ export function SelectStudentsPage() {
                       <p className={`text-sm font-medium truncate ${isSelected ? 'text-emerald-900' : 'text-slate-900'}`}>
                         {s.fullName}
                       </p>
-                      <p className="text-xs text-slate-400">Группа {s.group}</p>
+                      <p className="text-xs text-slate-400">{translateText("Группа ")}{getStudentGroupLabel(s.group)}</p>
                     </div>
 
                     {isSelected && (
-                      <span className="text-xs text-emerald-600 font-medium shrink-0">Выбран</span>
+                      <span className="text-xs text-emerald-600 font-medium shrink-0">{translateText("Выбран")}</span>
                     )}
                   </button>
                 );
@@ -205,16 +203,14 @@ export function SelectStudentsPage() {
             <span className={`text-sm font-medium transition-colors ${
               selected.length > 0 ? 'text-emerald-600' : 'text-slate-400'
             }`}>
-              {selected.length > 0 ? `Выбрано: ${pluralStudents(selected.length)}` : 'Никто не выбран'}
+              {selected.length > 0 ? translateText(`Выбрано: ${pluralStudents(selected.length)}`) : translateText('Никто не выбран')}
             </span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/assignments">
-              <Button variant="outline">Отмена</Button>
+              <Button variant="outline">{translateText("Отмена")}</Button>
             </Link>
-            <Button onClick={handleNext} disabled={selected.length === 0}>
-              Далее →
-            </Button>
+            <Button onClick={handleNext} disabled={selected.length === 0}>{translateText("Далее →")}</Button>
           </div>
         </div>
       </div>

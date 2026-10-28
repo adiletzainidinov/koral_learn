@@ -1,5 +1,11 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -147,7 +153,9 @@ const PREFERRED_CONTACT_OPTIONS = [
 // Combobox options — exclude 'other' (it maps to custom input)
 const RELATION_COMBOBOX_OPTIONS = FAMILY_RELATION_OPTIONS
   .filter((r) => r !== 'other')
-  .map((r) => ({ value: r, label: FAMILY_RELATION_LABELS[r] }));
+  .map((r) => {
+  const { locale } = useTranslation();
+return ({ value: r, label: localizeUI(FAMILY_RELATION_LABELS, locale)[r] }); });
 
 // Student link row select options (keep native select for student link row)
 const RELATION_SELECT_OPTIONS = [
@@ -219,6 +227,8 @@ interface StudentLinkRowProps {
 function StudentLinkRow({
   studentId, studentName, studentGroup, config, onChange, error, canDeselect = true,
 }: StudentLinkRowProps) {
+  const { t: translateText, locale } = useTranslation();
+
   const initials = studentName.slice(0, 2).toUpperCase();
 
   return (
@@ -240,33 +250,31 @@ function StudentLinkRow({
         </div>
         <label htmlFor={`student-${studentId}`} className="flex-1 min-w-0 cursor-pointer">
           <p className="text-sm font-semibold text-slate-900">{studentName}</p>
-          <p className="text-xs text-slate-400">Группа {studentGroup}</p>
+          <p className="text-xs text-slate-400">{translateText("Группа ")}{getStudentGroupLabel(studentGroup)}</p>
         </label>
         {!canDeselect && config.selected && (
-          <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md shrink-0">
-            Единственный контакт
-          </span>
+          <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md shrink-0">{translateText("Единственный контакт")}</span>
         )}
       </div>
       {config.selected && (
         <div className="border-t border-emerald-100 px-4 pb-4 pt-3 flex flex-col gap-3">
           <div className="flex items-start gap-3">
             <div className="flex-1">
-              <Select label="Степень родства *" options={RELATION_SELECT_OPTIONS} value={config.relation}
+              <Select label={translateText("Степень родства *")} options={localizeUI(RELATION_SELECT_OPTIONS, locale)} value={config.relation}
                 onChange={(e) => onChange({ relation: e.target.value as FamilyRelationType | '' })} />
-              {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+              {error && <p className="text-xs text-red-500 mt-1">{translateText(error)}</p>}
             </div>
             {config.relation === 'other' && (
               <div className="flex-1">
-                <Input label="Уточнение *" placeholder="Напр. «Дядя по маме»" value={config.customRelation}
+                <Input label={translateText("Уточнение *")} placeholder={translateText("Напр. «Дядя по маме»")} value={config.customRelation}
                   onChange={(e) => onChange({ customRelation: e.target.value })} />
               </div>
             )}
           </div>
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Быстрые роли</p>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">{translateText("Быстрые роли")}</p>
             <div className="flex flex-wrap gap-1.5">
-              {ROLE_PRESETS.map((preset) => (
+              {localizeUI(ROLE_PRESETS, locale).map((preset) => (
                 <button key={preset.label} type="button" onClick={() => onChange(preset.patch)}
                   className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 bg-white text-slate-600 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-colors">
                   {preset.label}
@@ -275,13 +283,13 @@ function StudentLinkRow({
             </div>
           </div>
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Права</p>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">{translateText("Права")}</p>
             <div className="flex flex-wrap gap-1.5">
-              <ToggleChip checked={config.isPrimaryContact} onChange={(v) => onChange({ isPrimaryContact: v })} variant="primary">Основной контакт</ToggleChip>
-              <ToggleChip checked={config.canDecideEducation} onChange={(v) => onChange({ canDecideEducation: v })}>Решает за обучение</ToggleChip>
-              <ToggleChip checked={config.canReceiveNotifications} onChange={(v) => onChange({ canReceiveNotifications: v })}>Уведомления</ToggleChip>
-              <ToggleChip checked={config.isEmergencyContact} onChange={(v) => onChange({ isEmergencyContact: v })} variant="emergency">Экстренный</ToggleChip>
-              <ToggleChip checked={config.isBillingContact} onChange={(v) => onChange({ isBillingContact: v })} variant="billing">Плательщик</ToggleChip>
+              <ToggleChip checked={config.isPrimaryContact} onChange={(v) => onChange({ isPrimaryContact: v })} variant="primary">{translateText("Основной контакт")}</ToggleChip>
+              <ToggleChip checked={config.canDecideEducation} onChange={(v) => onChange({ canDecideEducation: v })}>{translateText("Решает за обучение")}</ToggleChip>
+              <ToggleChip checked={config.canReceiveNotifications} onChange={(v) => onChange({ canReceiveNotifications: v })}>{translateText("Уведомления")}</ToggleChip>
+              <ToggleChip checked={config.isEmergencyContact} onChange={(v) => onChange({ isEmergencyContact: v })} variant="emergency">{translateText("Экстренный")}</ToggleChip>
+              <ToggleChip checked={config.isBillingContact} onChange={(v) => onChange({ isBillingContact: v })} variant="billing">{translateText("Плательщик")}</ToggleChip>
             </div>
           </div>
         </div>
@@ -299,6 +307,8 @@ function CustomRolesInput({
   customRoles: string[];
   onChange: (next: string[]) => void;
 }) {
+  const { t: translateText } = useTranslation();
+
   const [inputValue, setInputValue] = useState('');
 
   function addRole() {
@@ -339,7 +349,7 @@ function CustomRolesInput({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRole(); } }}
-          placeholder="Своя роль..."
+          placeholder={translateText("Своя роль...")}
           className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
         />
         <button
@@ -368,15 +378,17 @@ interface DraftCardProps {
 }
 
 function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, onPrimaryChange }: DraftCardProps) {
+  const { t: translateText, locale } = useTranslation();
+
   const hasErrors = Object.keys(errors).length > 0;
   const hasNoRoles = draft.roles.length === 0 && draft.customRoles.length === 0;
 
   const relationLabel = draft.familyRelation === 'other'
-    ? (draft.customFamilyRelation || 'Другое')
-    : (draft.familyRelation ? FAMILY_RELATION_LABELS[draft.familyRelation] : '');
+    ? (draft.customFamilyRelation || translateText('Другое'))
+    : (draft.familyRelation ? localizeUI(FAMILY_RELATION_LABELS, locale)[draft.familyRelation] : '');
 
   const allRoleLabels = [
-    ...draft.roles.map((r) => FAMILY_CONTACT_ROLE_LABELS[r]),
+    ...draft.roles.map((r) => localizeUI(FAMILY_CONTACT_ROLE_LABELS, locale)[r]),
     ...draft.customRoles,
   ];
 
@@ -392,12 +404,12 @@ function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, on
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-900 truncate">
-            {draft.fullName || `Представитель ${index + 1}`}
+            {draft.fullName || translateText(`Представитель ${index + 1}`)}
           </p>
           {draft.collapsed ? (
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               {draft.isPrimaryContact && (
-                <span className="text-[10px] text-emerald-600 font-semibold">● Основной</span>
+                <span className="text-[10px] text-emerald-600 font-semibold">{translateText("● Основной")}</span>
               )}
               {relationLabel && (
                 <span className="text-[10px] text-slate-500">{relationLabel}</span>
@@ -414,7 +426,7 @@ function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, on
             </div>
           ) : (
             draft.isPrimaryContact && (
-              <p className="text-[10px] text-emerald-600 font-medium">Основной контакт</p>
+              <p className="text-[10px] text-emerald-600 font-medium">{translateText("Основной контакт")}</p>
             )
           )}
         </div>
@@ -441,17 +453,17 @@ function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, on
       {!draft.collapsed && (
         <div className="p-4 flex flex-col gap-4">
           {/* 1 — Name + Relation */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
-              label="Полное имя *"
-              placeholder="Маматова Жылдыз"
+              label={translateText("Полное имя *")}
+              placeholder={translateText("Маматова Жылдыз")}
               value={draft.fullName}
               onChange={(e) => onUpdate({ fullName: e.target.value })}
-              error={errors.fullName}
+              error={translateText(errors.fullName)}
             />
             <CreatableCombobox
-              label="Кем является в семье"
-              placeholder="Выберите или введите..."
+              label={translateText("Кем является в семье")}
+              placeholder={translateText("Выберите или введите...")}
               options={RELATION_COMBOBOX_OPTIONS}
               value={draft.familyRelation !== 'other' ? draft.familyRelation : ''}
               customValue={draft.customFamilyRelation}
@@ -474,18 +486,16 @@ function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, on
               onChange={(e) => onPrimaryChange(e.target.checked)}
               className="size-4 rounded accent-emerald-600"
             />
-            <span className="text-sm text-slate-700 font-medium">Основной контакт семьи</span>
+            <span className="text-sm text-slate-700 font-medium">{translateText("Основной контакт семьи")}</span>
             {draft.isPrimaryContact && <Check className="size-4 text-emerald-600 ml-auto" />}
           </label>
 
           {/* 3 — Roles */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-semibold text-slate-500">Роли в семье</p>
+              <p className="text-xs font-semibold text-slate-500">{translateText("Роли в семье")}</p>
               {hasNoRoles && (
-                <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-                  Не указаны
-                </span>
+                <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">{translateText("Не указаны")}</span>
               )}
             </div>
             <div className="grid grid-cols-2 gap-1.5 mb-3">
@@ -502,7 +512,7 @@ function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, on
                     }}
                     className="size-4 rounded accent-emerald-600 shrink-0"
                   />
-                  <span className="text-xs text-slate-700 leading-tight">{FAMILY_CONTACT_ROLE_LABELS[role]}</span>
+                  <span className="text-xs text-slate-700 leading-tight">{localizeUI(FAMILY_CONTACT_ROLE_LABELS, locale)[role]}</span>
                 </label>
               ))}
             </div>
@@ -513,16 +523,16 @@ function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, on
           </div>
 
           {/* 4 — Contacts */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="WhatsApp *"
               placeholder="+996700000000"
               value={draft.whatsapp}
               onChange={(e) => onUpdate({ whatsapp: e.target.value })}
-              error={errors.whatsapp}
+              error={translateText(errors.whatsapp)}
             />
             <Input
-              label="Телефон"
+              label={translateText("Телефон")}
               placeholder="+996 700 000 000"
               value={draft.phone}
               onChange={(e) => onUpdate({ phone: e.target.value })}
@@ -541,8 +551,8 @@ function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, on
             />
           </div>
           <Select
-            label="Предпочтительный контакт"
-            options={PREFERRED_CONTACT_OPTIONS}
+            label={translateText("Предпочтительный контакт")}
+            options={localizeUI(PREFERRED_CONTACT_OPTIONS, locale)}
             value={draft.preferredContact}
             onChange={(e) => onUpdate({ preferredContact: e.target.value as PreferredContactMethod | '' })}
           />
@@ -556,13 +566,13 @@ function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, on
                 onChange={(e) => onUpdate({ usesFamilyAddress: e.target.checked })}
                 className="size-4 rounded accent-emerald-600"
               />
-              <span className="text-sm text-slate-700">Использовать адрес семьи</span>
+              <span className="text-sm text-slate-700">{translateText("Использовать адрес семьи")}</span>
               {familyAddress && <span className="text-xs text-slate-400 truncate ml-1">({familyAddress})</span>}
             </label>
             {!draft.usesFamilyAddress && (
               <Input
-                label="Адрес"
-                placeholder="г. Бишкек, ул. Токтогула, д. 14"
+                label={translateText("Адрес")}
+                placeholder={translateText("г. Бишкек, ул. Токтогула, д. 14")}
                 value={draft.address}
                 onChange={(e) => onUpdate({ address: e.target.value })}
               />
@@ -571,7 +581,7 @@ function DraftCard({ draft, index, familyAddress, errors, onUpdate, onRemove, on
 
           {/* 6 — Notes */}
           <textarea
-            placeholder="Заметки о представителе..."
+            placeholder={translateText("Заметки о представителе...")}
             value={draft.notes}
             onChange={(e) => onUpdate({ notes: e.target.value })}
             rows={2}
@@ -594,6 +604,8 @@ interface Props {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Props) {
+  const { t: translateText, locale } = useTranslation();
+
   const router = useRouter();
   const contacts = useAllFamilyContacts();
   const families = useFamilies();
@@ -706,8 +718,8 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
   );
 
   const familyOptions = useMemo(
-    () => [{ value: '', label: 'Выберите семью...' }, ...families.map((f) => ({ value: f.id, label: f.name }))],
-    [families]
+    () => [{ value: '', label: translateText('Выберите семью...') }, ...families.map((f) => ({ value: f.id, label: f.name }))],
+    [translateText, families]
   );
 
   const selectedStudentIds = useMemo(
@@ -729,15 +741,15 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
   // ── Edit validation ──────────────────────────────────────────────────────
   function validateEdit(): boolean {
     const errs: EditFormErrors = {};
-    if (!form.fullName.trim()) errs.fullName = 'Введите имя представителя';
-    if (!form.whatsapp.trim()) errs.whatsapp = 'Введите WhatsApp номер';
+    if (!form.fullName.trim()) errs.fullName = translateText('Введите имя представителя');
+    if (!form.whatsapp.trim()) errs.whatsapp = translateText('Введите WhatsApp номер');
     setErrors(errs);
 
     const lErrs: Record<string, string> = {};
     for (const [studentId, cfg] of Object.entries(linkConfigs)) {
       if (!cfg.selected) continue;
-      if (!cfg.relation) lErrs[studentId] = 'Укажите степень родства';
-      else if (cfg.relation === 'other' && !cfg.customRelation.trim()) lErrs[studentId] = 'Уточните степень родства';
+      if (!cfg.relation) lErrs[studentId] = translateText('Укажите степень родства');
+      else if (cfg.relation === 'other' && !cfg.customRelation.trim()) lErrs[studentId] = translateText('Уточните степень родства');
     }
     setLinkErrors(lErrs);
 
@@ -860,7 +872,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
   }
 
   function handleCancel() {
-    if (isDirty && !confirm('Есть несохранённые изменения. Покинуть страницу?')) return;
+    if (isDirty && !confirm(translateText('Есть несохранённые изменения. Покинуть страницу?'))) return;
     if (mode === 'edit' && contactId) router.push(`/parents/${contactId}`);
     else router.push('/families?tab=representatives');
   }
@@ -884,7 +896,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
     }
     const existingPrimary = drafts.find((d) => d.isPrimaryContact && d.clientId !== clientId);
     if (existingPrimary) {
-      setPrimaryConfirm({ clientId, existingName: existingPrimary.fullName || `Представитель ${drafts.indexOf(existingPrimary) + 1}` });
+      setPrimaryConfirm({ clientId, existingName: existingPrimary.fullName || translateText(`Представитель ${drafts.indexOf(existingPrimary) + 1}`) });
     } else {
       updateDraft(clientId, { isPrimaryContact: true });
     }
@@ -900,12 +912,12 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
   function validateBatch(): boolean {
     const errs: Record<string, Record<string, string>> = {};
     let familyErr = '';
-    if (!batchFamilyId) familyErr = 'Выберите семью';
+    if (!batchFamilyId) familyErr = translateText('Выберите семью');
     setBatchFamilyError(familyErr);
     for (const draft of drafts) {
       const e: Record<string, string> = {};
-      if (!draft.fullName.trim()) e.fullName = 'Введите имя';
-      if (!draft.whatsapp.trim()) e.whatsapp = 'Введите WhatsApp';
+      if (!draft.fullName.trim()) e.fullName = translateText('Введите имя');
+      if (!draft.whatsapp.trim()) e.whatsapp = translateText('Введите WhatsApp');
       if (Object.keys(e).length > 0) errs[draft.clientId] = e;
     }
     setBatchErrors(errs);
@@ -948,10 +960,9 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <AlertTriangle className="size-8 text-red-400" />
-        <p className="text-lg font-semibold text-slate-700">Представитель не найден</p>
+        <p className="text-lg font-semibold text-slate-700">{translateText("Представитель не найден")}</p>
         <Button variant="outline" onClick={() => router.push('/families?tab=representatives')}>
-          <ArrowLeft className="size-4" />Назад к списку
-        </Button>
+          <ArrowLeft className="size-4" />{translateText("Назад к списку")}</Button>
       </div>
     );
   }
@@ -960,9 +971,9 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
   if (mode === 'create' && batchSuccess) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
-          <Breadcrumb items={[{ label: 'Семьи', href: '/families' }, { label: 'Представители' }]} />
-          <h1 className="text-xl font-bold text-slate-900 mt-1">Представители добавлены</h1>
+        <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
+          <Breadcrumb items={[{ label: translateText('Семьи'), href: '/families' }, { label: translateText('Представители') }]} />
+          <h1 className="text-xl font-bold text-slate-900 mt-1">{translateText("Представители добавлены")}</h1>
         </div>
         <Card padding="none">
           <div className="p-8 flex flex-col items-center text-center gap-4">
@@ -971,26 +982,20 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
             </div>
             <div>
               <h2 className="text-lg font-semibold text-slate-900">
-                {drafts.length === 1 ? '1 представитель добавлен' : `${drafts.length} представителя добавлено`}
+                {drafts.length === 1 ? translateText('1 представитель добавлен') : translateText(`${drafts.length} представителя добавлено`)}
               </h2>
-              <p className="text-sm text-slate-500 mt-1">Профили созданы и привязаны к семье</p>
+              <p className="text-sm text-slate-500 mt-1">{translateText("Профили созданы и привязаны к семье")}</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 mt-2 w-full max-w-sm">
-              <Button className="flex-1" onClick={() => router.push(`/support/families/${successFamilyId}`)}>
-                Открыть семью
-              </Button>
+              <Button className="flex-1" onClick={() => router.push(`/support/families/${successFamilyId}`)}>{translateText("Открыть семью")}</Button>
               <Button variant="outline" className="flex-1" onClick={() => {
                 setDrafts([emptyDraft()]);
                 setBatchSuccess(false);
                 setBatchErrors({});
-              }}>
-                Добавить ещё
-              </Button>
+              }}>{translateText("Добавить ещё")}</Button>
             </div>
             <button type="button" onClick={() => router.push('/families?tab=representatives')}
-              className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
-              К списку представителей
-            </button>
+              className="text-sm text-slate-400 hover:text-slate-600 transition-colors">{translateText("К списку представителей")}</button>
           </div>
         </Card>
       </div>
@@ -1003,11 +1008,11 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
 
     return (
       <div className="flex flex-col gap-6">
-        <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+        <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
           <Breadcrumb items={[
-            { label: 'Семьи', href: '/families' },
-            { label: 'Представители', href: '/families?tab=representatives' },
-            { label: 'Добавить представителей' },
+            { label: translateText('Семьи'), href: '/families' },
+            { label: translateText('Представители'), href: '/families?tab=representatives' },
+            { label: translateText('Добавить представителей') },
           ]} />
           <div className="flex items-center gap-3 mt-1">
             <button type="button" onClick={() => router.push('/families?tab=representatives')}
@@ -1015,16 +1020,16 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
               <ArrowLeft className="size-4" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">Добавить представителей</h1>
-              <p className="text-sm text-slate-500">Можно добавить сразу несколько представителей</p>
+              <h1 className="text-xl font-bold text-slate-900">{translateText("Добавить представителей")}</h1>
+              <p className="text-sm text-slate-500">{translateText("Можно добавить сразу несколько представителей")}</p>
             </div>
           </div>
         </div>
 
         {/* Family selector */}
-        <Section icon={<UserRound className="size-4" />} title="Семья" description="К какой семье относятся эти представители">
+        <Section icon={<UserRound className="size-4" />} title={translateText("Семья")} description={translateText("К какой семье относятся эти представители")}>
           <Select
-            label="Семья *"
+            label={translateText("Семья *")}
             options={familyOptions}
             value={batchFamilyId}
             onChange={(e) => { setBatchFamilyId(e.target.value); setBatchFamilyError(''); }}
@@ -1032,8 +1037,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
           {batchFamilyError && <p className="text-xs text-red-500 mt-1">{batchFamilyError}</p>}
           <button type="button" onClick={() => { setNewFamilyName(''); setShowNewFamilyModal(true); }}
             className="flex items-center gap-1 mt-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors">
-            <Plus className="size-3.5" />Создать новую семью
-          </button>
+            <Plus className="size-3.5" />{translateText("Создать новую семью")}</button>
         </Section>
 
         {/* Draft cards */}
@@ -1058,26 +1062,22 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
           onClick={() => setDrafts((prev) => [...prev, emptyDraft()])}
           className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-slate-200 text-sm font-medium text-slate-500 hover:border-emerald-300 hover:text-emerald-600 transition-colors"
         >
-          <Plus className="size-4" />
-          Добавить ещё представителя
-        </button>
+          <Plus className="size-4" />{translateText("Добавить ещё представителя")}</button>
 
         {/* Soft warning: no primary */}
         {noPrimaryWarning && (
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
             <AlertTriangle className="size-4 text-amber-500 shrink-0" />
-            <p className="text-sm text-amber-700">
-              Не указан основной контакт — рекомендуем отметить одного из представителей
-            </p>
+            <p className="text-sm text-amber-700">{translateText("Не указан основной контакт — рекомендуем отметить одного из представителей")}</p>
           </div>
         )}
 
         {/* bottom bar */}
         <div className="flex items-center justify-end gap-3 py-4 border-t border-slate-200 mt-2">
-          <Button variant="outline" onClick={() => router.push('/families?tab=representatives')}>Отмена</Button>
+          <Button variant="outline" onClick={() => router.push('/families?tab=representatives')}>{translateText("Отмена")}</Button>
           <Button onClick={handleBatchSubmit} loading={batchSaving}>
             <Save className="size-4" />
-            {drafts.length === 1 ? 'Сохранить' : `Сохранить (${drafts.length})`}
+            {drafts.length === 1 ? translateText('Сохранить') : translateText(`Сохранить (${drafts.length})`)}
           </Button>
         </div>
 
@@ -1086,17 +1086,15 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
           isOpen={primaryConfirm !== null}
           onClose={() => setPrimaryConfirm(null)}
           size="sm"
-          title="Заменить основной контакт?"
+          title={translateText("Заменить основной контакт?")}
           footer={
             <>
-              <Button variant="ghost" onClick={() => setPrimaryConfirm(null)}>Отмена</Button>
-              <Button onClick={confirmReplacePrimary}>Заменить</Button>
+              <Button variant="ghost" onClick={() => setPrimaryConfirm(null)}>{translateText("Отмена")}</Button>
+              <Button onClick={confirmReplacePrimary}>{translateText("Заменить")}</Button>
             </>
           }
         >
-          <p className="text-sm text-slate-600">
-            Основным уже отмечен: <strong>{primaryConfirm?.existingName}</strong>. Заменить на нового?
-          </p>
+          <p className="text-sm text-slate-600">{translateText("Основным уже отмечен:")}<strong>{primaryConfirm?.existingName}</strong>{translateText(". Заменить на нового?")}</p>
         </Modal>
 
         {/* Quick-create family modal */}
@@ -1104,10 +1102,10 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
           isOpen={showNewFamilyModal}
           onClose={() => setShowNewFamilyModal(false)}
           size="sm"
-          title="Создать новую семью"
+          title={translateText("Создать новую семью")}
           footer={
             <>
-              <Button variant="ghost" onClick={() => setShowNewFamilyModal(false)}>Отмена</Button>
+              <Button variant="ghost" onClick={() => setShowNewFamilyModal(false)}>{translateText("Отмена")}</Button>
               <Button onClick={() => {
                 const name = newFamilyName.trim();
                 if (!name) return;
@@ -1116,12 +1114,11 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
                 setBatchFamilyError('');
                 setShowNewFamilyModal(false);
               }} disabled={!newFamilyName.trim()}>
-                <Plus className="size-4" />Создать и выбрать
-              </Button>
+                <Plus className="size-4" />{translateText("Создать и выбрать")}</Button>
             </>
           }
         >
-          <Input label="Название семьи *" placeholder="Маматовы" value={newFamilyName}
+          <Input label={translateText("Название семьи *")} placeholder={translateText("Маматовы")} value={newFamilyName}
             onChange={(e) => setNewFamilyName(e.target.value)} autoFocus />
         </Modal>
       </div>
@@ -1143,11 +1140,11 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+      <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
         <Breadcrumb items={[
-          { label: 'Семьи', href: '/families' },
-          { label: 'Представители', href: '/families?tab=representatives' },
-          { label: 'Редактировать' },
+          { label: translateText('Семьи'), href: '/families' },
+          { label: translateText('Представители'), href: '/families?tab=representatives' },
+          { label: translateText('Редактировать') },
         ]} />
         <div className="flex items-center gap-3 mt-1">
           <button type="button" onClick={handleCancel}
@@ -1155,8 +1152,8 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
             <ArrowLeft className="size-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Редактировать представителя</h1>
-            <p className="text-sm text-slate-500">Измените данные и сохраните</p>
+            <h1 className="text-xl font-bold text-slate-900">{translateText("Редактировать представителя")}</h1>
+            <p className="text-sm text-slate-500">{translateText("Измените данные и сохраните")}</p>
           </div>
         </div>
       </div>
@@ -1164,26 +1161,25 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       {hasFormErrors && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
           <AlertTriangle className="size-4 text-red-500 shrink-0" />
-          <p className="text-sm text-red-700">
-            Заполните обязательные поля:{' '}
+          <p className="text-sm text-red-700">{translateText("Заполните обязательные поля:")}{' '}
             <span className="font-medium">
-              {[errors.fullName && 'Полное имя', errors.whatsapp && 'WhatsApp', Object.keys(linkErrors).length > 0 && 'Степень родства'].filter(Boolean).join(', ')}
+              {[errors.fullName && translateText('Полное имя'), errors.whatsapp && 'WhatsApp', Object.keys(linkErrors).length > 0 && translateText('Степень родства')].filter(Boolean).join(', ')}
             </span>
           </p>
         </div>
       )}
 
       {/* Children & Roles */}
-      <Section icon={<Users className="size-4" />} title="Дети и роли" description="Выберите детей из семьи и настройте права">
+      <Section icon={<Users className="size-4" />} title={translateText("Дети и роли")} description={translateText("Выберите детей из семьи и настройте права")}>
         {familyStudents.length === 0 ? (
-          <p className="text-sm text-slate-400 py-4 text-center">В этой семье пока нет учеников</p>
+          <p className="text-sm text-slate-400 py-4 text-center">{translateText("В этой семье пока нет учеников")}</p>
         ) : (
           <div className="flex flex-col gap-3">
             {selectedStudentIds.length >= 2 && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-                <p className="text-xs font-semibold text-blue-700 mb-2">Применить ко всем выбранным</p>
+                <p className="text-xs font-semibold text-blue-700 mb-2">{translateText("Применить ко всем выбранным")}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {ROLE_PRESETS.map((preset) => (
+                  {localizeUI(ROLE_PRESETS, locale).map((preset) => (
                     <button key={preset.label} type="button" onClick={() => {
                       setLinkConfigs((prev) => {
                         const next = { ...prev };
@@ -1212,24 +1208,24 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
                   studentGroup={student.group}
                   config={config}
                   onChange={(patch) => updateLink(student.id, patch)}
-                  error={linkErrors[student.id]}
+                  error={translateText(linkErrors[student.id])}
                   canDeselect={!isOnlyLink}
                 />
               );
             })}
             {selectedStudentIds.length > 0 && (
               <div className="mt-1 pt-3 border-t border-slate-200">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Роль в семье</p>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">{translateText("Роль в семье")}</p>
                 <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-2.5 cursor-pointer">
                     <input type="checkbox" checked={setAsFamilyPrimary} onChange={(e) => setSetAsFamilyPrimary(e.target.checked)} className="size-4 rounded accent-emerald-600" />
-                    <span className="text-sm text-slate-700">Сделать основным контактом семьи</span>
-                    {currentPrimaryName && <span className="text-xs text-slate-400 ml-auto">сейчас: {currentPrimaryName}</span>}
+                    <span className="text-sm text-slate-700">{translateText("Сделать основным контактом семьи")}</span>
+                    {currentPrimaryName && <span className="text-xs text-slate-400 ml-auto">{translateText("сейчас: ")}{currentPrimaryName}</span>}
                   </label>
                   <label className="flex items-center gap-2.5 cursor-pointer">
                     <input type="checkbox" checked={setAsFamilyBilling} onChange={(e) => setSetAsFamilyBilling(e.target.checked)} className="size-4 rounded accent-emerald-600" />
-                    <span className="text-sm text-slate-700">Сделать основным плательщиком</span>
-                    {currentBillingName && <span className="text-xs text-slate-400 ml-auto">сейчас: {currentBillingName}</span>}
+                    <span className="text-sm text-slate-700">{translateText("Сделать основным плательщиком")}</span>
+                    {currentBillingName && <span className="text-xs text-slate-400 ml-auto">{translateText("сейчас: ")}{currentBillingName}</span>}
                   </label>
                 </div>
               </div>
@@ -1239,20 +1235,20 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       </Section>
 
       {/* Basic info */}
-      <Section icon={<User className="size-4" />} title="Основная информация" description="Имя, родство в семье и предпочтительный способ связи">
+      <Section icon={<User className="size-4" />} title={translateText("Основная информация")} description={translateText("Имя, родство в семье и предпочтительный способ связи")}>
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               ref={fullNameRef}
-              label="Полное имя *"
-              placeholder="Маматова Жылдыз Абдыбековна"
+              label={translateText("Полное имя *")}
+              placeholder={translateText("Маматова Жылдыз Абдыбековна")}
               value={form.fullName}
               onChange={(e) => { upd('fullName', e.target.value); clearError('fullName'); }}
-              error={errors.fullName}
+              error={translateText(errors.fullName)}
             />
             <CreatableCombobox
-              label="Кем является в семье"
-              placeholder="Выберите или введите..."
+              label={translateText("Кем является в семье")}
+              placeholder={translateText("Выберите или введите...")}
               options={RELATION_COMBOBOX_OPTIONS}
               value={form.familyRelation !== 'other' ? form.familyRelation : ''}
               customValue={form.customFamilyRelation}
@@ -1269,8 +1265,8 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
             />
           </div>
           <Select
-            label="Предпочтительный контакт"
-            options={PREFERRED_CONTACT_OPTIONS}
+            label={translateText("Предпочтительный контакт")}
+            options={localizeUI(PREFERRED_CONTACT_OPTIONS, locale)}
             value={form.preferredContact}
             onChange={(e) => upd('preferredContact', e.target.value as PreferredContactMethod | '')}
           />
@@ -1278,7 +1274,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       </Section>
 
       {/* Family-level roles */}
-      <Section icon={<Tag className="size-4" />} title="Роли в семье" description="Функциональные роли этого представителя">
+      <Section icon={<Tag className="size-4" />} title={translateText("Роли в семье")} description={translateText("Функциональные роли этого представителя")}>
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-1.5">
             {ALL_FAMILY_CONTACT_ROLES.map((role) => (
@@ -1292,7 +1288,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
                   }}
                   className="size-4 rounded accent-emerald-600"
                 />
-                <span className="text-sm text-slate-700">{FAMILY_CONTACT_ROLE_LABELS[role]}</span>
+                <span className="text-sm text-slate-700">{localizeUI(FAMILY_CONTACT_ROLE_LABELS, locale)[role]}</span>
               </label>
             ))}
           </div>
@@ -1318,7 +1314,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
               value={editCustomRoleInput}
               onChange={(e) => setEditCustomRoleInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEditCustomRole(); } }}
-              placeholder="Своя роль..."
+              placeholder={translateText("Своя роль...")}
               className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
             />
             <button
@@ -1334,7 +1330,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       </Section>
 
       {/* Address */}
-      <Section icon={<MapPin className="size-4" />} title="Адрес" description="Адрес представителя или использование адреса семьи">
+      <Section icon={<MapPin className="size-4" />} title={translateText("Адрес")} description={translateText("Адрес представителя или использование адреса семьи")}>
         <div className="flex flex-col gap-3">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -1343,13 +1339,13 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
               onChange={(e) => upd('usesFamilyAddress', e.target.checked)}
               className="size-4 rounded accent-emerald-600"
             />
-            <span className="text-sm text-slate-700">Использовать адрес семьи</span>
+            <span className="text-sm text-slate-700">{translateText("Использовать адрес семьи")}</span>
             {selectedFamily?.address && <span className="text-xs text-slate-400 truncate">({selectedFamily.address})</span>}
           </label>
           {!form.usesFamilyAddress && (
             <Input
-              label="Адрес"
-              placeholder="г. Бишкек, ул. Токтогула, д. 14"
+              label={translateText("Адрес")}
+              placeholder={translateText("г. Бишкек, ул. Токтогула, д. 14")}
               value={form.address}
               onChange={(e) => upd('address', e.target.value)}
             />
@@ -1358,11 +1354,11 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       </Section>
 
       {/* Contacts */}
-      <Section icon={<Phone className="size-4" />} title="Контакты" description="WhatsApp обязателен, остальное опционально">
-        <div className="grid grid-cols-2 gap-4">
+      <Section icon={<Phone className="size-4" />} title={translateText("Контакты")} description={translateText("WhatsApp обязателен, остальное опционально")}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="WhatsApp *" placeholder="+996700000000" value={form.whatsapp}
-            onChange={(e) => { upd('whatsapp', e.target.value); clearError('whatsapp'); }} error={errors.whatsapp} />
-          <Input label="Телефон" placeholder="+996 700 000 000" value={form.phone}
+            onChange={(e) => { upd('whatsapp', e.target.value); clearError('whatsapp'); }} error={translateText(errors.whatsapp)} />
+          <Input label={translateText("Телефон")} placeholder="+996 700 000 000" value={form.phone}
             onChange={(e) => upd('phone', e.target.value)} />
           <Input label="Telegram" placeholder="@username" value={form.telegram}
             onChange={(e) => upd('telegram', e.target.value)} />
@@ -1372,9 +1368,9 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       </Section>
 
       {/* Notes */}
-      <Section icon={<FileText className="size-4" />} title="Заметки" description="Дополнительная информация о представителе">
+      <Section icon={<FileText className="size-4" />} title={translateText("Заметки")} description={translateText("Дополнительная информация о представителе")}>
         <textarea
-          placeholder="Например: всегда на связи, предпочитает WhatsApp..."
+          placeholder={translateText("Например: всегда на связи, предпочитает WhatsApp...")}
           value={form.notes}
           onChange={(e) => upd('notes', e.target.value)}
           rows={3}
@@ -1383,15 +1379,14 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
       </Section>
 
       {/* bottom bar */}
-      <div className="flex items-center justify-between py-4 border-t border-slate-200 mt-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-4 border-t border-slate-200 mt-2">
         <div className="flex items-center gap-2 text-xs text-slate-400">
-          {isDirty && <><div className="size-1.5 rounded-full bg-amber-400" />Есть несохранённые изменения</>}
+          {isDirty && <><div className="size-1.5 rounded-full bg-amber-400" />{translateText("Есть несохранённые изменения")}</>}
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={handleCancel}>Отмена</Button>
+          <Button variant="outline" onClick={handleCancel}>{translateText("Отмена")}</Button>
           <Button onClick={handleEditSubmit} loading={saving}>
-            <Save className="size-4" />Сохранить изменения
-          </Button>
+            <Save className="size-4" />{translateText("Сохранить изменения")}</Button>
         </div>
       </div>
 
@@ -1400,14 +1395,12 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
         isOpen={duplicateMatch !== null}
         onClose={() => setDuplicateMatch(null)}
         size="sm"
-        title="Возможно, такой представитель уже существует"
-        description={duplicateMatch ? `«${duplicateMatch.fullName}» уже зарегистрирован с этим номером WhatsApp.` : undefined}
+        title={translateText("Возможно, такой представитель уже существует")}
+        description={duplicateMatch ? translateText(`«${duplicateMatch.fullName}» уже зарегистрирован с этим номером WhatsApp.`) : undefined}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setDuplicateMatch(null)}>Отмена</Button>
-            <Button variant="outline" onClick={() => { const id = duplicateMatch?.id; setDuplicateMatch(null); if (id) router.push(`/parents/${id}`); }}>
-              Использовать существующего
-            </Button>
+            <Button variant="ghost" onClick={() => setDuplicateMatch(null)}>{translateText("Отмена")}</Button>
+            <Button variant="outline" onClick={() => { const id = duplicateMatch?.id; setDuplicateMatch(null); if (id) router.push(`/parents/${id}`); }}>{translateText("Использовать существующего")}</Button>
             <Button onClick={() => {
               setDuplicateMatch(null);
               if (!contactId) {
@@ -1415,9 +1408,7 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
                 setIsDirty(false);
                 router.push(`/parents/${id}`);
               } else doEdit();
-            }}>
-              Всё равно создать
-            </Button>
+            }}>{translateText("Всё равно создать")}</Button>
           </>
         }
       >
@@ -1439,12 +1430,12 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
         isOpen={removeLinksConfirm.length > 0}
         onClose={() => setRemoveLinksConfirm([])}
         size="sm"
-        title="Удалить связи с учениками?"
-        description="Следующие связи будут удалены:"
+        title={translateText("Удалить связи с учениками?")}
+        description={translateText("Следующие связи будут удалены:")}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setRemoveLinksConfirm([])}>Отмена</Button>
-            <Button onClick={handleConfirmRemoveLinks}>Удалить и сохранить</Button>
+            <Button variant="ghost" onClick={() => setRemoveLinksConfirm([])}>{translateText("Отмена")}</Button>
+            <Button onClick={handleConfirmRemoveLinks}>{translateText("Удалить и сохранить")}</Button>
           </>
         }
       >
@@ -1462,22 +1453,21 @@ export function ParentForm({ mode = 'create', contactId, initialFamilyId }: Prop
         isOpen={showNewFamilyModal}
         onClose={() => setShowNewFamilyModal(false)}
         size="sm"
-        title="Создать новую семью"
+        title={translateText("Создать новую семью")}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setShowNewFamilyModal(false)}>Отмена</Button>
+            <Button variant="ghost" onClick={() => setShowNewFamilyModal(false)}>{translateText("Отмена")}</Button>
             <Button onClick={() => {
               const name = newFamilyName.trim();
               if (!name) return;
               createFamily({ name });
               setShowNewFamilyModal(false);
             }} disabled={!newFamilyName.trim()}>
-              <Plus className="size-4" />Создать
-            </Button>
+              <Plus className="size-4" />{translateText("Создать")}</Button>
           </>
         }
       >
-        <Input label="Название семьи *" placeholder="Маматовы" value={newFamilyName}
+        <Input label={translateText("Название семьи *")} placeholder={translateText("Маматовы")} value={newFamilyName}
           onChange={(e) => setNewFamilyName(e.target.value)} autoFocus />
       </Modal>
     </div>

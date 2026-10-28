@@ -1,9 +1,15 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
+
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, UserPlus, Trash2, Pencil, Users } from 'lucide-react';
+import { Search, UserPlus, Trash2, Pencil, Users, SlidersHorizontal } from 'lucide-react';
 import { Input } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/button';
 import { Badge, LevelBadge } from '@/shared/ui/badge';
@@ -27,10 +33,12 @@ function getLatestAttendanceDate(studentId: string, records: AttendanceRecord[])
 }
 
 function PresenceBadge({ studentId, records }: { studentId: string; records: AttendanceRecord[] }) {
+  const { t: translateText, locale } = useTranslation();
+
   const latestDate = getLatestAttendanceDate(studentId, records);
-  if (!latestDate) return <Badge variant="slate">Нет данных</Badge>;
+  if (!latestDate) return <Badge variant="slate">{translateText("Нет данных")}</Badge>;
   const days = getDaysCount(latestDate);
-  return <Badge variant={getAttendanceVariant(days)}>{getDaysAgoLabel(latestDate)}</Badge>;
+  return <Badge variant={getAttendanceVariant(days)}>{getDaysAgoLabel(latestDate, locale)}</Badge>;
 }
 
 // ─── Sort / filter types ───────────────────────────────────────────────────────
@@ -40,6 +48,8 @@ type SortBy = 'points_desc' | 'points_asc' | 'date_newest' | 'date_oldest';
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function StudentsTable() {
+  const { t: translateText, locale } = useTranslation();
+
   const students = useStudents();
   const records = useAttendanceRecords();
   const familyContacts = useAppStore((s) => s.familyContacts);
@@ -69,6 +79,7 @@ export function StudentsTable() {
   }, [students, links, families, familyContacts]);
 
   const [search, setSearch] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterGroup, setFilterGroup] = useState('');
   const [filterLevel, setFilterLevel] = useState('');
   const [filterPresence, setFilterPresence] = useState('');
@@ -78,30 +89,30 @@ export function StudentsTable() {
   const groupOptions = useMemo(() => {
     const groups = [...new Set(students.map((s) => s.group).filter(Boolean))].sort();
     return [
-      { value: '', label: 'Все группы' },
-      ...groups.map((g) => ({ value: g, label: g })),
+      { value: '', label: translateText('Все группы') },
+      ...groups.map((g) => ({ value: g, label: getStudentGroupLabel(g) })),
     ];
-  }, [students]);
+  }, [translateText, students]);
 
   const levelOptions = [
-    { value: '', label: 'Все уровни' },
-    ...Object.entries(STUDENT_LEVEL_LABELS).map(([value, label]) => ({ value, label })),
+    { value: '', label: translateText('Все уровни') },
+    ...Object.entries(localizeUI(STUDENT_LEVEL_LABELS, locale)).map(([value, label]) => ({ value, label })),
   ];
 
   const presenceOptions = [
-    { value: '', label: 'Любой статус' },
-    { value: 'today', label: 'Сегодня' },
-    { value: 'recent', label: 'До 3 дней' },
-    { value: 'few_days', label: '4–9 дней' },
-    { value: 'long_absent', label: '10+ дней' },
-    { value: 'no_data', label: 'Нет данных' },
+    { value: '', label: translateText('Любой статус') },
+    { value: 'today', label: translateText('Сегодня') },
+    { value: 'recent', label: translateText('До 3 дней') },
+    { value: 'few_days', label: translateText('4–9 дней') },
+    { value: 'long_absent', label: translateText('10+ дней') },
+    { value: 'no_data', label: translateText('Нет данных') },
   ];
 
   const sortOptions = [
-    { value: 'date_newest', label: 'Сначала новые' },
-    { value: 'date_oldest', label: 'Сначала старые' },
-    { value: 'points_desc', label: 'Баллы: много → мало' },
-    { value: 'points_asc', label: 'Баллы: мало → много' },
+    { value: 'date_newest', label: translateText('Сначала новые') },
+    { value: 'date_oldest', label: translateText('Сначала старые') },
+    { value: 'points_desc', label: translateText('Баллы: много → мало') },
+    { value: 'points_asc', label: translateText('Баллы: мало → много') },
   ];
 
   const filtered = useMemo(() => {
@@ -112,6 +123,7 @@ export function StudentsTable() {
       result = result.filter(
         (s) =>
           s.fullName.toLowerCase().includes(q) ||
+          getStudentGroupLabel(s.group).toLowerCase().includes(q) ||
           (studentContactMap[s.id]?.contactName ?? '').toLowerCase().includes(q)
       );
     }
@@ -165,70 +177,84 @@ export function StudentsTable() {
   return (
     <div>
       <PageHeader
-        title="Ученики"
-        description={`${students.length} учеников`}
+        title={translateText("Ученики")}
+        description={translateText(`${students.length} учеников`)}
         action={
           <Link href="/students/new">
             <Button>
-              <UserPlus className="size-4" />
-              Добавить ученика
-            </Button>
+              <UserPlus className="size-4" />{translateText("Добавить ученика")}</Button>
           </Link>
         }
       />
 
       <Card padding="none">
         {/* Search + filters bar */}
-        <div className="px-5 py-3 border-b border-slate-100 space-y-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-48 max-w-xs">
+        <div className="px-4 sm:px-5 py-3 border-b border-slate-100 space-y-3">
+          <div className="grid grid-cols-1 sm:flex sm:items-center gap-3 sm:flex-wrap [&>div]:min-w-0">
+            <div className="relative sm:flex-1 sm:min-w-48 sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
               <Input
-                placeholder="Поиск по имени..."
+                placeholder={translateText("Поиск по имени или группе...")}
+                aria-label={translateText("Поиск учеников")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
               />
             </div>
 
+            <Button
+              type="button"
+              variant="outline"
+              className="sm:hidden"
+              aria-expanded={filtersOpen}
+              aria-controls="student-filters"
+              onClick={() => setFiltersOpen((value) => !value)}
+            >
+              <SlidersHorizontal className="size-4" />
+              {filtersOpen ? translateText('Скрыть фильтры') : translateText('Фильтры и сортировка')}
+            </Button>
+            <div id="student-filters" className={`${filtersOpen ? 'grid' : 'hidden'} grid-cols-1 gap-3 sm:contents`}>
             <Select
               options={groupOptions}
               value={filterGroup}
               onChange={(e) => setFilterGroup(e.target.value)}
-              className="w-36"
+              aria-label={translateText("Группа")}
+              className="w-full sm:w-36"
             />
 
             <Select
               options={levelOptions}
               value={filterLevel}
               onChange={(e) => setFilterLevel(e.target.value)}
-              className="w-36"
+              aria-label={translateText("Уровень")}
+              className="w-full sm:w-36"
             />
 
             <Select
               options={presenceOptions}
               value={filterPresence}
               onChange={(e) => setFilterPresence(e.target.value)}
-              className="w-44"
+              aria-label={translateText("Посещаемость")}
+              className="w-full sm:w-44"
             />
 
             <Select
               options={sortOptions}
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortBy)}
-              className="w-52"
+              aria-label={translateText("Сортировка учеников")}
+              className="w-full sm:w-52"
             />
+            </div>
 
             <div className="flex items-center gap-2 ml-auto">
               {hasFilters && (
                 <button
                   onClick={clearFilters}
                   className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  Сбросить
-                </button>
+                >{translateText("Сбросить")}</button>
               )}
-              <span className="text-xs text-slate-400">{filtered.length} из {students.length}</span>
+              <span className="text-xs text-slate-400">{filtered.length}{translateText(" из ")}{students.length}</span>
             </div>
           </div>
         </div>
@@ -237,42 +263,68 @@ export function StudentsTable() {
         {filtered.length === 0 ? (
           <EmptyState
             icon={<Users className="size-5" />}
-            title={hasFilters ? 'Ученики не найдены' : 'Учеников пока нет'}
-            description={hasFilters ? 'Попробуйте изменить фильтры' : 'Добавьте первого ученика'}
+            title={hasFilters ? translateText('Ученики не найдены') : translateText('Учеников пока нет')}
+            description={hasFilters ? translateText('Попробуйте изменить фильтры') : translateText('Добавьте первого ученика')}
             action={
               !hasFilters ? (
                 <Link href="/students/new">
-                  <Button><UserPlus className="size-4" />Добавить ученика</Button>
+                  <Button><UserPlus className="size-4" />{translateText("Добавить ученика")}</Button>
                 </Link>
               ) : undefined
             }
             className="py-20"
           />
         ) : (
+          <>
+          <ul className="md:hidden divide-y divide-slate-100" aria-label={translateText("Ученики")}>
+            {filtered.map((student) => (
+              <li key={student.id} className="p-4 space-y-3">
+                <Link href={`/students/${student.id}`} className="flex items-center gap-3 min-h-11 rounded-lg focus-visible:outline-2 focus-visible:outline-emerald-600">
+                  <div className="size-11 shrink-0 rounded-full overflow-hidden bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold">
+                    {student.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={student.avatar} alt="" className="size-full object-cover" />
+                    ) : student.fullName.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-sm text-slate-900 break-words">{student.fullName}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{student.age}{translateText(" лет · Группа ")}{getStudentGroupLabel(student.group)}</p>
+                  </div>
+                  <span className="shrink-0 font-bold text-emerald-700 text-sm">{student.totalPoints}{translateText(" б.")}</span>
+                </Link>
+                <div className="flex flex-wrap items-center gap-2">
+                  <LevelBadge level={student.level} />
+                  <PresenceBadge studentId={student.id} records={records} />
+                </div>
+                {studentContactMap[student.id] && (
+                  <Link href={`/parents/${studentContactMap[student.id].contactId}`} className="flex items-center min-h-11 text-sm text-slate-600 hover:text-emerald-700 break-words">{translateText("Представитель:")}{studentContactMap[student.id].contactName}
+                  </Link>
+                )}
+                <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
+                  <span className="text-xs text-slate-400">{translateText("С ")}{formatDate(student.startedAt)}</span>
+                  <div className="flex items-center gap-1">
+                    <Link href={`/students/${student.id}/edit`} aria-label={translateText(translateText(`Редактировать: ${student.fullName}`))} className="size-11 flex items-center justify-center rounded-lg text-slate-500 hover:bg-emerald-50 hover:text-emerald-700">
+                      <Pencil className="size-4" />
+                    </Link>
+                    <Button variant="ghost" size="sm" className="size-11 p-0 text-slate-400 hover:text-red-500" onClick={() => setDeleteId(student.id)} aria-label={translateText(translateText(`Удалить: ${student.fullName}`))}>
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="table-scroll hidden md:block" role="region" aria-label={translateText("Таблица учеников с горизонтальной прокруткой")} tabIndex={0}>
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Ученик
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Группа
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Уровень
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Родитель
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Баллы
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Начало
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Посещаемость
-                </th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Ученик")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Группа")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Уровень")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Родитель")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Баллы")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Начало")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Посещаемость")}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -297,12 +349,12 @@ export function StudentsTable() {
                         <span className="text-sm font-medium text-slate-900 group-hover:text-emerald-700 transition-colors">
                           {student.fullName}
                         </span>
-                        <p className="text-xs text-slate-400">{student.age} лет</p>
+                        <p className="text-xs text-slate-400">{student.age}{translateText(" лет")}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-sm text-slate-600 font-medium">{student.group}</span>
+                    <span className="text-sm text-slate-600 font-medium">{getStudentGroupLabel(student.group)}</span>
                   </td>
                   <td className="px-4 py-3">
                     <LevelBadge level={student.level} />
@@ -322,7 +374,7 @@ export function StudentsTable() {
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm font-bold text-slate-900">{student.totalPoints}</span>
-                    <span className="text-xs text-slate-400 ml-1">б.</span>
+                    <span className="text-xs text-slate-400 ml-1">{translateText("б.")}</span>
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm text-slate-500">{formatDate(student.startedAt)}</span>
@@ -358,6 +410,8 @@ export function StudentsTable() {
               ))}
             </tbody>
           </table>
+          </div>
+          </>
         )}
       </Card>
 
@@ -366,13 +420,11 @@ export function StudentsTable() {
         isOpen={deleteId !== null}
         onClose={() => setDeleteId(null)}
         size="sm"
-        title="Удалить ученика?"
-        description={studentToDelete ? `«${studentToDelete.fullName}» будет удалён из списка. Это действие нельзя отменить.` : undefined}
+        title={translateText("Удалить ученика?")}
+        description={studentToDelete ? translateText(`«${studentToDelete.fullName}» будет удалён из списка. Это действие нельзя отменить.`) : undefined}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setDeleteId(null)}>
-              Отмена
-            </Button>
+            <Button variant="ghost" onClick={() => setDeleteId(null)}>{translateText("Отмена")}</Button>
             <Button
               variant="danger"
               onClick={() => {
@@ -381,15 +433,11 @@ export function StudentsTable() {
                   setDeleteId(null);
                 }
               }}
-            >
-              Удалить
-            </Button>
+            >{translateText("Удалить")}</Button>
           </>
         }
       >
-        <p className="text-sm text-slate-500">
-          Вместе с учеником будут удалены все связанные задания и история баллов.
-        </p>
+        <p className="text-sm text-slate-500">{translateText("Вместе с учеником будут удалены все связанные задания и история баллов.")}</p>
       </Modal>
     </div>
   );

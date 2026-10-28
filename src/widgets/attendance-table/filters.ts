@@ -1,3 +1,4 @@
+import { getStudentGroupLabel } from '@/entities/student/model/groups';
 import { format, subDays } from 'date-fns';
 import type { Student } from '@/entities/student/model/types';
 import type { AttendanceRecord, AttendanceStatus } from '@/entities/attendance/model/types';
@@ -55,6 +56,7 @@ export function applyFilters(
       (s) =>
         s.fullName.toLowerCase().includes(q) ||
         s.group.toLowerCase().includes(q) ||
+        getStudentGroupLabel(s.group).toLowerCase().includes(q) ||
         `группа ${s.group.toLowerCase()}`.includes(q),
     );
   }

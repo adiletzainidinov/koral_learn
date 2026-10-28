@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Gift, Trash2 } from 'lucide-react';
@@ -13,6 +16,8 @@ import { StudentTabs } from '@/widgets/student-tabs/student-tabs';
 interface Props { studentId: string }
 
 export function StudentProfile({ studentId }: Props) {
+  const { t: translateText } = useTranslation();
+
   const router = useRouter();
   const student = useStudentById(studentId);
   const { removeStudent, awardBonusPoints } = useAppStore();
@@ -25,9 +30,9 @@ export function StudentProfile({ studentId }: Props) {
   if (!student) {
     return (
       <div className="flex flex-col items-center justify-center py-32">
-        <p className="text-slate-500 mb-4">Ученик не найден</p>
+        <p className="text-slate-500 mb-4">{translateText("Ученик не найден")}</p>
         <Link href="/students">
-          <Button variant="outline"><ArrowLeft className="size-4" />К списку</Button>
+          <Button variant="outline"><ArrowLeft className="size-4" />{translateText("К списку")}</Button>
         </Link>
       </div>
     );
@@ -48,19 +53,18 @@ export function StudentProfile({ studentId }: Props) {
   return (
     <div className="flex flex-col gap-6">
       {/* breadcrumb + actions */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href="/students">
             <Button variant="ghost" size="sm" className="size-8 p-0"><ArrowLeft className="size-4" /></Button>
           </Link>
-          <span className="text-sm text-slate-500">Ученики</span>
+          <span className="text-sm text-slate-500">{translateText("Ученики")}</span>
           <span className="text-slate-300">/</span>
           <span className="text-sm font-medium text-slate-900">{student.fullName}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setBonusOpen(true)}>
-            <Gift className="size-3.5" />Бонус
-          </Button>
+            <Gift className="size-3.5" />{translateText("Бонус")}</Button>
           <Button
             variant="ghost" size="sm" onClick={() => setDeleteOpen(true)}
             className="text-red-500 hover:text-red-600 hover:bg-red-50"
@@ -76,39 +80,36 @@ export function StudentProfile({ studentId }: Props) {
       {/* bonus modal */}
       <Modal
         isOpen={bonusOpen} onClose={() => setBonusOpen(false)}
-        title="Начислить бонусные баллы" description={student.fullName}
+        title={translateText("Начислить бонусные баллы")} description={student.fullName}
         size="sm"
         footer={
           <>
-            <Button variant="outline" onClick={() => setBonusOpen(false)}>Отмена</Button>
-            <Button onClick={handleBonus}>Начислить</Button>
+            <Button variant="outline" onClick={() => setBonusOpen(false)}>{translateText("Отмена")}</Button>
+            <Button onClick={handleBonus}>{translateText("Начислить")}</Button>
           </>
         }
       >
         <div className="flex flex-col gap-4">
-          <Input label="Причина" placeholder="Хатм джуза, помощь другим..."
+          <Input label={translateText("Причина")} placeholder={translateText("Хатм джуза, помощь другим...")}
             value={bonusReason} onChange={(e) => setBonusReason(e.target.value)} />
-          <Input label="Баллы" type="number" placeholder="5"
+          <Input label={translateText("Баллы")} type="number" placeholder="5"
             value={bonusPoints} onChange={(e) => setBonusPoints(e.target.value)}
-            hint="Можно отрицательное значение для снятия баллов" />
+            hint={translateText("Можно отрицательное значение для снятия баллов")} />
         </div>
       </Modal>
 
       {/* delete modal */}
       <Modal
         isOpen={deleteOpen} onClose={() => setDeleteOpen(false)}
-        title="Удалить ученика" size="sm"
+        title={translateText("Удалить ученика")} size="sm"
         footer={
           <>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Отмена</Button>
-            <Button variant="danger" onClick={handleDelete}>Удалить</Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>{translateText("Отмена")}</Button>
+            <Button variant="danger" onClick={handleDelete}>{translateText("Удалить")}</Button>
           </>
         }
       >
-        <p className="text-sm text-slate-600">
-          Вы уверены, что хотите удалить ученика <strong>{student.fullName}</strong>?
-          Все задания, посещаемость и история будут удалены. Это действие нельзя отменить.
-        </p>
+        <p className="text-sm text-slate-600">{translateText("Вы уверены, что хотите удалить ученика")}<strong>{student.fullName}</strong>{translateText("? Все задания, посещаемость и история будут удалены. Это действие нельзя отменить.")}</p>
       </Modal>
     </div>
   );

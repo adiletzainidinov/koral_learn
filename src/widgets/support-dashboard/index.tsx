@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -59,6 +63,8 @@ const STATUS_PRIORITY: Record<ListPaymentStatus, number> = {
 // ─── Main Widget ──────────────────────────────────────────────────────────────
 
 export function SupportDashboard() {
+  const { t: translateText, locale } = useTranslation();
+
   const hydrated = useHydrated();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -209,9 +215,9 @@ export function SupportDashboard() {
         family.lessonSelections && family.lessonSelections.length > 0
           ? family.lessonSelections
               .filter((s) => s.isActive)
-              .map((s) => `${studentById[s.studentId]?.fullName?.split(' ')[0] ?? '?'} — ${SUPPORT_PLANS[s.planType].name}`)
+              .map((s) => `${studentById[s.studentId]?.fullName?.split(' ')[0] ?? '?'} — ${localizeUI(SUPPORT_PLANS, locale)[s.planType].name}`)
               .join('\n')
-          : SUPPORT_PLANS[family.supportPlanType].name;
+          : localizeUI(SUPPORT_PLANS, locale)[family.supportPlanType].name;
 
       // Last payment date
       const familyAllPayments = allSupportPayments.filter((p) => p.familyId === family.id);
@@ -249,7 +255,7 @@ export function SupportDashboard() {
         lastReminderAt: lastReminderAt || undefined,
       };
     });
-  }, [families, allSupportPayments, contacts, students, month, allMonthlyCharges, allReminderLogs]);
+  }, [locale, families, allSupportPayments, contacts, students, month, allMonthlyCharges, allReminderLogs]);
 
   // ── Filter ──
   const filteredRows = useMemo<SupportFamilyRow[]>(() => {
@@ -273,7 +279,7 @@ export function SupportDashboard() {
           }
         }
         if (row.studentNames.some((n) => n.toLowerCase().includes(q))) return true;
-        if (row.plans.some((p) => SUPPORT_PLANS[p].name.toLowerCase().includes(q))) return true;
+        if (row.plans.some((p) => localizeUI(SUPPORT_PLANS, locale)[p].name.toLowerCase().includes(q))) return true;
         return false;
       });
     }
@@ -309,7 +315,7 @@ export function SupportDashboard() {
 
     return rows;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allRows, qFromUrl, statusFilter, planFilter, extraStr, debtRange]);
+  }, [locale, allRows, qFromUrl, statusFilter, planFilter, extraStr, debtRange]);
 
   // ── Sort ──
   const sortedRows = useMemo<SupportFamilyRow[]>(() => {
@@ -373,7 +379,7 @@ export function SupportDashboard() {
       .filter((r) => selectedIds.has(r.familyId) && r.remainingAmount > 0)
       .map((r) => {
         const contact = r.billingContact ?? r.parent;
-        return getReminderMessage(contact?.fullName ?? r.familyName, r.remainingAmount, month);
+        return getReminderMessage(contact?.fullName ?? r.familyName, r.remainingAmount, month, locale);
       })
       .join('\n\n---\n\n');
     if (msgs) {
@@ -402,10 +408,10 @@ export function SupportDashboard() {
 
   function exportSelectedToCSV() {
     const rows = sortedRows.filter((r) => selectedIds.has(r.familyId));
-    const headers = ['Семья', 'Контакт', 'Телефон', 'WhatsApp', 'Ученики', 'Ожидается', 'Оплачено', 'Остаток', 'Аванс', 'Статус'];
+    const headers = [translateText('Семья'), translateText('Контакт'), translateText('Телефон'), 'WhatsApp', translateText('Ученики'), translateText('Ожидается'), translateText('Оплачено'), translateText('Остаток'), translateText('Аванс'), translateText('Статус')];
     const STATUS_LABELS_CSV: Record<ListPaymentStatus, string> = {
-      paid: 'Оплачено', partial: 'Частично', unpaid: 'Не оплачено',
-      overpaid: 'Переплата', no_charge: 'Нет начисления',
+      paid: translateText('Оплачено'), partial: translateText('Частично'), unpaid: translateText('Не оплачено'),
+      overpaid: translateText('Переплата'), no_charge: translateText('Нет начисления'),
     };
     const data = rows.map((r) => {
       const contact = r.billingContact ?? r.parent;
@@ -445,9 +451,9 @@ export function SupportDashboard() {
   // ── Loading skeleton ──
   if (!hydrated) {
     return (
-      <div className="p-4 md:p-6 max-w-[1440px] mx-auto animate-pulse space-y-4">
+      <div className="p-0 md:p-6 max-w-[1440px] mx-auto animate-pulse space-y-4">
         <div className="h-8 w-48 bg-slate-100 rounded-xl" />
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[0, 1, 2, 3].map((i) => <div key={i} className="h-16 bg-slate-100 rounded-2xl" />)}
         </div>
         <div className="h-64 bg-slate-100 rounded-2xl" />
@@ -456,20 +462,19 @@ export function SupportDashboard() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-[1440px] mx-auto">
+    <div className="p-0 md:p-6 max-w-[1440px] mx-auto">
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Поддержка</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Учёт взносов, семей и форматов обучения</p>
+          <h1 className="text-2xl font-bold text-slate-900">{translateText("Поддержка")}</h1>
+          <p className="text-sm text-slate-500 mt-0.5">{translateText("Учёт взносов, семей и форматов обучения")}</p>
         </div>
         <Link
           href="/support/families/new"
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
         >
-          <Plus className="size-4" /> Добавить семью
-        </Link>
+          <Plus className="size-4" />{translateText("Добавить семью")}</Link>
       </div>
 
       {/* ── Dedup warning ── */}
@@ -477,19 +482,14 @@ export function SupportDashboard() {
         <div className="flex items-center gap-3 px-4 py-3 mb-5 rounded-xl bg-amber-50 border border-amber-200">
           <AlertTriangle className="size-4 text-amber-600 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-amber-800">
-              Обнаружены дублирующиеся записи ({duplicateParentCount})
+            <p className="text-sm font-medium text-amber-800">{translateText("Обнаружены дублирующиеся записи (")}{duplicateParentCount})
             </p>
-            <p className="text-xs text-amber-700 mt-0.5">
-              Несколько записей поддержки привязаны к одному контакту.
-            </p>
+            <p className="text-xs text-amber-700 mt-0.5">{translateText("Несколько записей поддержки привязаны к одному контакту.")}</p>
           </div>
           <button
             onClick={deduplicateSupportAccounts}
             className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-medium hover:bg-amber-700 shrink-0"
-          >
-            Объединить
-          </button>
+          >{translateText("Объединить")}</button>
         </div>
       )}
 
@@ -510,7 +510,7 @@ export function SupportDashboard() {
             <button
               onClick={() => setMonth(shiftMonth(month, -1))}
               className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
-              aria-label="Предыдущий месяц"
+              aria-label={translateText("Предыдущий месяц")}
             >
               <ChevronLeft className="size-4" />
             </button>
@@ -519,12 +519,12 @@ export function SupportDashboard() {
               value={month}
               onChange={(e) => setMonth(e.target.value)}
               className="text-sm font-medium text-slate-700 focus:outline-none bg-transparent px-1"
-              aria-label="Расчётный месяц"
+              aria-label={translateText("Расчётный месяц")}
             />
             <button
               onClick={() => setMonth(shiftMonth(month, 1))}
               className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
-              aria-label="Следующий месяц"
+              aria-label={translateText("Следующий месяц")}
             >
               <ChevronRight className="size-4" />
             </button>
@@ -532,10 +532,9 @@ export function SupportDashboard() {
               <button
                 onClick={() => setMonth(getCurrentMonth())}
                 className="px-2 py-1 rounded-lg text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors whitespace-nowrap flex items-center gap-1"
-                aria-label="Текущий месяц"
+                aria-label={translateText("Текущий месяц")}
               >
-                <Calendar className="size-3" /> Сейчас
-              </button>
+                <Calendar className="size-3" />{translateText("Сейчас")}</button>
             )}
           </div>
 
@@ -543,7 +542,7 @@ export function SupportDashboard() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Поиск по семье, контакту, телефону, ученику..."
+              placeholder={translateText("Поиск по семье, контакту, телефону, ученику...")}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
@@ -559,9 +558,7 @@ export function SupportDashboard() {
             )}
             aria-expanded={showExtraFilters}
           >
-            <SlidersHorizontal className="size-4" />
-            Фильтры
-            {(extraStr || debtRange !== 'any') && (
+            <SlidersHorizontal className="size-4" />{translateText("Фильтры")}{(extraStr || debtRange !== 'any') && (
               <span className="size-2 rounded-full bg-emerald-500" />
             )}
           </button>
@@ -570,15 +567,14 @@ export function SupportDashboard() {
               onClick={resetFilters}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-500 hover:bg-slate-50 transition-colors"
             >
-              <X className="size-3.5" /> Сбросить
-            </button>
+              <X className="size-3.5" />{translateText("Сбросить")}</button>
           )}
         </div>
 
         {/* Row 2: Status + Plan filters */}
         <div className="flex gap-2 flex-wrap">
           {/* Status filter */}
-          <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-medium">
+          <div className="flex max-w-full rounded-xl border border-slate-200 overflow-x-auto text-xs font-medium [&>button]:shrink-0 [&>button]:min-h-11 sm:[&>button]:min-h-0">
             {(['all', 'unpaid', 'partial', 'paid', 'no_charge'] as const).map((v) => (
               <button
                 key={v}
@@ -588,49 +584,45 @@ export function SupportDashboard() {
                   statusFilter === v ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'
                 )}
               >
-                {v === 'all' ? 'Все' : STATUS_LABELS_FILTER[v]}
+                {v === 'all' ? translateText('Все') : localizeUI(STATUS_LABELS_FILTER, locale)[v]}
               </button>
             ))}
           </div>
 
           {/* Plan filter */}
-          <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-medium">
+          <div className="flex max-w-full rounded-xl border border-slate-200 overflow-x-auto text-xs font-medium [&>button]:shrink-0 [&>button]:min-h-11 sm:[&>button]:min-h-0">
             <button
               onClick={() => setPlanFilter('all')}
               className={cn('px-3 py-2 transition-colors', planFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50')}
-            >
-              Все планы
-            </button>
-            {(Object.keys(SUPPORT_PLANS) as SupportPlanType[]).map((v) => (
+            >{translateText("Все планы")}</button>
+            {(Object.keys(localizeUI(SUPPORT_PLANS, locale)) as SupportPlanType[]).map((v) => (
               <button
                 key={v}
                 onClick={() => setPlanFilter(v)}
-                title={SUPPORT_PLANS[v].name}
+                title={localizeUI(SUPPORT_PLANS, locale)[v].name}
                 className={cn(
                   'px-3 py-2 transition-colors whitespace-nowrap',
                   planFilter === v ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'
                 )}
               >
-                {SUPPORT_PLANS[v].emoji} <span className="hidden sm:inline">{SUPPORT_PLANS[v].name}</span>
+                {localizeUI(SUPPORT_PLANS, locale)[v].emoji} <span className="hidden sm:inline">{localizeUI(SUPPORT_PLANS, locale)[v].name}</span>
               </button>
             ))}
             <button
               onClick={() => setPlanFilter('mixed')}
-              title="Смешанные форматы"
+              title={translateText("Смешанные форматы")}
               className={cn('px-3 py-2 transition-colors text-[10px]', planFilter === 'mixed' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50')}
-            >
-              Микс
-            </button>
+            >{translateText("Микс")}</button>
           </div>
 
           {/* Page size */}
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-slate-500">По</span>
+            <span className="text-xs text-slate-500">{translateText("По")}</span>
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
               className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-white"
-              aria-label="Семей на странице"
+              aria-label={translateText("Семей на странице")}
             >
               <option value={20}>20</option>
               <option value={50}>50</option>
@@ -644,12 +636,12 @@ export function SupportDashboard() {
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4">
             <div className="flex flex-wrap gap-x-6 gap-y-3">
               {[
-                { key: 'hasDebt', label: 'Есть долг' },
-                { key: 'hasAdvance', label: 'Есть аванс' },
-                { key: 'hasGift', label: 'Есть хадия' },
-                { key: 'noCharge', label: 'Без начисления' },
-                { key: 'noWhatsApp', label: 'Нет WhatsApp' },
-                { key: 'notReminded', label: 'Не напоминали' },
+                { key: 'hasDebt', label: translateText('Есть долг') },
+                { key: 'hasAdvance', label: translateText('Есть аванс') },
+                { key: 'hasGift', label: translateText('Есть хадия') },
+                { key: 'noCharge', label: translateText('Без начисления') },
+                { key: 'noWhatsApp', label: translateText('Нет WhatsApp') },
+                { key: 'notReminded', label: translateText('Не напоминали') },
               ].map(({ key, label }) => (
                 <label key={key} className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
                   <input
@@ -663,13 +655,13 @@ export function SupportDashboard() {
               ))}
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Диапазон остатка</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{translateText("Диапазон остатка")}</p>
               <div className="flex flex-wrap gap-2">
                 {([
-                  ['any', 'Любой'],
-                  ['to1000', 'до 1 000'],
+                  ['any', translateText('Любой')],
+                  ['to1000', translateText('до 1 000')],
                   ['1000to3000', '1 000 – 3 000'],
-                  ['over3000', 'больше 3 000'],
+                  ['over3000', translateText('больше 3 000')],
                 ] as [DebtRange, string][]).map(([val, label]) => (
                   <button
                     key={val}
@@ -693,7 +685,7 @@ export function SupportDashboard() {
       {/* ── Bulk actions bar ── */}
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl bg-slate-900 text-white flex-wrap">
-          <span className="text-sm font-medium">Выбрано: {selectedIds.size}</span>
+          <span className="text-sm font-medium">{translateText("Выбрано: ")}{selectedIds.size}</span>
           <button
             onClick={copySelectedReminders}
             className={cn(
@@ -702,7 +694,7 @@ export function SupportDashboard() {
             )}
           >
             {copiedBulk ? <Check className="size-3" /> : <Copy className="size-3" />}
-            {copiedBulk ? 'Скопировано!' : 'Напоминания'}
+            {copiedBulk ? translateText('Скопировано!') : translateText('Напоминания')}
           </button>
           <button
             onClick={markSelectedAsReminded}
@@ -712,20 +704,18 @@ export function SupportDashboard() {
             )}
           >
             {markedReminder ? <Check className="size-3" /> : <Check className="size-3 opacity-50" />}
-            {markedReminder ? 'Отмечено!' : 'Отметить как напомнили'}
+            {markedReminder ? translateText('Отмечено!') : translateText('Отметить как напомнили')}
           </button>
           <button
             onClick={exportSelectedToCSV}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/20 hover:bg-white/30 transition-colors"
           >
-            <Download className="size-3" /> Экспорт CSV
-          </button>
+            <Download className="size-3" />{translateText("Экспорт CSV")}</button>
           <button
             onClick={() => setSelectedIds(new Set())}
             className="ml-auto flex items-center gap-1 text-xs text-white/70 hover:text-white"
           >
-            <X className="size-3" /> Снять выделение
-          </button>
+            <X className="size-3" />{translateText("Снять выделение")}</button>
         </div>
       )}
 
@@ -737,9 +727,8 @@ export function SupportDashboard() {
       ) : (
         <>
           {/* Results summary */}
-          <p className="text-xs text-slate-500 mb-3">
-            Показано {startIdx + 1}–{Math.min(startIdx + pageSize, totalCount)} из {totalCount}{' '}
-            {totalCount !== allRows.length && `(всего ${allRows.length})`} семей · {formatMonth(month)}
+          <p className="text-xs text-slate-500 mb-3">{translateText("Показано")}{startIdx + 1}–{Math.min(startIdx + pageSize, totalCount)}{translateText(" из ")}{totalCount}{' '}
+            {totalCount !== allRows.length && translateText(`(всего ${allRows.length})`)}{translateText(" семей · ")}{formatMonth(month, locale)}
           </p>
 
           <SupportTable
@@ -759,15 +748,14 @@ export function SupportDashboard() {
           {/* ── Pagination ── */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
-              <p className="text-sm text-slate-500">
-                Страница {currentPage} из {totalPages}
+              <p className="text-sm text-slate-500">{translateText("Страница")}{currentPage}{translateText(" из ")}{totalPages}
               </p>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setPage(currentPage - 1)}
                   disabled={currentPage <= 1}
                   className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                  aria-label="Предыдущая страница"
+                  aria-label={translateText("Предыдущая страница")}
                 >
                   <ChevronLeft className="size-4 text-slate-600" />
                 </button>
@@ -793,7 +781,7 @@ export function SupportDashboard() {
                   onClick={() => setPage(currentPage + 1)}
                   disabled={currentPage >= totalPages}
                   className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                  aria-label="Следующая страница"
+                  aria-label={translateText("Следующая страница")}
                 >
                   <ChevronRight className="size-4 text-slate-600" />
                 </button>
@@ -818,33 +806,33 @@ export function SupportDashboard() {
 // ── Empty state ──────────────────────────────────────────────────────────────
 
 function EmptyState({ noFamilies, onReset }: { noFamilies: boolean; onReset?: () => void }) {
+  const { t: translateText } = useTranslation();
+
   return (
     <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
       <div className="size-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
         <span className="text-3xl">{noFamilies ? '🕌' : '🔍'}</span>
       </div>
       <h3 className="font-semibold text-slate-700 mb-1 text-lg">
-        {noFamilies ? 'Семей пока нет' : 'Ничего не найдено'}
+        {noFamilies ? translateText('Семей пока нет') : translateText('Ничего не найдено')}
       </h3>
       <p className="text-sm text-slate-400 mb-4">
         {noFamilies
-          ? 'Добавьте семью и настройте поддержку детей'
-          : 'По заданным условиям семьи не найдены'}
+          ? translateText('Добавьте семью и настройте поддержку детей')
+          : translateText('По заданным условиям семьи не найдены')}
       </p>
       {noFamilies ? (
         <Link
           href="/support/families/new"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
         >
-          <Plus className="size-4" /> Добавить семью
-        </Link>
+          <Plus className="size-4" />{translateText("Добавить семью")}</Link>
       ) : (
         <button
           onClick={onReset}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
         >
-          <X className="size-4" /> Сбросить фильтры
-        </button>
+          <X className="size-4" />{translateText("Сбросить фильтры")}</button>
       )}
     </div>
   );

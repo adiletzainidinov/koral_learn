@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, BookOpen, Trash2, Paperclip, Pencil } from 'lucide-react';
@@ -43,6 +47,8 @@ interface Props {
 }
 
 export function StudentAssignmentsSection({ studentId }: Props) {
+  const { t: translateText, locale } = useTranslation();
+
   const router = useRouter();
   const assignments = useStudentAssignments(studentId);
   const { removeAssignment, updateAssignmentStatus } = useAppStore();
@@ -70,18 +76,16 @@ export function StudentAssignmentsSection({ studentId }: Props) {
       {/* header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold text-slate-900">Задания</p>
-          <p className="text-xs text-slate-400">{assignments.length} заданий</p>
+          <p className="text-sm font-semibold text-slate-900">{translateText("Задания")}</p>
+          <p className="text-xs text-slate-400">{assignments.length}{translateText(" заданий")}</p>
         </div>
         <Button size="sm" onClick={handleCreate}>
-          <Plus className="size-3.5" />
-          Создать задание
-        </Button>
+          <Plus className="size-3.5" />{translateText("Создать задание")}</Button>
       </div>
 
       {/* status filters */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        {STATUS_FILTERS.map((f) => {
+        {localizeUI(STATUS_FILTERS, locale).map((f) => {
           const count =
             f.value === 'all'
               ? assignments.length
@@ -104,7 +108,7 @@ export function StudentAssignmentsSection({ studentId }: Props) {
 
       {/* type filters */}
       <div className="flex items-center gap-1.5 flex-wrap -mt-1">
-        {TYPE_FILTERS.map((f) => {
+        {localizeUI(TYPE_FILTERS, locale).map((f) => {
           const count =
             f.value === 'all'
               ? assignments.length
@@ -130,31 +134,31 @@ export function StudentAssignmentsSection({ studentId }: Props) {
         {sorted.length === 0 ? (
           <EmptyState
             icon={<BookOpen className="size-5" />}
-            title="Заданий нет"
+            title={translateText("Заданий нет")}
             description={
               statusFilter === 'all' && typeFilter === 'all'
-                ? 'Создайте первое задание'
-                : 'Нет заданий с такими фильтрами'
+                ? translateText('Создайте первое задание')
+                : translateText('Нет заданий с такими фильтрами')
             }
             action={
               statusFilter === 'all' && typeFilter === 'all' ? (
                 <Button size="sm" onClick={handleCreate}>
-                  <Plus className="size-3.5" />Создать задание
-                </Button>
+                  <Plus className="size-3.5" />{translateText("Создать задание")}</Button>
               ) : undefined
             }
             className="py-16"
           />
         ) : (
+          <div className="table-scroll" role="region" aria-label={translateText("Таблица с горизонтальной прокруткой")} tabIndex={0}>
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Задание</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Тип</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Статус</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Выдано</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Дедлайн</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Баллы</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Задание")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Тип")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Статус")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Выдано")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Дедлайн")}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Баллы")}</th>
                 <th className="px-4 py-3 w-10" />
               </tr>
             </thead>
@@ -227,6 +231,7 @@ export function StudentAssignmentsSection({ studentId }: Props) {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 
@@ -248,22 +253,17 @@ export function StudentAssignmentsSection({ studentId }: Props) {
       <Modal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        title="Удалить задание?"
-        description="Это действие нельзя отменить"
+        title={translateText("Удалить задание?")}
+        description={translateText("Это действие нельзя отменить")}
         size="sm"
         footer={
           <>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Отмена</Button>
-            <Button variant="danger" onClick={() => { if (deleteTarget) { removeAssignment(deleteTarget.id); setDeleteTarget(null); } }}>
-              Удалить
-            </Button>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>{translateText("Отмена")}</Button>
+            <Button variant="danger" onClick={() => { if (deleteTarget) { removeAssignment(deleteTarget.id); setDeleteTarget(null); } }}>{translateText("Удалить")}</Button>
           </>
         }
       >
-        <p className="text-sm text-slate-600">
-          Вы собираетесь удалить задание <strong>«{deleteTarget?.title}»</strong>.
-          Начисленные баллы будут отозваны.
-        </p>
+        <p className="text-sm text-slate-600">{translateText("Вы собираетесь удалить задание")}<strong>«{deleteTarget?.title}»</strong>{translateText(". Начисленные баллы будут отозваны.")}</p>
       </Modal>
     </div>
   );
@@ -276,6 +276,8 @@ function StatusSelect({
   value: AssignmentStatus;
   onChange: (s: AssignmentStatus) => void;
 }) {
+  const { locale } = useTranslation();
+
   return (
     <select
       value={value}
@@ -285,7 +287,7 @@ function StatusSelect({
         backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
       }}
     >
-      {Object.entries(ASSIGNMENT_STATUS_LABELS).map(([status, label]) => (
+      {Object.entries(localizeUI(ASSIGNMENT_STATUS_LABELS, locale)).map(([status, label]) => (
         <option key={status} value={status}>{label}</option>
       ))}
     </select>

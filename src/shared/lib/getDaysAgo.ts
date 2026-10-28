@@ -1,11 +1,12 @@
+import type { Locale } from '@/shared/i18n/locale-store';
 import { differenceInCalendarDays, isToday, isYesterday, parseISO } from 'date-fns';
 
-export function getDaysAgoLabel(dateStr: string): string {
+export function getDaysAgoLabel(dateStr: string, locale: Locale = 'ru'): string {
   const d = parseISO(dateStr);
-  if (isToday(d)) return 'Сегодня';
-  if (isYesterday(d)) return 'Вчера';
+  if (isToday(d)) return locale === 'ky' ? 'Бүгүн' : 'Сегодня';
+  if (isYesterday(d)) return locale === 'ky' ? 'Кечээ' : 'Вчера';
   const days = differenceInCalendarDays(new Date(), d);
-  return `${days} дн. назад`;
+  return locale === 'ky' ? `${days} күн мурун` : `${days} дн. назад`;
 }
 
 export function getDaysCount(dateStr: string): number {

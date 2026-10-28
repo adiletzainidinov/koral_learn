@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { File, Paperclip, StickyNote } from 'lucide-react';
 import { SectionCard } from '@/shared/ui/card';
 import { EmptyState } from '@/shared/ui/empty-state';
@@ -11,14 +14,16 @@ interface Props {
 }
 
 export function NotesTab({ notes, attachments }: Props) {
+  const { t: translateText } = useTranslation();
+
   const hasContent = notes || attachments.length > 0;
 
   if (!hasContent) {
     return (
       <EmptyState
         icon={<StickyNote className="size-5" />}
-        title="Нет заметок и файлов"
-        description="Добавьте заметки и вложения при редактировании ученика"
+        title={translateText("Нет заметок и файлов")}
+        description={translateText("Добавьте заметки и вложения при редактировании ученика")}
       />
     );
   }
@@ -26,13 +31,13 @@ export function NotesTab({ notes, attachments }: Props) {
   return (
     <div className="flex flex-col gap-6">
       {notes && (
-        <SectionCard title="Заметки">
+        <SectionCard title={translateText("Заметки")}>
           <p className="text-sm text-slate-600 whitespace-pre-wrap">{notes}</p>
         </SectionCard>
       )}
 
       {attachments.length > 0 && (
-        <SectionCard title="Файлы" description="Скриншоты и документы">
+        <SectionCard title={translateText("Файлы")} description={translateText("Скриншоты и документы")}>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {attachments.map((att) => {
               const isImage = att.type.startsWith('image/');
@@ -67,8 +72,8 @@ export function NotesTab({ notes, attachments }: Props) {
       {!notes && attachments.length === 0 && (
         <EmptyState
           icon={<Paperclip className="size-5" />}
-          title="Файлов пока нет"
-          description="Вложения добавляются при создании или редактировании ученика"
+          title={translateText("Файлов пока нет")}
+          description={translateText("Вложения добавляются при создании или редактировании ученика")}
         />
       )}
     </div>

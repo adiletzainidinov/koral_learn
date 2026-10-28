@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local responsive review page
+/public/mobile-review.html
+/public/localization-review.html
+/public/i18n-review-messages.json

@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { useState, useEffect } from 'react';
 import { Calendar, CalendarDays, File, Star, Pencil, Trash2 } from 'lucide-react';
 import { Modal } from '@/shared/ui/modal';
@@ -27,6 +31,8 @@ const STATUS_OPTIONS: { value: AssignmentStatus; label: string; activeClass: str
 ];
 
 export function AssignmentDetailsModal({ assignmentId, onClose, onEdit, onDelete }: Props) {
+  const { t: translateText, locale } = useTranslation();
+
   const assignment = useAppStore((s) =>
     assignmentId ? s.assignments.find((a) => a.id === assignmentId) : undefined
   );
@@ -79,21 +85,17 @@ export function AssignmentDetailsModal({ assignmentId, onClose, onEdit, onDelete
             <div className="flex items-center gap-2">
               {onEdit && (
                 <Button variant="outline" size="sm" onClick={handleEdit}>
-                  <Pencil className="size-3.5" />
-                  Редактировать
-                </Button>
+                  <Pencil className="size-3.5" />{translateText("Редактировать")}</Button>
               )}
               {onDelete && (
                 <Button
                   variant="ghost" size="sm" onClick={handleDelete}
                   className="text-red-500 hover:text-red-600 hover:bg-red-50"
                 >
-                  <Trash2 className="size-3.5" />
-                  Удалить
-                </Button>
+                  <Trash2 className="size-3.5" />{translateText("Удалить")}</Button>
               )}
             </div>
-            <Button variant="outline" onClick={onClose}>Закрыть</Button>
+            <Button variant="outline" onClick={onClose}>{translateText("Закрыть")}</Button>
           </div>
         }
       >
@@ -106,28 +108,26 @@ export function AssignmentDetailsModal({ assignmentId, onClose, onEdit, onDelete
           {/* meta */}
           <div className="flex items-center gap-5 text-sm text-slate-500 flex-wrap">
             <span className="flex items-center gap-1.5">
-              <Calendar className="size-3.5" />
-              Выдано: {formatDate(assignment.issuedAt)}
+              <Calendar className="size-3.5" />{translateText("Выдано:")}{formatDate(assignment.issuedAt)}
             </span>
             {assignment.dueDate && (
               <span className="flex items-center gap-1.5">
-                <CalendarDays className="size-3.5" />
-                Дедлайн: {formatDate(assignment.dueDate)}
+                <CalendarDays className="size-3.5" />{translateText("Дедлайн:")}{formatDate(assignment.dueDate)}
               </span>
             )}
             {points > 0 && (
               <span className="flex items-center gap-1.5 text-amber-600 font-medium">
                 <Star className="size-3.5" />
-                +{points} {points === 1 ? 'балл' : points < 5 ? 'балла' : 'баллов'}
+                +{points} {points === 1 ? translateText('балл') : points < 5 ? translateText('балла') : translateText('баллов')}
               </span>
             )}
           </div>
 
           {/* status selector */}
           <div className="flex flex-col gap-2">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Статус</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Статус")}</p>
             <div className="grid grid-cols-5 gap-1.5">
-              {STATUS_OPTIONS.map((opt) => (
+              {localizeUI(STATUS_OPTIONS, locale).map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -138,7 +138,7 @@ export function AssignmentDetailsModal({ assignmentId, onClose, onEdit, onDelete
                       : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
-                  {ASSIGNMENT_STATUS_LABELS[opt.value]}
+                  {localizeUI(ASSIGNMENT_STATUS_LABELS, locale)[opt.value]}
                 </button>
               ))}
             </div>
@@ -147,7 +147,7 @@ export function AssignmentDetailsModal({ assignmentId, onClose, onEdit, onDelete
           {/* description */}
           {assignment.description && (
             <div className="flex flex-col gap-1.5">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Описание</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Описание")}</p>
               <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-xl p-3">
                 {assignment.description}
               </p>
@@ -157,8 +157,7 @@ export function AssignmentDetailsModal({ assignmentId, onClose, onEdit, onDelete
           {/* attachments */}
           {attachments.length > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Вложения ({attachments.length})
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Вложения (")}{attachments.length})
               </p>
               <div className="grid grid-cols-4 gap-2">
                 {attachments.map((att) => {
@@ -186,18 +185,16 @@ export function AssignmentDetailsModal({ assignmentId, onClose, onEdit, onDelete
 
           {/* teacher comment */}
           <div className="flex flex-col gap-2">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Комментарий преподавателя
-            </p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Комментарий преподавателя")}</p>
             <textarea
               className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 resize-none outline-none min-h-[80px] placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors"
-              placeholder="Сделано хорошо, но нужно повторить 3-ю строку..."
+              placeholder={translateText("Сделано хорошо, но нужно повторить 3-ю строку...")}
               value={comment}
               onChange={(e) => { setComment(e.target.value); setCommentSaved(false); }}
             />
             <div className="flex items-center gap-3">
-              <Button size="sm" onClick={handleSaveComment}>Сохранить комментарий</Button>
-              {commentSaved && <span className="text-xs text-emerald-600 font-medium">Сохранено</span>}
+              <Button size="sm" onClick={handleSaveComment}>{translateText("Сохранить комментарий")}</Button>
+              {commentSaved && <span className="text-xs text-emerald-600 font-medium">{translateText("Сохранено")}</span>}
             </div>
           </div>
         </div>

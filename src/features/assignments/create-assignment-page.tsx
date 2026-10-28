@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Paperclip, X, File, GraduationCap, Home, Save } from 'lucide-react';
@@ -79,6 +83,8 @@ interface Props {
 }
 
 export function CreateAssignmentPage({ studentId }: Props) {
+  const { t: translateText, locale } = useTranslation();
+
   const router = useRouter();
   const student = useStudentById(studentId);
   const createAssignment = useAppStore((s) => s.createAssignment);
@@ -126,7 +132,7 @@ export function CreateAssignmentPage({ studentId }: Props) {
 
   function validate(): boolean {
     const errs: typeof errors = {};
-    if (!title.trim()) errs.title = 'Введите название задания';
+    if (!title.trim()) errs.title = translateText('Введите название задания');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -148,7 +154,7 @@ export function CreateAssignmentPage({ studentId }: Props) {
   function handleCancel() {
     if (isDirty) {
       const confirmed = window.confirm(
-        'Вы уверены, что хотите уйти? Черновик сохранён и будет доступен при следующем открытии.'
+        translateText('Вы уверены, что хотите уйти? Черновик сохранён и будет доступен при следующем открытии.')
       );
       if (!confirmed) return;
     }
@@ -181,9 +187,9 @@ export function CreateAssignmentPage({ studentId }: Props) {
   if (!student) {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-center">
-        <p className="text-slate-500 mb-4">Ученик не найден</p>
+        <p className="text-slate-500 mb-4">{translateText("Ученик не найден")}</p>
         <Link href="/students">
-          <Button variant="outline"><ArrowLeft className="size-4" />К списку учеников</Button>
+          <Button variant="outline"><ArrowLeft className="size-4" />{translateText("К списку учеников")}</Button>
         </Link>
       </div>
     );
@@ -197,26 +203,24 @@ export function CreateAssignmentPage({ studentId }: Props) {
           <Link href="/students">
             <Button variant="ghost" size="sm" className="size-8 p-0"><ArrowLeft className="size-4" /></Button>
           </Link>
-          <Link href="/students" className="text-sm text-slate-400 hover:text-slate-600 transition-colors">Ученики</Link>
+          <Link href="/students" className="text-sm text-slate-400 hover:text-slate-600 transition-colors">{translateText("Ученики")}</Link>
           <span className="text-slate-300">/</span>
           <Link href={`/students/${studentId}`} className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
             {student.fullName}
           </Link>
           <span className="text-slate-300">/</span>
-          <span className="text-sm font-medium text-slate-900">Создать задание</span>
+          <span className="text-sm font-medium text-slate-900">{translateText("Создать задание")}</span>
         </div>
 
         {/* header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Создать задание</h1>
-            <p className="text-sm text-slate-500 mt-1">Выдайте задание ученику — {student.fullName}</p>
+            <h1 className="text-xl font-bold text-slate-900">{translateText("Создать задание")}</h1>
+            <p className="text-sm text-slate-500 mt-1">{translateText("Выдайте задание ученику — ")}{student.fullName}</p>
           </div>
           {draftRestored && (
             <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 shrink-0">
-              <Save className="size-3.5" />
-              Черновик восстановлен
-            </div>
+              <Save className="size-3.5" />{translateText("Черновик восстановлен")}</div>
           )}
         </div>
 
@@ -224,18 +228,18 @@ export function CreateAssignmentPage({ studentId }: Props) {
         <div className="max-w-2xl flex flex-col gap-6">
           {/* title */}
           <Input
-            label="Название задания *"
-            placeholder="Сура Аль-Фатиха, стр. 12–15..."
+            label={translateText("Название задания *")}
+            placeholder={translateText("Сура Аль-Фатиха, стр. 12–15...")}
             value={title}
             onChange={(e) => { setTitle(e.target.value); setErrors((p) => ({ ...p, title: undefined })); }}
-            error={errors.title}
+            error={translateText(errors.title)}
           />
 
           {/* type */}
           <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-slate-700">Тип задания</p>
-            <div className="grid grid-cols-2 gap-3">
-              {TYPE_OPTIONS.map((opt) => (
+            <p className="text-sm font-medium text-slate-700">{translateText("Тип задания")}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {localizeUI(TYPE_OPTIONS, locale).map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -262,11 +266,11 @@ export function CreateAssignmentPage({ studentId }: Props) {
 
           {/* description + attachments */}
           <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-slate-700">Описание и вложения</p>
+            <p className="text-sm font-medium text-slate-700">{translateText("Описание и вложения")}</p>
             <div className="rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 transition-colors">
               <textarea
                 className="w-full px-4 py-3 text-sm resize-none outline-none min-h-[120px] placeholder:text-slate-400"
-                placeholder="Что нужно сделать ученику..."
+                placeholder={translateText("Что нужно сделать ученику...")}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 onPaste={handlePaste}
@@ -277,16 +281,14 @@ export function CreateAssignmentPage({ studentId }: Props) {
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-emerald-600 transition-colors cursor-pointer"
                 >
-                  <Paperclip className="size-3.5" />
-                  Прикрепить файл
-                </button>
+                  <Paperclip className="size-3.5" />{translateText("Прикрепить файл")}</button>
                 <span className="text-slate-300 text-xs">·</span>
-                <span className="text-xs text-slate-400">Ctrl+V для скриншота</span>
+                <span className="text-xs text-slate-400">{translateText("Ctrl+V для скриншота")}</span>
               </div>
             </div>
 
             {attachments.length > 0 && (
-              <div className="grid grid-cols-4 gap-2 mt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
                 {attachments.map((att) => {
                   const isImage = att.type.startsWith('image/');
                   return (
@@ -334,7 +336,7 @@ export function CreateAssignmentPage({ studentId }: Props) {
 
           {/* due date */}
           <Input
-            label="Дедлайн (опционально)"
+            label={translateText("Дедлайн (опционально)")}
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
@@ -346,12 +348,10 @@ export function CreateAssignmentPage({ studentId }: Props) {
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-slate-200 z-20">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <p className="text-xs text-slate-400 flex items-center gap-1.5">
-            <Save className="size-3" />
-            Черновик сохраняется автоматически
-          </p>
+            <Save className="size-3" />{translateText("Черновик сохраняется автоматически")}</p>
           <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={handleCancel}>Отмена</Button>
-            <Button onClick={handleSubmit}>Создать задание</Button>
+            <Button variant="outline" onClick={handleCancel}>{translateText("Отмена")}</Button>
+            <Button onClick={handleSubmit}>{translateText("Создать задание")}</Button>
           </div>
         </div>
       </div>

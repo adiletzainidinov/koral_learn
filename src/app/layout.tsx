@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { LanguageDocument } from '@/shared/i18n/language-switcher';
 
 export const metadata: Metadata = {
   title: { default: 'QuranLearn', template: '%s — QuranLearn' },
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ru">
-      <body>{children}</body>
+      <body><LanguageDocument />{children}</body>
     </html>
   );
 }

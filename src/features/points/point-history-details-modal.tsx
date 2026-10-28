@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { useState, useEffect } from 'react';
 import { BookOpen, CalendarDays, Pencil } from 'lucide-react';
 import { Modal } from '@/shared/ui/modal';
@@ -26,6 +30,8 @@ interface Props {
 }
 
 export function PointHistoryDetailsModal({ itemId, onClose }: Props) {
+  const { t: translateText, locale } = useTranslation();
+
   const item = useAppStore((s) =>
     itemId ? s.pointHistory.find((h) => h.id === itemId) : undefined
   );
@@ -73,20 +79,18 @@ export function PointHistoryDetailsModal({ itemId, onClose }: Props) {
 
   const footer = editMode ? (
     <>
-      <Button variant="outline" onClick={() => setEditMode(false)}>Отмена</Button>
-      <Button onClick={handleSave}>Сохранить</Button>
+      <Button variant="outline" onClick={() => setEditMode(false)}>{translateText("Отмена")}</Button>
+      <Button onClick={handleSave}>{translateText("Сохранить")}</Button>
     </>
   ) : (
     <div className="flex items-center justify-between w-full">
       <div>
         {isBonus && (
           <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
-            <Pencil className="size-3.5" />
-            Редактировать
-          </Button>
+            <Pencil className="size-3.5" />{translateText("Редактировать")}</Button>
         )}
       </div>
-      <Button variant="outline" onClick={handleClose}>Закрыть</Button>
+      <Button variant="outline" onClick={handleClose}>{translateText("Закрыть")}</Button>
     </div>
   );
 
@@ -95,7 +99,7 @@ export function PointHistoryDetailsModal({ itemId, onClose }: Props) {
       <Modal
         isOpen={!!itemId}
         onClose={handleClose}
-        title={editMode ? 'Редактировать запись' : 'Запись истории баллов'}
+        title={editMode ? translateText('Редактировать запись') : translateText('Запись истории баллов')}
         size="md"
         footer={footer}
       >
@@ -103,22 +107,22 @@ export function PointHistoryDetailsModal({ itemId, onClose }: Props) {
           editMode ? (
             <div className="flex flex-col gap-4">
               <Input
-                label="Причина *"
+                label={translateText("Причина *")}
                 value={editReason}
                 onChange={(e) => setEditReason(e.target.value)}
               />
               <Input
-                label="Баллы *"
+                label={translateText("Баллы *")}
                 type="number"
                 value={editPoints}
                 onChange={(e) => setEditPoints(e.target.value)}
-                hint="Можно отрицательное значение для снятия баллов"
+                hint={translateText("Можно отрицательное значение для снятия баллов")}
               />
               <div className="flex flex-col gap-1.5">
-                <p className="text-sm font-medium text-slate-700">Комментарий</p>
+                <p className="text-sm font-medium text-slate-700">{translateText("Комментарий")}</p>
                 <textarea
                   className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 resize-none outline-none min-h-[80px] placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors"
-                  placeholder="Дополнительная заметка..."
+                  placeholder={translateText("Дополнительная заметка...")}
                   value={editComment}
                   onChange={(e) => setEditComment(e.target.value)}
                 />
@@ -128,27 +132,27 @@ export function PointHistoryDetailsModal({ itemId, onClose }: Props) {
             <div className="flex flex-col gap-5">
               {/* source + points */}
               <div className="flex items-center justify-between">
-                <Badge variant="slate">{POINT_SOURCE_LABELS[item.source]}</Badge>
+                <Badge variant="slate">{localizeUI(POINT_SOURCE_LABELS, locale)[item.source]}</Badge>
                 <PointsBadge points={item.points} />
               </div>
 
               {/* reason */}
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Причина</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">{translateText("Причина")}</p>
                 <p className="text-sm text-slate-800">{item.reason}</p>
               </div>
 
               {/* comment */}
               {item.comment && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Комментарий</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">{translateText("Комментарий")}</p>
                   <p className="text-sm text-slate-600 bg-slate-50 rounded-xl p-3 whitespace-pre-wrap">{item.comment}</p>
                 </div>
               )}
 
               {/* date */}
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Дата записи</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">{translateText("Дата записи")}</p>
                 <p className="text-sm text-slate-600">{formatDateTime(item.createdAt)}</p>
               </div>
 
@@ -156,30 +160,26 @@ export function PointHistoryDetailsModal({ itemId, onClose }: Props) {
               {item.source === 'assignment' && item.assignmentId && (
                 <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                   <div className="flex items-center gap-2 text-sm text-slate-700">
-                    <BookOpen className="size-4 text-blue-500" />
-                    Связанное задание
-                  </div>
-                  <Button size="sm" onClick={() => setAssignmentOpen(item.assignmentId!)}>
-                    Открыть задание
-                  </Button>
+                    <BookOpen className="size-4 text-blue-500" />{translateText("Связанное задание")}</div>
+                  <Button size="sm" onClick={() => setAssignmentOpen(item.assignmentId!)}>{translateText("Открыть задание")}</Button>
                 </div>
               )}
 
               {/* attendance inline edit */}
               {item.source === 'attendance' && attendanceRecord && (
                 <div className="flex flex-col gap-3">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Посещаемость</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{translateText("Посещаемость")}</p>
                   <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                     <div className="flex items-center gap-2 text-sm text-slate-700">
                       <CalendarDays className="size-4 text-emerald-500" />
-                      {formatShortDate(attendanceRecord.date)}
+                      {formatShortDate(attendanceRecord.date, locale)}
                     </div>
                     <AttendanceStatusBadge status={attendanceRecord.status} />
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500 mb-2">Изменить статус:</p>
+                    <p className="text-xs text-slate-500 mb-2">{translateText("Изменить статус:")}</p>
                     <div className="grid grid-cols-2 gap-1.5">
-                      {ATTENDANCE_INLINE.map(({ status, label, base }) => {
+                      {localizeUI(ATTENDANCE_INLINE, locale).map(({ status, label, base }) => {
                         const isActive = attendanceRecord.status === status;
                         const pts = getAttendancePoints(status);
                         return (

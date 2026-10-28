@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+
+
 import { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Home, FileText, AlertTriangle, CheckCircle, UserPlus } from 'lucide-react';
@@ -44,6 +47,8 @@ function normalizeName(v: string) {
 }
 
 export function FamilyForm() {
+  const { t: translateText } = useTranslation();
+
   const router = useRouter();
   const families = useFamilies();
   const createFamily = useAppStore((s) => s.createFamily);
@@ -63,7 +68,7 @@ export function FamilyForm() {
 
   function validate(): boolean {
     const errs: Errors = {};
-    if (!form.fatherFullName.trim()) errs.fatherFullName = 'Введите ФИО отца';
+    if (!form.fatherFullName.trim()) errs.fatherFullName = translateText('Введите ФИО отца');
     setErrors(errs);
     if (errs.fatherFullName) nameRef.current?.focus();
     return Object.keys(errs).length === 0;
@@ -84,7 +89,7 @@ export function FamilyForm() {
 
   function doCreate() {
     setSaving(true);
-    const familyName = `Семья: ${form.fatherFullName.trim()}`;
+    const familyName = translateText(`Семья: ${form.fatherFullName.trim()}`);
     const id = createFamily({
       fatherFullName: form.fatherFullName.trim(),
       name: familyName,
@@ -112,9 +117,9 @@ export function FamilyForm() {
   if (createdFamilyId) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
-          <Breadcrumb items={[{ label: 'Семьи', href: '/families' }, { label: 'Новая семья' }]} />
-          <h1 className="text-xl font-bold text-slate-900 mt-1">Новая семья</h1>
+        <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
+          <Breadcrumb items={[{ label: translateText('Семьи'), href: '/families' }, { label: translateText('Новая семья') }]} />
+          <h1 className="text-xl font-bold text-slate-900 mt-1">{translateText("Новая семья")}</h1>
         </div>
 
         <Card padding="none">
@@ -123,32 +128,26 @@ export function FamilyForm() {
               <CheckCircle className="size-7 text-emerald-600" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Семья создана</h2>
-              <p className="text-sm text-slate-500 mt-1">«{createdFamilyName}» добавлена в систему</p>
+              <h2 className="text-lg font-semibold text-slate-900">{translateText("Семья создана")}</h2>
+              <p className="text-sm text-slate-500 mt-1">«{createdFamilyName}{translateText("» добавлена в систему")}</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 mt-2 w-full max-w-sm">
               <Button
                 className="flex-1"
                 onClick={() => router.push(`/parents/new?familyId=${createdFamilyId}`)}
               >
-                <UserPlus className="size-4" />
-                Добавить представителей
-              </Button>
+                <UserPlus className="size-4" />{translateText("Добавить представителей")}</Button>
               <Button
                 variant="outline"
                 className="flex-1"
                 onClick={() => router.push(`/support/families/${createdFamilyId}`)}
-              >
-                Открыть семью
-              </Button>
+              >{translateText("Открыть семью")}</Button>
             </div>
             <button
               type="button"
               onClick={() => router.push('/families')}
               className="text-sm text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              Вернуться к списку
-            </button>
+            >{translateText("Вернуться к списку")}</button>
           </div>
         </Card>
       </div>
@@ -158,11 +157,11 @@ export function FamilyForm() {
   return (
     <div className="flex flex-col gap-6">
       {/* sticky header */}
-      <div className="sticky top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-6 xl:-mx-8 px-6 xl:px-8 py-4">
+      <div className="sticky top-16 sm:top-14 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 -mx-4 sm:-mx-6 xl:-mx-8 px-4 sm:px-6 xl:px-8 py-4">
         <Breadcrumb
           items={[
-            { label: 'Семьи', href: '/families' },
-            { label: 'Новая семья' },
+            { label: translateText('Семьи'), href: '/families' },
+            { label: translateText('Новая семья') },
           ]}
         />
         <div className="flex items-center gap-3 mt-1">
@@ -174,8 +173,8 @@ export function FamilyForm() {
             <ArrowLeft className="size-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Новая семья</h1>
-            <p className="text-sm text-slate-500">Введите имя отца семейства — оно будет идентифицировать семью</p>
+            <h1 className="text-xl font-bold text-slate-900">{translateText("Новая семья")}</h1>
+            <p className="text-sm text-slate-500">{translateText("Введите имя отца семейства — оно будет идентифицировать семью")}</p>
           </div>
         </div>
       </div>
@@ -183,40 +182,39 @@ export function FamilyForm() {
       {hasAttemptedSubmit && Object.keys(errors).length > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
           <AlertTriangle className="size-4 text-red-500 shrink-0" />
-          <p className="text-sm text-red-700">
-            Заполните обязательные поля:{' '}
-            <span className="font-medium">{errors.fatherFullName && 'ФИО отца'}</span>
+          <p className="text-sm text-red-700">{translateText("Заполните обязательные поля:")}{' '}
+            <span className="font-medium">{errors.fatherFullName && translateText('ФИО отца')}</span>
           </p>
         </div>
       )}
 
       <Section
         icon={<Home className="size-4" />}
-        title="Основная информация"
-        description="ФИО отца обязательно — по нему система идентифицирует семью"
+        title={translateText("Основная информация")}
+        description={translateText("ФИО отца обязательно — по нему система идентифицирует семью")}
       >
         <div className="flex flex-col gap-4">
           <Input
             ref={nameRef}
-            label="ФИО отца *"
-            placeholder="Маматов Бакыт Маматович"
+            label={translateText("ФИО отца *")}
+            placeholder={translateText("Маматов Бакыт Маматович")}
             value={form.fatherFullName}
             onChange={(e) => { upd('fatherFullName', e.target.value); clearError('fatherFullName'); }}
-            error={errors.fatherFullName}
-            hint={form.fatherFullName.trim() ? `Название семьи: «Семья: ${form.fatherFullName.trim()}»` : undefined}
+            error={translateText(errors.fatherFullName)}
+            hint={translateText(form.fatherFullName.trim() ? translateText(`Название семьи: «Семья: ${form.fatherFullName.trim()}»`) : undefined)}
           />
           <Input
-            label="Адрес"
-            placeholder="г. Бишкек, ул. Токтогула, д. 14"
+            label={translateText("Адрес")}
+            placeholder={translateText("г. Бишкек, ул. Токтогула, д. 14")}
             value={form.address}
             onChange={(e) => upd('address', e.target.value)}
           />
         </div>
       </Section>
 
-      <Section icon={<FileText className="size-4" />} title="Заметки" description="Дополнительная информация о семье">
+      <Section icon={<FileText className="size-4" />} title={translateText("Заметки")} description={translateText("Дополнительная информация о семье")}>
         <textarea
-          placeholder="Примечания по семье..."
+          placeholder={translateText("Примечания по семье...")}
           value={form.notes}
           onChange={(e) => upd('notes', e.target.value)}
           rows={3}
@@ -225,21 +223,20 @@ export function FamilyForm() {
       </Section>
 
       <div className="flex items-center justify-end gap-3 py-4 border-t border-slate-200 mt-2">
-        <Button variant="outline" onClick={handleCancel}>Отмена</Button>
+        <Button variant="outline" onClick={handleCancel}>{translateText("Отмена")}</Button>
         <Button onClick={handleSubmit} loading={saving}>
-          <Save className="size-4" />Создать семью
-        </Button>
+          <Save className="size-4" />{translateText("Создать семью")}</Button>
       </div>
 
       <Modal
         isOpen={duplicateMatch !== null}
         onClose={() => setDuplicateMatch(null)}
         size="sm"
-        title="Такая семья уже существует"
-        description={duplicateMatch ? `Семья с отцом «${duplicateMatch.name}» уже зарегистрирована.` : undefined}
+        title={translateText("Такая семья уже существует")}
+        description={duplicateMatch ? translateText(`Семья с отцом «${duplicateMatch.name}» уже зарегистрирована.`) : undefined}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setDuplicateMatch(null)}>Отмена</Button>
+            <Button variant="ghost" onClick={() => setDuplicateMatch(null)}>{translateText("Отмена")}</Button>
             <Button
               variant="outline"
               onClick={() => {
@@ -247,18 +244,12 @@ export function FamilyForm() {
                 setDuplicateMatch(null);
                 if (id) router.push(`/support/families/${id}`);
               }}
-            >
-              Открыть существующую
-            </Button>
-            <Button onClick={() => { setDuplicateMatch(null); doCreate(); }}>
-              Всё равно создать
-            </Button>
+            >{translateText("Открыть существующую")}</Button>
+            <Button onClick={() => { setDuplicateMatch(null); doCreate(); }}>{translateText("Всё равно создать")}</Button>
           </>
         }
       >
-        <p className="text-sm text-slate-600">
-          Найдена семья с похожим именем отца. Хотите открыть существующую запись или создать новую?
-        </p>
+        <p className="text-sm text-slate-600">{translateText("Найдена семья с похожим именем отца. Хотите открыть существующую запись или создать новую?")}</p>
       </Modal>
     </div>
   );

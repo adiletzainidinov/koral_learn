@@ -20,6 +20,79 @@ body {
   height: 100%;
 }
 
+/* Keep wide data within its own scroll region, rather than widening the page. */
+.table-scroll {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border-radius: inherit;
+}
+
+.table-scroll > table {
+  min-width: 640px;
+}
+
+@media (max-width: 639px) {
+  /* 16px prevents automatic zoom when focusing a field in mobile Safari. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="range"]),
+  select,
+  textarea {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="range"]),
+  select {
+    min-height: 44px;
+  }
+
+  .attendance-records > table,
+  .attendance-records tbody {
+    display: block;
+    min-width: 0;
+  }
+
+  .attendance-records thead {
+    display: none;
+  }
+
+  .attendance-records tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .attendance-records td {
+    min-width: 0;
+    padding: 0;
+  }
+
+  .attendance-records td:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .attendance-records td:nth-child(3) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .attendance-records button {
+    min-height: 44px;
+    padding-inline: 10px;
+  }
+}
+
+@media (hover: none) {
+  /* Editing and deletion must remain discoverable without hover. */
+  .group .opacity-0 {
+    opacity: 1;
+  }
+}
+
 body {
   background-color: #f8fafc;
   color: #0f172a;

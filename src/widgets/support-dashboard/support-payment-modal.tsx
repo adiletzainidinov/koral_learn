@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { X, Check, PiggyBank, Gift, ChevronRight, Copy } from 'lucide-react';
 import {
@@ -48,10 +52,12 @@ function SuccessPanel({
   familyName: string;
   onClose: () => void;
 }) {
+  const { t: translateText , locale } = useTranslation();
+
   const [copied, setCopied] = useState(false);
 
   function copyThankYou() {
-    const msg = getThankYouMessage(info.payerName ?? familyName, info.month);
+    const msg = getThankYouMessage(info.payerName ?? familyName, info.month, locale);
     navigator.clipboard.writeText(msg).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -64,26 +70,26 @@ function SuccessPanel({
         <div className="size-14 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
           <Check className="size-7 text-emerald-600" />
         </div>
-        <h2 className="text-lg font-bold text-slate-900">Оплата сохранена</h2>
-        <p className="text-sm text-slate-500 mt-0.5">{familyName} · {formatMonth(info.month)}</p>
+        <h2 className="text-lg font-bold text-slate-900">{translateText("Оплата сохранена")}</h2>
+        <p className="text-sm text-slate-500 mt-0.5">{familyName} · {formatMonth(info.month, locale)}</p>
       </div>
 
       <div className="bg-slate-50 rounded-xl p-4 mb-4 space-y-2 text-sm">
         <div className="flex justify-between">
-          <span className="text-slate-500">За {formatMonth(info.month)}</span>
+          <span className="text-slate-500">{translateText("За ")}{formatMonth(info.month, locale)}</span>
           <span className="font-semibold text-emerald-700">{formatAmount(info.appliedAmount)}</span>
         </div>
         {info.overpaidAmount > 0 && (
           <div className="flex justify-between">
             <span className="text-slate-500">
-              {info.overpaymentType === 'advance' ? 'Аванс' : 'Хадия'}
+              {info.overpaymentType === 'advance' ? translateText('Аванс') : translateText('Хадия')}
             </span>
             <span className="font-semibold text-blue-600">{formatAmount(info.overpaidAmount)}</span>
           </div>
         )}
         {info.payerName && (
           <div className="flex justify-between">
-            <span className="text-slate-500">Плательщик</span>
+            <span className="text-slate-500">{translateText("Плательщик")}</span>
             <span className="font-medium text-slate-700">{info.payerName}</span>
           </div>
         )}
@@ -100,20 +106,17 @@ function SuccessPanel({
           )}
         >
           {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-          {copied ? 'Скопировано!' : 'Скопировать благодарность'}
+          {copied ? translateText('Скопировано!') : translateText('Скопировать благодарность')}
         </button>
         <a
           href={`/support/families/${familyId}`}
           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-        >
-          Открыть карточку семьи <ChevronRight className="size-4" />
+        >{translateText("Открыть карточку семьи")}<ChevronRight className="size-4" />
         </a>
         <button
           onClick={onClose}
           className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
-        >
-          Закрыть
-        </button>
+        >{translateText("Закрыть")}</button>
       </div>
     </div>
   );
@@ -122,24 +125,22 @@ function SuccessPanel({
 // ─── Confirm close dialog ─────────────────────────────────────────────────────
 
 function ConfirmCloseDialog({ onContinue, onDiscard }: { onContinue: () => void; onDiscard: () => void }) {
+  const { t: translateText } = useTranslation();
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-        <h3 className="text-base font-bold text-slate-900 mb-2">Отменить внесение оплаты?</h3>
-        <p className="text-sm text-slate-500 mb-5">Введённые данные не будут сохранены.</p>
+        <h3 className="text-base font-bold text-slate-900 mb-2">{translateText("Отменить внесение оплаты?")}</h3>
+        <p className="text-sm text-slate-500 mb-5">{translateText("Введённые данные не будут сохранены.")}</p>
         <div className="flex gap-3">
           <button
             onClick={onContinue}
             className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            Продолжить заполнение
-          </button>
+          >{translateText("Продолжить заполнение")}</button>
           <button
             onClick={onDiscard}
             className="flex-1 py-2.5 rounded-xl bg-rose-600 text-white text-sm font-medium hover:bg-rose-700"
-          >
-            Отменить оплату
-          </button>
+          >{translateText("Отменить оплату")}</button>
         </div>
       </div>
     </div>
@@ -149,6 +150,8 @@ function ConfirmCloseDialog({ onContinue, onDiscard }: { onContinue: () => void;
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
 export function SupportPaymentModal({ familyId, month, onClose }: Props) {
+  const { t: translateText, locale } = useTranslation();
+
   const families = useFamilies();
   const allSupportPayments = useAppStore((s) => s.supportPayments);
   const createSupportPayment = useAppStore((s) => s.createSupportPayment);
@@ -262,8 +265,8 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
 
   function validate() {
     const errs: typeof errors = {};
-    if (numAmount <= 0) errs.amount = 'Введите сумму';
-    if (isOverpaid && !overpaymentType) errs.overpayment = 'Выберите, что делать с переплатой';
+    if (numAmount <= 0) errs.amount = translateText('Введите сумму');
+    if (isOverpaid && !overpaymentType) errs.overpayment = translateText('Выберите, что делать с переплатой');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -329,16 +332,16 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
           <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100 shrink-0">
             <div>
               <h2 className="text-lg font-bold text-slate-900">
-                {successInfo ? 'Оплата принята' : 'Принять оплату'}
+                {successInfo ? translateText('Оплата принята') : translateText('Принять оплату')}
               </h2>
               <p className="text-sm text-slate-500">
-                {family.name} · {formatMonth(month)}
+                {family.name} · {formatMonth(month, locale)}
               </p>
             </div>
             <button
               onClick={handleCloseRequest}
               className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"
-              aria-label="Закрыть"
+              aria-label={translateText("Закрыть")}
             >
               <X className="size-5" />
             </button>
@@ -361,22 +364,22 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
               {expectedAmount > 0 && (
                 <div className="bg-slate-50 rounded-xl p-3 flex gap-4 text-sm">
                   <div>
-                    <p className="text-slate-400 text-xs">Ожидается</p>
+                    <p className="text-slate-400 text-xs">{translateText("Ожидается")}</p>
                     <p className="font-semibold text-slate-800">{formatAmount(expectedAmount)}</p>
                   </div>
                   <div>
-                    <p className="text-slate-400 text-xs">Оплачено</p>
+                    <p className="text-slate-400 text-xs">{translateText("Оплачено")}</p>
                     <p className="font-semibold text-emerald-600">{formatAmount(alreadyPaidAmount)}</p>
                   </div>
                   {remainingAmount > 0 ? (
                     <div>
-                      <p className="text-slate-400 text-xs">Остаток</p>
+                      <p className="text-slate-400 text-xs">{translateText("Остаток")}</p>
                       <p className="font-semibold text-amber-600">{formatAmount(remainingAmount)}</p>
                     </div>
                   ) : (
                     <div>
-                      <p className="text-slate-400 text-xs">Статус</p>
-                      <p className="font-semibold text-emerald-600 text-xs mt-0.5">Оплачено ✓</p>
+                      <p className="text-slate-400 text-xs">{translateText("Статус")}</p>
+                      <p className="font-semibold text-emerald-600 text-xs mt-0.5">{translateText("Оплачено ✓")}</p>
                     </div>
                   )}
                 </div>
@@ -385,7 +388,7 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
               {/* Student target selector */}
               {activeStudents.length > 1 && (
                 <div>
-                  <p className="text-xs font-medium text-slate-600 mb-1.5">Кому зачислить?</p>
+                  <p className="text-xs font-medium text-slate-600 mb-1.5">{translateText("Кому зачислить?")}</p>
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       onClick={() => setTargetMode('all')}
@@ -395,9 +398,7 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
                           ? 'bg-emerald-600 border-emerald-600 text-white'
                           : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       )}
-                    >
-                      Всей семье
-                    </button>
+                    >{translateText("Всей семье")}</button>
                     <button
                       onClick={() => setTargetMode('selected')}
                       className={cn(
@@ -406,9 +407,7 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
                           ? 'bg-emerald-600 border-emerald-600 text-white'
                           : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       )}
-                    >
-                      Выбрать учеников
-                    </button>
+                    >{translateText("Выбрать учеников")}</button>
                   </div>
                   {targetMode === 'selected' && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
@@ -437,23 +436,18 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
 
               {/* Amount input */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                  Полученная сумма (сом)
-                </label>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">{translateText("Полученная сумма (сом)")}</label>
                 {remainingAmount > 0 && (
                   <div className="flex gap-2 mb-2">
                     <button
                       onClick={() => { setAmountStr(String(remainingAmount)); setErrors((p) => ({ ...p, amount: undefined })); }}
                       className="flex-1 py-1.5 px-2 rounded-xl border border-emerald-200 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
-                    >
-                      Весь остаток ({formatAmount(remainingAmount)})
+                    >{translateText("Весь остаток (")}{formatAmount(remainingAmount)})
                     </button>
                     <button
                       onClick={() => { setAmountStr(String(Math.ceil(remainingAmount / 2))); setErrors((p) => ({ ...p, amount: undefined })); }}
                       className="flex-1 py-1.5 px-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                    >
-                      Половина
-                    </button>
+                    >{translateText("Половина")}</button>
                     <button
                       onClick={() => { setAmountStr('1000'); setErrors((p) => ({ ...p, amount: undefined })); }}
                       className="py-1.5 px-3 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"
@@ -480,7 +474,7 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
               {/* Distribution preview */}
               {numAmount > 0 && studentsWithDebt.length > 0 && (
                 <div className="bg-slate-50 rounded-xl p-3">
-                  <p className="text-xs font-semibold text-slate-500 mb-2">Распределение оплаты</p>
+                  <p className="text-xs font-semibold text-slate-500 mb-2">{translateText("Распределение оплаты")}</p>
                   <div className="space-y-1.5">
                     {studentsWithDebt.map((s) => {
                       const d = distribution.find((x) => x.studentId === s.id);
@@ -507,17 +501,14 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
                   'rounded-xl border p-3',
                   errors.overpayment ? 'border-red-300 bg-red-50' : 'border-amber-200 bg-amber-50'
                 )}>
-                  <p className="text-xs font-semibold text-slate-700 mb-1">
-                    Переплата: {formatAmount(overpaidAmount)}
+                  <p className="text-xs font-semibold text-slate-700 mb-1">{translateText("Переплата:")}{formatAmount(overpaidAmount)}
                   </p>
-                  <p className="text-xs text-slate-500 mb-2">
-                    К месяцу зачтётся {formatAmount(appliedAmount)} — остальное нужно распределить:
-                  </p>
+                  <p className="text-xs text-slate-500 mb-2">{translateText("К месяцу зачтётся")}{formatAmount(appliedAmount)}{translateText("— остальное нужно распределить:")}</p>
                   <div className="space-y-1.5">
                     {(
                       [
-                        { type: 'advance' as const, icon: <PiggyBank className="size-3.5 text-blue-500" />, label: 'Аванс на следующий месяц', desc: 'Переплата зачтётся в будущем' },
-                        { type: 'gift' as const, icon: <Gift className="size-3.5 text-purple-500" />, label: 'Хадия / пожертвование', desc: 'Дополнительный вклад в обучение' },
+                        { type: 'advance' as const, icon: <PiggyBank className="size-3.5 text-blue-500" />, label: translateText('Аванс на следующий месяц'), desc: translateText('Переплата зачтётся в будущем') },
+                        { type: 'gift' as const, icon: <Gift className="size-3.5 text-purple-500" />, label: translateText('Хадия / пожертвование'), desc: translateText('Дополнительный вклад в обучение') },
                       ] as const
                     ).map(({ type, icon, label, desc }) => (
                       <button
@@ -552,7 +543,7 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
 
               {/* Payer */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Кто внёс оплату?</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">{translateText("Кто внёс оплату?")}</label>
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     type="button"
@@ -563,9 +554,7 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
                         ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     )}
-                  >
-                    Не указано
-                  </button>
+                  >{translateText("Не указано")}</button>
                   {familyContacts.map((c) => (
                     <button
                       key={c.id}
@@ -590,14 +579,12 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
                         ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     )}
-                  >
-                    Другой
-                  </button>
+                  >{translateText("Другой")}</button>
                 </div>
                 {paidBy === PAID_BY_OTHER && (
                   <input
                     type="text"
-                    placeholder="Имя плательщика"
+                    placeholder={translateText("Имя плательщика")}
                     value={paidByOtherName}
                     onChange={(e) => setPaidByOtherName(e.target.value)}
                     className="w-full mt-2 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
@@ -607,9 +594,9 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
 
               {/* Payment method */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Способ оплаты</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">{translateText("Способ оплаты")}</label>
                 <div className="flex flex-wrap gap-2">
-                  {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => (
+                  {(Object.keys(localizeUI(PAYMENT_METHOD_LABELS, locale)) as PaymentMethod[]).map((m) => (
                     <button
                       key={m}
                       onClick={() => setMethod(m)}
@@ -620,7 +607,7 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
                           : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       )}
                     >
-                      {PAYMENT_METHOD_LABELS[m]}
+                      {localizeUI(PAYMENT_METHOD_LABELS, locale)[m]}
                     </button>
                   ))}
                 </div>
@@ -628,10 +615,10 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
 
               {/* Comment */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Комментарий</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">{translateText("Комментарий")}</label>
                 <input
                   type="text"
-                  placeholder="Примечание..."
+                  placeholder={translateText("Примечание...")}
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
@@ -641,14 +628,14 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
               {/* Preview summary before submit */}
               {numAmount > 0 && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs">
-                  <p className="font-semibold text-emerald-800 mb-1.5">Итог:</p>
+                  <p className="font-semibold text-emerald-800 mb-1.5">{translateText("Итог:")}</p>
                   <p className="text-emerald-700">
-                    {formatAmount(appliedAmount)} будет зачислено за {formatMonth(month)}
+                    {formatAmount(appliedAmount)}{translateText(" будет зачислено за ")}{formatMonth(month, locale)}
                   </p>
                   {overpaidAmount > 0 && overpaymentType && (
                     <p className="text-blue-600 mt-0.5">
-                      {formatAmount(overpaidAmount)} будет сохранено как{' '}
-                      {overpaymentType === 'advance' ? 'аванс' : 'хадия'}
+                      {formatAmount(overpaidAmount)}{translateText(" будет сохранено как")}{' '}
+                      {overpaymentType === 'advance' ? translateText('аванс') : translateText('хадия')}
                     </p>
                   )}
                 </div>
@@ -662,16 +649,14 @@ export function SupportPaymentModal({ familyId, month, onClose }: Props) {
               <button
                 onClick={handleCloseRequest}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50"
-              >
-                Отмена
-              </button>
+              >{translateText("Отмена")}</button>
               <button
                 onClick={handleSubmit}
                 disabled={numAmount <= 0}
                 className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 flex items-center justify-center gap-1.5"
               >
                 <Check className="size-4" />
-                {numAmount > 0 ? `Принять ${formatAmount(numAmount)}` : 'Принять'}
+                {numAmount > 0 ? translateText(`Принять ${formatAmount(numAmount)}`) : translateText('Принять')}
               </button>
             </div>
           )}

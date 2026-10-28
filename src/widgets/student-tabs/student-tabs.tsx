@@ -1,5 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/shared/i18n/use-translation';
+import { localizeUI } from '@/shared/i18n/translate';
+
+
 import { useState } from 'react';
 import { StudyTab } from './study-tab';
 import { InfoTab } from './info-tab';
@@ -16,12 +20,14 @@ const TAB_CONFIG: { id: Tab; label: string }[] = [
 ];
 
 export function StudentTabs({ studentId }: Props) {
+  const { locale } = useTranslation();
+
   const [tab, setTab] = useState<Tab>('study');
 
   return (
     <div>
-      <div className="flex gap-1 mb-5 bg-slate-100 p-1 rounded-xl w-fit">
-        {TAB_CONFIG.map(({ id, label }) => (
+      <div className="flex gap-1 mb-5 bg-slate-100 p-1 rounded-xl w-fit max-w-full overflow-x-auto">
+        {localizeUI(TAB_CONFIG, locale).map(({ id, label }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
