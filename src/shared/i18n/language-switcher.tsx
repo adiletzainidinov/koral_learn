@@ -15,7 +15,7 @@ export function LanguageSwitcher() {
       <div className="relative isolate grid grid-cols-2">
         <span
           aria-hidden="true"
-          className={`pointer-events-none absolute inset-y-0 left-0 w-1/2 rounded-full bg-linear-to-b from-emerald-500 to-emerald-600 shadow-[0_2px_5px_0_rgb(5_150_105/0.22)] transition-transform duration-200 ease-out motion-reduce:transition-none ${locale === 'ru' ? 'translate-x-full' : 'translate-x-0'}`}
+          className={`pointer-events-none absolute inset-y-0 left-0 w-1/2 rounded-full bg-linear-to-b from-emerald-700 to-emerald-800 shadow-[0_2px_5px_0_rgb(5_150_105/0.22)] transition-transform duration-200 ease-out motion-reduce:transition-none ${locale === 'ru' ? 'translate-x-full' : 'translate-x-0'}`}
         />
         {([
           { value: 'ky', label: 'Кыргызча', shortLabel: 'КЫР' },
@@ -28,7 +28,7 @@ export function LanguageSwitcher() {
             aria-label={label}
             aria-pressed={locale === value}
             onClick={() => setLocale(value)}
-            className={`relative h-11 w-13 cursor-pointer rounded-full text-[13px] font-semibold transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 motion-reduce:transition-none sm:h-8 sm:w-24 sm:text-sm ${locale === value ? 'text-white' : 'text-slate-500 hover:text-emerald-700'}`}
+            className={`relative h-11 w-13 cursor-pointer rounded-full text-[13px] font-semibold transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 motion-reduce:transition-none sm:h-8 sm:w-24 sm:text-sm ${locale === value ? 'text-white' : 'text-slate-600 hover:text-emerald-800'}`}
           >
             <span aria-hidden="true" className="sm:hidden">{shortLabel}</span>
             <span aria-hidden="true" className="hidden sm:inline">{label}</span>
