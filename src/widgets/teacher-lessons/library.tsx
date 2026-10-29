@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowUpRight, BookOpen, CheckCircle2, Clock3, ListVideo, Play } from 'lucide-react';
@@ -15,6 +15,7 @@ type LibraryLesson = Omit<TeacherLesson, 'moments'> & { momentCount: number };
 export function TeacherLessonLibrary({ lessons }: { lessons: LibraryLesson[] }) {
   const { locale, t } = useTranslation();
   const watched = useTeacherProgress((state) => state.watched);
+  const [unavailableCovers, setUnavailableCovers] = useState<string[]>([]);
 
   useEffect(() => { void useTeacherProgress.persist.rehydrate(); }, []);
 
@@ -36,7 +37,7 @@ export function TeacherLessonLibrary({ lessons }: { lessons: LibraryLesson[] }) 
         {lessons.map((lesson) => (
           <Link key={lesson.id} href={`/teacher-lessons/${lesson.id}`} className="group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600">
             <div className="relative aspect-video overflow-hidden bg-emerald-900">
-              <Image src={`https://i.ytimg.com/vi/${lesson.youtubeId}/hqdefault.jpg`} alt="" fill unoptimized sizes="(max-width: 768px) 100vw, 420px" className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none" />
+              {!unavailableCovers.includes(lesson.id) && <Image src={`https://i.ytimg.com/vi/${lesson.youtubeId}/hqdefault.jpg`} alt="" fill unoptimized sizes="(max-width: 768px) 100vw, 420px" onError={() => setUnavailableCovers((previous) => previous.includes(lesson.id) ? previous : [...previous, lesson.id])} className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none" />}
               <div className="absolute inset-0 bg-linear-to-t from-slate-950/65 via-slate-950/10 to-transparent" />
               <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-700">{t('Урок')} {String(lesson.number).padStart(2, '0')}</span>
               <span className="absolute inset-0 flex items-center justify-center">

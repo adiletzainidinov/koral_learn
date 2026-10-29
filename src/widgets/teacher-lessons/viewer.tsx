@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Bookmark, BookOpen, CheckCircle2, CircleHelp, Clock3, ExternalLink, ListVideo, Play, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Bookmark, BookOpen, CheckCircle2, ChevronDown, CircleHelp, Clock3, ExternalLink, ListVideo, Play, ShieldCheck } from 'lucide-react';
 import type { TeacherLesson } from '@/entities/teacher-lesson/model/types';
 import { formatLessonTime, getLessonEmbedUrl, getLessonWatchUrl } from '@/entities/teacher-lesson/model/helpers';
 import { useTeacherProgress } from '@/entities/teacher-lesson/model/progress-store';
@@ -80,6 +80,11 @@ export function TeacherLessonViewer({ lesson }: { lesson: TeacherLesson }) {
             <input type="checkbox" checked={watched} disabled={!hydrated} onChange={(event) => setWatched(lesson.id, event.target.checked)} className="mt-0.5 size-5 shrink-0 cursor-pointer rounded accent-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" />
             <span><span className="block text-sm font-semibold text-slate-800">{t('Я полностью посмотрел(а) урок')}</span><span className="mt-1 block text-xs text-slate-500">{t('Поставьте отметку только после полного просмотра.')}</span></span>
           </label>
+
+          <details className="group overflow-hidden rounded-xl border border-slate-200 bg-white lg:hidden">
+            <summary className={cn('flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold text-slate-800 [&::-webkit-details-marker]:hidden', focusRing)}><span className="inline-flex items-center gap-2"><ListVideo className="size-4 text-emerald-700" aria-hidden="true" />{t('План урока')}</span><ChevronDown className="size-4 text-slate-400 transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true" /></summary>
+            <ol className="max-h-80 overflow-y-auto border-t border-slate-100 p-2">{lesson.moments.map((moment) => <li key={moment.id}><button type="button" onClick={() => jumpToVideo(moment.seconds)} className={cn('flex min-h-11 w-full items-start gap-2 rounded-lg px-2 py-2.5 text-left text-slate-600 hover:bg-emerald-50', focusRing)}><span className="mt-0.5 shrink-0 font-mono text-xs tabular-nums text-emerald-700">{formatLessonTime(moment.seconds)}</span><span className="text-sm leading-relaxed">{moment.title[locale]}</span></button></li>)}</ol>
+          </details>
 
           {bookmark && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4"><div className="flex min-w-0 items-center gap-2.5"><Bookmark className="size-4 shrink-0 fill-emerald-100 text-emerald-700" aria-hidden="true" /><div><p className="text-xs font-medium text-emerald-700">{t('Моя закладка')}</p><p className="mt-0.5 text-sm font-semibold text-slate-800">{formatLessonTime(bookmark.seconds)} · {bookmark.title[locale]}</p></div></div><button type="button" onClick={() => jumpToVideo(bookmark.seconds)} className={cn('inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100', focusRing)}><Play className="size-3.5" aria-hidden="true" />{t('Перейти к закладке')}</button></div>}
         </div>
