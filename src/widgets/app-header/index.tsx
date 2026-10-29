@@ -22,10 +22,12 @@ const pageMeta: Record<string, { title: string; description: string }> = {
   '/families': { title: 'Семьи', description: 'Ученики и представители' },
   '/parents': { title: 'Представители', description: 'Контакты и информация о семьях' },
   '/teams': { title: 'Команды', description: 'Командные цели и достижения' },
+  '/teacher-lessons': { title: 'Уроки для устаза', description: 'Видео и шпаргалки для подготовки к занятиям' },
   '/support': { title: 'Поддержка', description: 'Семьи и платежи' },
 };
 
 function getPageMeta(pathname: string) {
+  if (pathname.startsWith('/teacher-lessons')) return pageMeta['/teacher-lessons'];
   if (pathname.startsWith('/students/') && pathname !== '/students') {
     return { title: 'Профиль ученика', description: 'Подробная информация, задания и история' };
   }

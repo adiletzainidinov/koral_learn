@@ -19,6 +19,7 @@ import {
   Home,
   Settings,
   BookMarked,
+  Presentation,
   X,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
@@ -28,6 +29,7 @@ const navItems = [
   { href: '/dashboard', label: 'Дашборд', icon: LayoutDashboard },
   { href: '/students', label: 'Ученики', icon: Users },
   { href: '/families', label: 'Семьи', icon: Home },
+  { href: '/teacher-lessons', label: 'Уроки для устаза', icon: Presentation },
   { href: '/assignments', label: 'Задания', icon: BookOpen },
   { href: '/reviews', label: 'Проверка', icon: ClipboardCheck },
   { href: '/attendance', label: 'Посещаемость', icon: CalendarDays },
