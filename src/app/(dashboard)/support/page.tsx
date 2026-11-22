@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import Link from 'next/link';
 import { SupportDashboard } from '@/widgets/support-dashboard';
 
 function LoadingFallback() {
@@ -18,6 +19,7 @@ function LoadingFallback() {
 export default function SupportPage() {
   return (
     <Suspense fallback={<LoadingFallback />}>
+      <div className="mx-auto max-w-[1440px] px-4 pt-4 md:px-6"><div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-slate-800">Текущий раздел пока использует локальные данные. Для настоящих оплат используйте отдельный защищённый реестр после подключения базы: <Link href="/real-payments" className="font-semibold text-emerald-800 underline">Реальные семьи и платежи</Link>.</div></div>
       <SupportDashboard />
     </Suspense>
   );
