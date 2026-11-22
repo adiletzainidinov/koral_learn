@@ -64,16 +64,44 @@ export default function RealPaymentsPage() {
     finally { setBusy(false); }
   }
 
-  async function signIn() {
-    await run(async () => {
-      const data = await request('/auth/v1/token?grant_type=password', {
-        method: 'POST', body: JSON.stringify({ email, password }),
-      }, '');
-      if (!data.access_token || !data.user?.id) throw new Error('Не удалось войти');
-      setToken(data.access_token); setUserId(data.user.id); setPassword('');
-      await load(data.access_token);
-    });
+  function signInWithGoogle() {
+    if (!url) { setError('База не подключена'); return; }
+    const redirectTo = window.location.origin + window.location.pathname;
+    window.location.assign(url + '/auth/v1/authorize?provider=google&redirect_to=' + encodeURIComponent(redirectTo));
   }
+
+  useEffect(() => {
+    if (!url || !key || !window.location.hash) return;
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const accessToken = params.get('access_token');
+    const authError = params.get('error_description');
+    if (!accessToken && !authError) return;
+    // Remove OAuth tokens from the address bar immediately.
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    if (authError) { setError(authError); return; }
+    if (!accessToken) return;
+    setBusy(true);
+    fetch(url + '/auth/v1/user', { headers: { apikey: key, Authorization: 'Bearer ' + accessToken }, cache: 'no-store' })
+      .then(async response => {
+        if (!response.ok) throw new Error('Не удалось подтвердить вход через Google');
+        const user = await response.json();
+        if (!user?.id) throw new Error('Не удалось определить пользователя');
+        const adminResponse = await fetch(url + '/rest/v1/ql_payment_admins?select=user_id&user_id=eq.' + encodeURIComponent(user.id), {
+          headers: { apikey: key, Authorization: 'Bearer ' + accessToken },
+          cache: 'no-store',
+        });
+        if (!adminResponse.ok || !(await adminResponse.json()).length) throw new Error('У этого аккаунта нет доступа к платежам');
+        setToken(accessToken);
+        setUserId(user.id);
+      })
+      .catch(e => { setError(e instanceof Error ? e.message : 'Ошибка входа'); setToken(''); setUserId(''); })
+      .finally(() => setBusy(false));
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    load(token).catch(e => { setError(e instanceof Error ? e.message : 'Ошибка загрузки'); setToken(''); setUserId(''); });
+  }, [token, load]);
 
   useEffect(() => {
     if (!token) return;
@@ -136,12 +164,11 @@ export default function RealPaymentsPage() {
   return <main className="mx-auto max-w-5xl p-4 md:p-8 space-y-5 text-slate-900">
     <div className="flex items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">Реальные семьи и платежи</h1><p className="text-sm text-slate-500">Защищённый журнал оплат QuranLearn</p></div><Link href="/support" className="text-sm text-emerald-700">← Поддержка</Link></div>
     {!url || !key ? <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4">Серверная база ещё не настроена. Данные вводить нельзя.</div> :
-      !token ? <form className="max-w-md space-y-3 rounded-2xl border bg-white p-5" onSubmit={e => { e.preventDefault(); void signIn(); }}>
+      !token ? <section className="max-w-md space-y-4 rounded-2xl border bg-white p-5">
         <h2 className="font-semibold">Вход администратора</h2>
-        <input className={field} type="email" autoComplete="username" placeholder="Email" required value={email} onChange={e => setEmail(e.target.value)}/>
-        <input className={field} type="password" autoComplete="current-password" placeholder="Пароль" required value={password} onChange={e => setPassword(e.target.value)}/>
-        <button disabled={busy} className={button}>Войти</button>
-      </form> : <>
+        <p className="text-sm text-slate-600">Войдите через Google-аккаунт, которому предоставлены права на платежи.</p>
+        <button type="button" disabled={busy} className={button} onClick={signInWithGoogle}>Войти через Google</button>
+      </section> : <>
         <div className="flex justify-end"><button className="text-sm text-slate-600 underline" onClick={() => { setToken(''); setUserId(''); setFamilies([]); setPayments([]); setAccounts([]); }}>Выйти</button></div>
         <div className="grid gap-4 md:grid-cols-2">
           <section className="rounded-2xl border bg-white p-5 space-y-3">
